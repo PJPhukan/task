@@ -4,6 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { createPermissions } from 'permly';
 import { postgresAdapter } from 'permly/postgres';
+import bcrypt from 'bcrypt';
 
 loadEnv({ path: '.env.local' });
 loadEnv();
@@ -15,7 +16,12 @@ const pool = new Pool({ connectionString: dbUrl });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+const DEV_PASSWORD = 'development123';
+
 async function main() {
+  // Hash the development password
+  const hashedPassword = await bcrypt.hash(DEV_PASSWORD, 10);
+
   // Create test users
   const admin = await prisma.user.upsert({
     where: { email: 'admin@example.com' },
@@ -23,6 +29,9 @@ async function main() {
     create: {
       name: 'Admin User',
       email: 'admin@example.com',
+      password: hashedPassword,
+      emailVerified: true,
+      status: 'ACTIVE',
       isActive: true,
     },
   });
@@ -33,6 +42,9 @@ async function main() {
     create: {
       name: 'Manager User',
       email: 'manager@example.com',
+      password: hashedPassword,
+      emailVerified: true,
+      status: 'ACTIVE',
       isActive: true,
     },
   });
@@ -43,6 +55,9 @@ async function main() {
     create: {
       name: 'Member User',
       email: 'member@example.com',
+      password: hashedPassword,
+      emailVerified: true,
+      status: 'ACTIVE',
       isActive: true,
     },
   });
@@ -53,6 +68,9 @@ async function main() {
     create: {
       name: 'Viewer User',
       email: 'viewer@example.com',
+      password: hashedPassword,
+      emailVerified: true,
+      status: 'ACTIVE',
       isActive: true,
     },
   });
@@ -63,6 +81,9 @@ async function main() {
     create: {
       name: 'Developer User',
       email: 'developer@example.com',
+      password: hashedPassword,
+      emailVerified: true,
+      status: 'ACTIVE',
       isActive: true,
     },
   });
@@ -73,6 +94,9 @@ async function main() {
     create: {
       name: 'QA User',
       email: 'qa@example.com',
+      password: hashedPassword,
+      emailVerified: true,
+      status: 'ACTIVE',
       isActive: true,
     },
   });
@@ -83,6 +107,9 @@ async function main() {
     create: {
       name: 'Deployment User',
       email: 'deployment@example.com',
+      password: hashedPassword,
+      emailVerified: true,
+      status: 'ACTIVE',
       isActive: true,
     },
   });
@@ -95,6 +122,7 @@ async function main() {
   console.log(`  Developer: ${developer.id}`);
   console.log(`  QA: ${qa.id}`);
   console.log(`  Deployment: ${deployment.id}`);
+  console.log(`\nDevelopment password for all users: ${DEV_PASSWORD}`);
 
   // Setup permly
   const perms = createPermissions({
