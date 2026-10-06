@@ -215,12 +215,12 @@ export class TaskService {
       throw new Error("Permission denied");
     }
 
-    await prisma.task.delete({
-      where: { id: taskId },
-    });
-
     await ActivityService.recordActivity(projectId, "task.deleted", userId, taskId, {
       title: task.title,
+    });
+
+    await prisma.task.delete({
+      where: { id: taskId },
     });
   }
 
@@ -257,6 +257,9 @@ export class TaskService {
 
     const canViewTarget = await ColumnRulesService.canViewColumn(userRoles, input.columnId);
     if (!canViewTarget) throw new Error("Cannot access target column");
+
+    const canMoveTo = await ColumnRulesService.canMoveFromColumn(userRoles, input.columnId);
+    if (!canMoveTo) throw new Error("Cannot move to this column");
 
     // Update task and handle stage entries
     const updated = await prisma.$transaction(async (tx) => {

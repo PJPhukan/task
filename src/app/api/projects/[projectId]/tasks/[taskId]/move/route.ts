@@ -46,9 +46,9 @@ export async function PATCH(
     const task = await TaskService.moveTask(projectId, taskId, validation.data as any, user.id);
     return NextResponse.json({ task });
   } catch (error: any) {
-    if (error.message === "Cannot move from this column") {
+    if (error.message === "Cannot move from this column" || error.message === "Cannot move to this column") {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Cannot move task from this column" } },
+        { error: { code: "FORBIDDEN", message: "Cannot move task" } },
         { status: 403 }
       );
     }
