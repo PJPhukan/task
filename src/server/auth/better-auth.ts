@@ -54,6 +54,6 @@ export const auth = betterAuth({
   },
   plugins: [],
   rateLimit: {
-    enabled: process.env.NODE_ENV !== "test",
+    enabled: process.env.NODE_ENV === "production",
   },
 });

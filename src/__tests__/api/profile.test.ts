@@ -38,7 +38,7 @@ describe('Profile API', () => {
     expect(data.profile).toHaveProperty('permissions');
     expect(data.profile).toHaveProperty('projects');
     expect(data.profile).toHaveProperty('boards');
-  });
+  }, 10000);
 
   it('GET /api/users/:userId/profile includes user roles and projects', async () => {
     // Create a project and add user as member

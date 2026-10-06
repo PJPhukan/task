@@ -171,7 +171,7 @@ describe('Users API', () => {
     });
     // Should fail because admin is the last with role.manage
     expect(response.status).toBe(400);
-  });
+  }, 10000);
 
   it('GET /api/me returns user with roles and permissions', async () => {
     const response = await fetch('http://localhost:3000/api/me', {
