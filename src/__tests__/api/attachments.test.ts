@@ -81,7 +81,7 @@ describe("Attachments API", () => {
       method: "POST",
       headers: { "x-user-id": adminId, "content-type": "application/json" },
       body: JSON.stringify({
-        projectId: "nonexistent",
+        projectId: "cm000000000000000000000aaa",
         kind: "attachment",
       }),
     });

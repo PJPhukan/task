@@ -76,6 +76,12 @@ const postHandler = createRouteHandler(async (
     const attachment = await AttachmentService.createAttachment(projectId, taskId, result.data, user.id);
     return NextResponse.json({ attachment }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && (error.message.includes("not found") || error.message.includes("exceeds"))) {
+      return NextResponse.json(
+        { error: { code: "BAD_REQUEST", message: error.message } },
+        { status: 400 }
+      );
+    }
     throw error;
   }
 });
