@@ -5,32 +5,6 @@ import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { ProjectService } from "@/server/modules/projects/service";
 import { updateProjectSchema } from "@/server/modules/projects/schema";
 
-async function checkProjectAccess(
-  projectId: string,
-  userId: string,
-  permission?: string
-) {
-  const isMember = await ProjectService.getUserRole(projectId, userId);
-  const perms = getPerms();
-
-  const canBypassMembership = permission
-    ? await perms.user(userId).can(permission)
-    : false;
-
-  if (!isMember && !canBypassMembership) {
-    return { error: "Unauthorized" };
-  }
-
-  if (permission && !canBypassMembership) {
-    const hasPermission = await perms.user(userId).can(permission);
-    if (!hasPermission) {
-      return { error: "Forbidden" };
-    }
-  }
-
-  return { success: true };
-}
-
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }

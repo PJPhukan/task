@@ -50,7 +50,7 @@ export type Permission = keyof typeof permissionCatalog;
 
 export function getPermissionsByGroup(group: string): Permission[] {
   return Object.entries(permissionCatalog)
-    .filter(([_, { group: g }]) => g === group)
+    .filter(([, { group: g }]) => g === group)
     .map(([permission]) => permission as Permission);
 }
 
