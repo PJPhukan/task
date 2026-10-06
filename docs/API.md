@@ -2,6 +2,46 @@
 
 API specification and endpoint reference for cm-task-manager backend.
 
-## Endpoints
+## Access Rules
 
-(To be added during backend development phase)
+- **Project routes**: User must be a project member AND have the required permission. Admin bypasses membership check.
+- **Reading**: Membership only (Viewers can read).
+- **Writing**: Specific permission required (project.create, project.update, task.*, etc.)
+
+## Projects
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| POST | /api/projects | project.create | Create project; creator becomes admin member |
+| GET | /api/projects | - | List non-archived projects (only owned for non-admins) |
+| GET | /api/projects/:id | - | Get project with member list |
+| PATCH | /api/projects/:id | project.update | Update project name/description |
+| DELETE | /api/projects/:id | project.delete | Archive project (only if no tasks) |
+
+## Project Members
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/projects/:projectId/members | - | List project members |
+| POST | /api/projects/:projectId/members | member.manage | Add member to project |
+| DELETE | /api/projects/:projectId/members/:userId | member.manage | Remove member from project |
+| GET | /api/users | member.manage | List active users (for adding to projects) |
+
+## Boards
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/projects/:projectId/boards | - | List boards with columns and tasks |
+| POST | /api/projects/:projectId/boards | board.create | Create board (auto-creates 3 columns: To Do, In Progress, Done) |
+| GET | /api/projects/:projectId/boards/:boardId | - | Get board with columns and tasks in order (kanban-ready) |
+| PATCH | /api/projects/:projectId/boards/:boardId | board.update | Rename/reorder board |
+| DELETE | /api/projects/:projectId/boards/:boardId | board.delete | Delete board |
+
+## Columns
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| POST | /api/projects/:projectId/boards/:boardId/columns | column.manage | Add column to board |
+| PATCH | /api/projects/:projectId/columns/:columnId | column.manage | Rename/recolor/mark as done column |
+| DELETE | /api/projects/:projectId/columns/:columnId | column.manage | Delete column (with targetColumnId to move tasks) |
+| PATCH | /api/projects/:projectId/boards/:boardId/columns/reorder | column.manage | Reorder columns (atomic transaction) |
