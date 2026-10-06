@@ -96,3 +96,34 @@ API specification and endpoint reference for cm-task-manager backend.
 | POST | /api/projects/:projectId/labels | label.manage | Create label (name, color) |
 | PATCH | /api/projects/:projectId/labels/:labelId | label.manage | Update label (name and/or color) |
 | DELETE | /api/projects/:projectId/labels/:labelId | label.manage | Delete label |
+
+## Comments
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/projects/:projectId/tasks/:taskId/comments | - | List comments (oldest first, paginated), with author |
+| POST | /api/projects/:projectId/tasks/:taskId/comments | comment.create | Create comment |
+| PATCH | /api/projects/:projectId/tasks/:taskId/comments/:commentId | - | Update comment (only author) |
+| DELETE | /api/projects/:projectId/tasks/:taskId/comments/:commentId | - | Delete comment (author or comment.delete.any) |
+
+## Attachments
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| POST | /api/uploads/signature | attachment.upload | Get signed upload URL (returns signature, timestamp, apiKey, cloudName, folder) |
+| GET | /api/projects/:projectId/tasks/:taskId/attachments | - | List attachments with thumbnail and full URLs |
+| POST | /api/projects/:projectId/tasks/:taskId/attachments | attachment.upload | Save attachment (validates size, format, folder) |
+| DELETE | /api/projects/:projectId/tasks/:taskId/attachments/:attachmentId | - | Delete attachment (uploader or attachment.delete.any) |
+
+## Avatar
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| PUT | /api/me/avatar | - | Update user avatar (validates size, format, folder, deletes old) |
+
+## Activity
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/projects/:projectId/tasks/:taskId/activity | - | Get task activity (newest first, paginated, with actor) |
+| GET | /api/projects/:projectId/activity | - | Get project activity (newest first, paginated, filters hidden columns) |

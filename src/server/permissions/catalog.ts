@@ -25,11 +25,13 @@ export const permissionCatalog = {
   // Comments
   "comment.create": { label: "Create comment", group: "Comments" },
   "comment.update": { label: "Update comment", group: "Comments" },
-  "comment.delete": { label: "Delete comment", group: "Comments" },
+  "comment.delete": { label: "Delete own comment", group: "Comments" },
+  "comment.delete.any": { label: "Delete any comment", group: "Comments" },
 
   // Attachments
   "attachment.upload": { label: "Upload attachment", group: "Comments" },
-  "attachment.delete": { label: "Delete attachment", group: "Comments" },
+  "attachment.delete": { label: "Delete own attachment", group: "Comments" },
+  "attachment.delete.any": { label: "Delete any attachment", group: "Comments" },
 
   // Labels
   "label.manage": { label: "Manage labels", group: "Tasks" },

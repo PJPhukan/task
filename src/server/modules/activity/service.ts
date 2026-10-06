@@ -9,7 +9,12 @@ export type ActivityAction =
   | "task.deleted"
   | "label.created"
   | "label.updated"
-  | "label.deleted";
+  | "label.deleted"
+  | "comment.created"
+  | "comment.updated"
+  | "comment.deleted"
+  | "attachment.added"
+  | "attachment.removed";
 
 export interface ActivityMetadata {
   [key: string]: any;

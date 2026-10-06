@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { ProfileService } from "@/server/modules/users/profile-service";
+import { buildImageUrl } from "@/server/lib/cloudinary";
 import { z } from "zod";
 import { validateRequest } from "@/server/http/route";
 
@@ -27,12 +28,15 @@ export async function GET(req: NextRequest) {
   const roles = await perms.user(user.id).getRoles();
   const permissions = await perms.user(user.id).getPermissions({ expand: true });
 
+  const avatarUrl = user.avatarPublicId ? buildImageUrl(user.avatarPublicId, 32) : null;
+
   return NextResponse.json({
     user: {
       id: user.id,
       name: user.name,
       email: user.email,
       avatarPublicId: user.avatarPublicId,
+      avatarUrl,
       isActive: user.isActive,
     },
     roles,
@@ -63,7 +67,8 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const updated = await ProfileService.updateOwnProfile(user.id, validation.data as any);
-    return NextResponse.json({ user: updated });
+    const avatarUrl = updated.avatarPublicId ? buildImageUrl(updated.avatarPublicId, 32) : null;
+    return NextResponse.json({ user: { ...updated, avatarUrl } });
   } catch (error: any) {
     return NextResponse.json(
       { error: { code: "UPDATE_ERROR", message: error.message || "Failed to update profile" } },
