@@ -14,7 +14,7 @@ export class ColumnRulesService {
     }
 
     // Remove existing rules
-    await prisma.columnRule.deleteMany({
+    await (prisma as any).columnRule.deleteMany({
       where: { columnId },
     });
 
@@ -42,7 +42,7 @@ export class ColumnRulesService {
     }
 
     if (rulesData.length > 0) {
-      await prisma.columnRule.createMany({
+      await (prisma as any).columnRule.createMany({
         data: rulesData,
         skipDuplicates: true,
       });
@@ -52,23 +52,23 @@ export class ColumnRulesService {
   }
 
   static async getColumnRules(columnId: string) {
-    const rules = await prisma.columnRule.findMany({
+    const rules = await (prisma as any).columnRule.findMany({
       where: { columnId },
     });
 
     const viewRoleIds = rules
-      .filter(r => r.ruleType === "view")
-      .map(r => r.roleId);
+      .filter((r: any) => r.ruleType === "view")
+      .map((r: any) => r.roleId);
 
     const moveRoleIds = rules
-      .filter(r => r.ruleType === "move")
-      .map(r => r.roleId);
+      .filter((r: any) => r.ruleType === "move")
+      .map((r: any) => r.roleId);
 
     return { viewRoleIds, moveRoleIds };
   }
 
   static async canViewColumn(userRoles: string[], columnId: string): Promise<boolean> {
-    const rules = await prisma.columnRule.findMany({
+    const rules = await (prisma as any).columnRule.findMany({
       where: { columnId, ruleType: "view" },
     });
 
@@ -78,11 +78,11 @@ export class ColumnRulesService {
     }
 
     // Check if user has any of the required roles
-    return rules.some(r => userRoles.includes(r.roleId));
+    return rules.some((r: any) => userRoles.includes(r.roleId));
   }
 
   static async canMoveFromColumn(userRoles: string[], columnId: string): Promise<boolean> {
-    const rules = await prisma.columnRule.findMany({
+    const rules = await (prisma as any).columnRule.findMany({
       where: { columnId, ruleType: "move" },
     });
 
@@ -92,11 +92,11 @@ export class ColumnRulesService {
     }
 
     // Check if user has any of the required roles
-    return rules.some(r => userRoles.includes(r.roleId));
+    return rules.some((r: any) => userRoles.includes(r.roleId));
   }
 
   static async deleteRoleRules(roleId: string) {
-    await prisma.columnRule.deleteMany({
+    await (prisma as any).columnRule.deleteMany({
       where: { roleId },
     });
   }

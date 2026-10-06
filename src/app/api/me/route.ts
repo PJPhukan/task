@@ -62,7 +62,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const updated = await ProfileService.updateOwnProfile(user.id, validation.data);
+    const updated = await ProfileService.updateOwnProfile(user.id, validation.data as any);
     return NextResponse.json({ user: updated });
   } catch (error: any) {
     return NextResponse.json(

@@ -9,8 +9,9 @@ import { validateRequest } from "@/server/http/route";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { projectId: string; boardId: string } }
+  { params }: { params: Promise<{ projectId: string; boardId: string }> }
 ) {
+  const { projectId, boardId } = await params;
   const userId = req.headers.get("x-user-id") || undefined;
   const user = await getCurrentUser(userId);
 
@@ -34,7 +35,7 @@ export async function PUT(
 
   // Verify board exists and belongs to project
   const board = await prisma.board.findFirst({
-    where: { id: params.boardId, projectId: params.projectId },
+    where: { id: boardId, projectId },
   });
 
   if (!board) {
@@ -55,7 +56,7 @@ export async function PUT(
   }
 
   try {
-    await BoardAccessService.setBoardAccess(params.boardId, validation.data);
+    await BoardAccessService.setBoardAccess(boardId, validation.data as any);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json(

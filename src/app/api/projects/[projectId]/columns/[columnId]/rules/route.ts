@@ -9,8 +9,9 @@ import { validateRequest } from "@/server/http/route";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { projectId: string; columnId: string } }
+  { params }: { params: Promise<{ projectId: string; columnId: string }> }
 ) {
+  const { projectId, columnId } = await params;
   const userId = req.headers.get("x-user-id") || undefined;
   const user = await getCurrentUser(userId);
 
@@ -34,7 +35,7 @@ export async function PUT(
 
   // Verify column exists
   const column = await prisma.boardColumn.findUnique({
-    where: { id: params.columnId },
+    where: { id: columnId },
     select: { boardId: true, id: true },
   });
 
@@ -47,7 +48,7 @@ export async function PUT(
 
   // Verify board belongs to project
   const board = await prisma.board.findFirst({
-    where: { id: column.boardId, projectId: params.projectId },
+    where: { id: column.boardId, projectId },
   });
 
   if (!board) {
@@ -68,7 +69,7 @@ export async function PUT(
   }
 
   try {
-    await ColumnRulesService.setColumnRules(params.columnId, validation.data);
+    await ColumnRulesService.setColumnRules(columnId, validation.data as any);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json(

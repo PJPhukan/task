@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const newRole = await RoleService.createRole(validation.data);
+    const newRole = await RoleService.createRole(validation.data as any);
     return NextResponse.json({ role: newRole }, { status: 201 });
   } catch (error: any) {
     if (error.message.includes("duplicate")) {

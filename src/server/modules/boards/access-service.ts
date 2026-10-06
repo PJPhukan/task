@@ -16,12 +16,12 @@ export class BoardAccessService {
     // Update board isOpen flag
     await prisma.board.update({
       where: { id: boardId },
-      data: { isOpen: input.isOpen },
+      data: { isOpen: input.isOpen } as any,
     });
 
     // Remove all existing access entries if restricted
     if (!input.isOpen) {
-      await prisma.boardAccess.deleteMany({
+      await (prisma as any).boardAccess.deleteMany({
         where: { boardId },
       });
 
@@ -49,14 +49,14 @@ export class BoardAccessService {
       }
 
       if (accessData.length > 0) {
-        await prisma.boardAccess.createMany({
+        await (prisma as any).boardAccess.createMany({
           data: accessData,
           skipDuplicates: true,
         });
       }
     } else {
       // Remove all access entries if board is open
-      await prisma.boardAccess.deleteMany({
+      await (prisma as any).boardAccess.deleteMany({
         where: { boardId },
       });
     }
@@ -67,7 +67,7 @@ export class BoardAccessService {
   static async canUserAccessBoard(userId: string, boardId: string, userRoles: string[]): Promise<boolean> {
     const board = await prisma.board.findUnique({
       where: { id: boardId },
-      select: { isOpen: true },
+      select: { isOpen: true } as any,
     });
 
     if (!board) {
@@ -75,12 +75,12 @@ export class BoardAccessService {
     }
 
     // Open boards are accessible to all
-    if (board.isOpen) {
+    if ((board as any).isOpen) {
       return true;
     }
 
     // Restricted boards: check user and roles
-    const access = await prisma.boardAccess.findFirst({
+    const access = await (prisma as any).boardAccess.findFirst({
       where: {
         boardId,
         OR: [
@@ -94,17 +94,17 @@ export class BoardAccessService {
   }
 
   static async getBoardAccessLists(boardId: string) {
-    const accesses = await prisma.boardAccess.findMany({
+    const accesses = await (prisma as any).boardAccess.findMany({
       where: { boardId },
     });
 
     const allowedUserIds = accesses
-      .filter(a => a.userId)
-      .map(a => a.userId!);
+      .filter((a: any) => a.userId)
+      .map((a: any) => a.userId!);
 
     const allowedRoleIds = accesses
-      .filter(a => a.roleId)
-      .map(a => a.roleId!);
+      .filter((a: any) => a.roleId)
+      .map((a: any) => a.roleId!);
 
     return { allowedUserIds, allowedRoleIds };
   }

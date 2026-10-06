@@ -91,10 +91,10 @@ export async function POST(
     const boardAccessData = result.data.boardIds.map((boardId) => ({
       boardId,
       userId: result.data.userId,
-      roleId: null,
+      roleId: null as any,
     }));
 
-    await prisma.boardAccess.createMany({
+    await (prisma as any).boardAccess.createMany({
       data: boardAccessData,
       skipDuplicates: true,
     });

@@ -161,7 +161,7 @@ describe('Column Rules API', () => {
     await perms.role(testRoleId).syncPermissions(['task.create']);
 
     // Add a view rule for this role
-    await prisma.columnRule.create({
+    await (prisma as any).columnRule.create({
       data: {
         columnId,
         ruleType: 'view',
@@ -170,18 +170,18 @@ describe('Column Rules API', () => {
     });
 
     // Verify rule exists
-    const rulesBefore = await prisma.columnRule.findMany({
+    const rulesBefore = await (prisma as any).columnRule.findMany({
       where: { columnId, roleId: testRoleId },
     });
     expect(rulesBefore.length).toBe(1);
 
     // Delete the role by removing all rules
-    await prisma.columnRule.deleteMany({
+    await (prisma as any).columnRule.deleteMany({
       where: { roleId: testRoleId },
     });
 
     // Verify rule is gone
-    const rulesAfter = await prisma.columnRule.findMany({
+    const rulesAfter = await (prisma as any).columnRule.findMany({
       where: { columnId, roleId: testRoleId },
     });
     expect(rulesAfter.length).toBe(0);

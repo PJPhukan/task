@@ -221,7 +221,7 @@ async function main() {
       position: 0,
       createdById: admin.id,
       isOpen: false,
-    },
+    } as any,
   });
 
   // Create columns with MOVE rules
@@ -250,7 +250,7 @@ async function main() {
 
     // Add MOVE rules if applicable
     if (col.moveRole) {
-      await prisma.columnRule.upsert({
+      await (prisma as any).columnRule.upsert({
         where: {
           columnId_ruleType_roleId: {
             columnId: column.id,
@@ -272,7 +272,7 @@ async function main() {
 
   // Grant restricted board access to all members
   for (const userId of projectMembers) {
-    await prisma.boardAccess.upsert({
+    await (prisma as any).boardAccess.upsert({
       where: { boardId_userId: { boardId: board.id, userId } },
       update: {},
       create: {
