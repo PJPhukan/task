@@ -57,7 +57,9 @@ App runs on `http://localhost:3000` (frontend and API routes).
 - **Input validation:** Every route validates with Zod. Errors return `{ error: { code, message, details? } }`.
 - **Database:** Prisma schema in `prisma/schema.prisma`. Schema changes go through `prisma migrate dev`. Never use `db push`. Never reset a database without asking first. Schema is portable to MySQL (no postgres-only types or raw SQL). The `prisma.config.ts` loads `.env.local` — do not modify this setup.
 - **Auth:** Temporary only, isolated in `src/server/auth/current-user.ts`. When `AUTH_MODE=dev`, read `x-user-id` header. Later: one file change only.
-- **Dependency versions:** Never guess versions from memory. Always run `npm view <package> version` for current stable releases.
+- **Permissions:** Use permly permissions only; never check role names in code. Access decisions depend on `perms.user().can(permission)`. Roles will become admin-defined later.
+- **API documentation:** `docs/API.md` may only contain routes that exist and have a passing test. Remove routes if tests fail or implementation is incomplete.
+- **Context management:** If running low on context at a module boundary, commit the completed module, and report exactly what is implemented and what is not. Never report a route as complete unless its test passes.
 
 ## Phase: Setup (Initial)
 
