@@ -16,6 +16,14 @@ export default [
       },
     },
   },
+  {
+    rules: {
+      'no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+    },
+  },
   js.configs.recommended,
   {
     files: ['src/**/*.{ts,tsx}'],

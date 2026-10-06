@@ -47,6 +47,18 @@ API specification and endpoint reference for cm-task-manager backend.
 | GET | /api/me | - | Get current user with roles and permissions |
 | PATCH | /api/me | - | Update own name |
 
+## Permissions
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/permissions | - | List all available permissions (any signed-in user) |
+
+## Dev
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/dev/users | - | List all users (dev mode only, returns 404 in production) |
+
 ## Boards
 
 | Method | Path | Permission | Description |
