@@ -80,4 +80,79 @@ describe('Roles API', () => {
     // Should fail with either 400 or 409 depending on implementation
     expect([400, 409]).toContain(response.status);
   });
+
+  it('POST /api/roles creates custom role with permissions', async () => {
+    const timestamp = Date.now();
+    const response = await fetch('http://localhost:3000/api/roles', {
+      method: 'POST',
+      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: `Custom Role ${timestamp}`,
+        permissionKeys: ['task.create', 'task.update'],
+      }),
+    });
+    expect(response.status).toBe(201);
+    const data = await response.json();
+    expect(data.role).toBeDefined();
+    expect(data.role.name).toBe(`Custom Role ${timestamp}`);
+    expect(data.role.permissionKeys).toContain('task.create');
+    expect(data.role.permissionKeys).toContain('task.update');
+  });
+
+  it('POST /api/roles with single permission creates role with only that access', async () => {
+    const timestamp = Date.now();
+    const response = await fetch('http://localhost:3000/api/roles', {
+      method: 'POST',
+      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: `Single Perm Role ${timestamp}`,
+        permissionKeys: ['comment.create'],
+      }),
+    });
+    expect(response.status).toBe(201);
+    const data = await response.json();
+    expect(data.role.permissionKeys).toEqual(['comment.create']);
+    expect(data.role.permissionKeys).not.toContain('task.create');
+  });
+
+  it('POST /api/roles rejects invalid permission keys', async () => {
+    const timestamp = Date.now();
+    const response = await fetch('http://localhost:3000/api/roles', {
+      method: 'POST',
+      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: `Invalid Perm Role ${timestamp}`,
+        permissionKeys: ['invalid.permission', 'task.create'],
+      }),
+    });
+    expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toBeDefined();
+  });
+
+  it('POST /api/roles rejects duplicate permission keys', async () => {
+    const timestamp = Date.now();
+    const response = await fetch('http://localhost:3000/api/roles', {
+      method: 'POST',
+      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: `Duplicate Perm Role ${timestamp}`,
+        permissionKeys: ['task.create', 'task.create'],
+      }),
+    });
+    expect(response.status).toBe(400);
+  });
+
+  it('User without role.manage cannot create roles', async () => {
+    const timestamp = Date.now();
+    const response = await fetch('http://localhost:3000/api/roles', {
+      method: 'POST',
+      headers: { 'x-user-id': viewerId, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: `Unauthorized Role ${timestamp}`,
+        permissionKeys: ['task.create'],
+      }),
+    });
+    expect(response.status).toBe(403);
+  });
 });
