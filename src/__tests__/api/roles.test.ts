@@ -91,6 +91,10 @@ describe('Roles API', () => {
         permissionKeys: ['task.create', 'task.update'],
       }),
     });
+    if (response.status !== 201) {
+      const errorData = await response.json();
+      console.error('POST /api/roles error:', errorData);
+    }
     expect(response.status).toBe(201);
     const data = await response.json();
     expect(data.role).toBeDefined();

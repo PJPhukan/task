@@ -5,17 +5,26 @@ import { CreateRoleInput, UpdateRoleInput } from "./schema";
 
 export class RoleService {
   static async createRole(input: CreateRoleInput) {
-    const perms = getPerms();
-    await setupPermissions();
+    const existing = await prisma.role.findUnique({
+      where: { name: input.name },
+    });
 
-    const roleId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    await perms.role(roleId).syncPermissions(input.permissionKeys);
+    if (existing) {
+      throw new Error("duplicate");
+    }
+
+    const role = await prisma.role.create({
+      data: {
+        name: input.name,
+        permissionKeys: input.permissionKeys,
+      },
+    });
 
     return {
-      id: roleId,
-      name: input.name,
-      permissionKeys: input.permissionKeys,
-      userCount: 0,
+      id: role.id,
+      name: role.name,
+      permissionKeys: role.permissionKeys,
+      userCount: role.userCount,
     };
   }
 
@@ -47,6 +56,16 @@ export class RoleService {
         name: roleId.charAt(0).toUpperCase() + roleId.slice(1),
         permissionKeys: permissions,
         userCount: 0,
+      });
+    }
+
+    const customRoles = await prisma.role.findMany();
+    for (const role of customRoles) {
+      roles.push({
+        id: role.id,
+        name: role.name,
+        permissionKeys: role.permissionKeys,
+        userCount: role.userCount,
       });
     }
 

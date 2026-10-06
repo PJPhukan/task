@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
 import { updateBoardSchema } from "@/server/modules/boards/schema";
+import { BoardAccessService } from "@/server/modules/boards/access-service";
 
 async function checkProjectMembership(projectId: string, userId: string) {
   return prisma.projectMember.findUnique({
@@ -47,6 +48,18 @@ export async function GET(
   });
 
   if (!board) {
+    return NextResponse.json(
+      { error: { code: "NOT_FOUND", message: "Board not found" } },
+      { status: 404 }
+    );
+  }
+
+  const perms = getPerms();
+  await setupPermissions();
+  const userRoles = await perms.user(user.id).getRoles();
+  const hasAccess = await BoardAccessService.canUserAccessBoard(user.id, boardId, userRoles);
+
+  if (!hasAccess) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Board not found" } },
       { status: 404 }

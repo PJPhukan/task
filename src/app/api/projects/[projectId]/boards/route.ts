@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
 import { createBoardSchema } from "@/server/modules/boards/schema";
+import { BoardAccessService } from "@/server/modules/boards/access-service";
 
 async function checkProjectMembership(projectId: string, userId: string) {
   return prisma.projectMember.findUnique({
@@ -34,6 +35,10 @@ export async function GET(
     );
   }
 
+  const perms = getPerms();
+  await setupPermissions();
+  const userRoles = await perms.user(user.id).getRoles();
+
   const boards = await prisma.board.findMany({
     where: { projectId },
     include: {
@@ -42,7 +47,15 @@ export async function GET(
     orderBy: { position: "asc" },
   });
 
-  return NextResponse.json({ boards });
+  const accessibleBoards = [];
+  for (const board of boards) {
+    const hasAccess = await BoardAccessService.canUserAccessBoard(user.id, board.id, userRoles);
+    if (hasAccess) {
+      accessibleBoards.push(board);
+    }
+  }
+
+  return NextResponse.json({ boards: accessibleBoards });
 }
 
 export async function POST(

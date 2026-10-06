@@ -9,6 +9,9 @@ export const createRoleSchema = z.object({
     z.enum(permissionKeys as [string, ...string[]], {
       errorMap: () => ({ message: 'Invalid permission key' }),
     })
+  ).refine(
+    (keys) => keys.length === new Set(keys).size,
+    'Duplicate permission keys are not allowed'
   ),
 });
 
