@@ -31,6 +31,11 @@ const permissions = [
   "label.manage",
   // Member permissions
   "member.manage",
+  // Role and user management
+  "role.manage",
+  "user.manage",
+  // Reports
+  "report.view.all",
 ] as const;
 
 const roles = ["admin", "manager", "member", "viewer"] as const;

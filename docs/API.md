@@ -25,7 +25,25 @@ API specification and endpoint reference for cm-task-manager backend.
 | GET | /api/projects/:projectId/members | - | List project members |
 | POST | /api/projects/:projectId/members | member.manage | Add member to project |
 | DELETE | /api/projects/:projectId/members/:userId | member.manage | Remove member from project |
-| GET | /api/users | member.manage | List active users (for adding to projects) |
+
+## Roles
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/roles | - | List all roles (any signed-in user) |
+| POST | /api/roles | role.manage | Create new role with name and permissions |
+| PATCH | /api/roles/:roleId | role.manage | Update role name/permissions |
+| DELETE | /api/roles/:roleId | role.manage | Delete role (409 if users assigned without reassignToRoleId) |
+
+## Users
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/users | member.manage | List active users with roles and permissions |
+| POST | /api/users | user.manage | Create new user with name, email, roleIds |
+| PATCH | /api/users/:userId | user.manage | Update user name/email/isActive |
+| PUT | /api/users/:userId/roles | user.manage | Replace user's roles |
+| GET | /api/me | - | Get current user with roles and permissions |
 
 ## Boards
 

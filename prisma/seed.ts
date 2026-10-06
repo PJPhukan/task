@@ -85,6 +85,9 @@ async function main() {
       'attachment.delete',
       'label.manage',
       'member.manage',
+      'role.manage',
+      'user.manage',
+      'report.view.all',
     ],
     roles: ['admin', 'manager', 'member', 'viewer'],
   });
