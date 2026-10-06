@@ -57,11 +57,44 @@ async function main() {
     },
   });
 
+  const developer = await prisma.user.upsert({
+    where: { email: 'developer@example.com' },
+    update: {},
+    create: {
+      name: 'Developer User',
+      email: 'developer@example.com',
+      isActive: true,
+    },
+  });
+
+  const qa = await prisma.user.upsert({
+    where: { email: 'qa@example.com' },
+    update: {},
+    create: {
+      name: 'QA User',
+      email: 'qa@example.com',
+      isActive: true,
+    },
+  });
+
+  const deployment = await prisma.user.upsert({
+    where: { email: 'deployment@example.com' },
+    update: {},
+    create: {
+      name: 'Deployment User',
+      email: 'deployment@example.com',
+      isActive: true,
+    },
+  });
+
   console.log('Users created:');
   console.log(`  Admin: ${admin.id}`);
   console.log(`  Manager: ${manager.id}`);
   console.log(`  Member: ${member.id}`);
   console.log(`  Viewer: ${viewer.id}`);
+  console.log(`  Developer: ${developer.id}`);
+  console.log(`  QA: ${qa.id}`);
+  console.log(`  Deployment: ${deployment.id}`);
 
   // Setup permly
   const perms = createPermissions({
@@ -89,7 +122,7 @@ async function main() {
       'user.manage',
       'report.view.all',
     ],
-    roles: ['admin', 'manager', 'member', 'viewer'],
+    roles: ['admin', 'manager', 'member', 'viewer', 'developer', 'qa', 'deployment'],
   });
 
   await perms.sync();
@@ -99,6 +132,9 @@ async function main() {
   await perms.user(manager.id).assignRole('manager');
   await perms.user(member.id).assignRole('member');
   await perms.user(viewer.id).assignRole('viewer');
+  await perms.user(developer.id).assignRole('developer');
+  await perms.user(qa.id).assignRole('qa');
+  await perms.user(deployment.id).assignRole('deployment');
 
   console.log('Roles assigned');
 
@@ -127,7 +163,126 @@ async function main() {
   ]);
   // viewer role has no permissions (read-only)
 
+  // Developer, QA, Deployment roles for demo board
+  await perms.role('developer').syncPermissions([
+    'task.create',
+    'task.update',
+    'task.move',
+    'comment.create',
+    'attachment.upload',
+  ]);
+  await perms.role('qa').syncPermissions([
+    'task.create',
+    'task.update',
+    'task.move',
+    'comment.create',
+    'attachment.upload',
+  ]);
+  await perms.role('deployment').syncPermissions([
+    'task.update',
+    'task.move',
+    'comment.create',
+    'attachment.upload',
+  ]);
+
   console.log('Permissions granted');
+
+  // Create demo project
+  const project = await prisma.project.upsert({
+    where: { key: 'DEMO' },
+    update: {},
+    create: {
+      name: 'Demo Project',
+      key: 'DEMO',
+      description: 'Demo project with column access rules',
+    },
+  });
+
+  // Add all seeded users as project members
+  const projectMembers = [admin.id, manager.id, member.id, viewer.id, developer.id, qa.id, deployment.id];
+  for (const userId of projectMembers) {
+    await prisma.projectMember.upsert({
+      where: { projectId_userId: { projectId: project.id, userId } },
+      update: {},
+      create: { projectId: project.id, userId },
+    });
+  }
+
+  console.log(`Demo project created: ${project.id}`);
+
+  // Create Development board
+  const board = await prisma.board.upsert({
+    where: { id: `demo-board-${project.id}` },
+    update: {},
+    create: {
+      id: `demo-board-${project.id}`,
+      projectId: project.id,
+      name: 'Development',
+      position: 0,
+      createdById: admin.id,
+      isOpen: false,
+    },
+  });
+
+  // Create columns with MOVE rules
+  const columnNames = [
+    { name: 'To Do', moveRole: 'developer' },
+    { name: 'In Progress', moveRole: 'developer' },
+    { name: 'Ready for QA', moveRole: 'qa' },
+    { name: 'Ready for Prod', moveRole: 'deployment' },
+    { name: 'In Production', moveRole: 'qa' },
+    { name: 'Done', moveRole: null, isDone: true },
+  ];
+
+  let position = 0;
+  for (const col of columnNames) {
+    const column = await prisma.boardColumn.upsert({
+      where: { id: `demo-col-${board.id}-${position}` },
+      update: {},
+      create: {
+        id: `demo-col-${board.id}-${position}`,
+        boardId: board.id,
+        name: col.name,
+        position,
+        isDone: col.isDone || false,
+      },
+    });
+
+    // Add MOVE rules if applicable
+    if (col.moveRole) {
+      await prisma.columnRule.upsert({
+        where: {
+          columnId_ruleType_roleId: {
+            columnId: column.id,
+            ruleType: 'move',
+            roleId: col.moveRole,
+          },
+        },
+        update: {},
+        create: {
+          columnId: column.id,
+          ruleType: 'move',
+          roleId: col.moveRole,
+        },
+      });
+    }
+
+    position++;
+  }
+
+  // Grant restricted board access to all members
+  for (const userId of projectMembers) {
+    await prisma.boardAccess.upsert({
+      where: { boardId_userId: { boardId: board.id, userId } },
+      update: {},
+      create: {
+        boardId: board.id,
+        userId,
+      },
+    });
+  }
+
+  console.log(`Demo board created: ${board.id} with column access rules`);
 }
 
 main()
