@@ -50,7 +50,6 @@ model ProjectMember {
   id        String   @id @default(cuid())
   projectId String
   userId    String
-  role      String   // admin, manager, member, viewer
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

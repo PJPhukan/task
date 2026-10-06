@@ -46,10 +46,15 @@ export async function GET(
     );
   }
 
-  const access = await checkProjectAccess(projectId, user.id);
-  if ("error" in access) {
+  const isMember = await ProjectService.isMember(projectId, user.id);
+  const perms = getPerms();
+  await setupPermissions();
+
+  const hasGetPermission = await perms.user(user.id).can("project.read");
+
+  if (!isMember && !hasGetPermission) {
     return NextResponse.json(
-      { error: { code: "FORBIDDEN", message: access.error } },
+      { error: { code: "FORBIDDEN", message: "Access denied" } },
       { status: 403 }
     );
   }
@@ -131,13 +136,6 @@ export async function DELETE(
     );
   }
 
-  try {
-    await ProjectService.archiveProject(projectId);
-    return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json(
-      { error: { code: "CONFLICT", message: "Cannot archive project with existing tasks" } },
-      { status: 409 }
-    );
-  }
+  await ProjectService.deleteOrArchiveProject(projectId);
+  return NextResponse.json({ success: true });
 }

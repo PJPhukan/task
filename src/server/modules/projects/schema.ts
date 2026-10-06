@@ -16,11 +16,5 @@ export const updateProjectSchema = z.object({
   archived: z.boolean().optional(),
 });
 
-export const addMemberSchema = z.object({
-  userId: z.string().min(1, 'User ID is required'),
-  role: z.enum(['admin', 'manager', 'member', 'viewer']),
-});
-
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
-export type AddMemberInput = z.infer<typeof addMemberSchema>;

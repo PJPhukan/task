@@ -82,7 +82,6 @@ export async function POST(
     data: {
       projectId,
       userId: result.data.userId,
-      role: result.data.role,
     },
     include: { user: { select: { id: true, name: true, email: true } } },
   });

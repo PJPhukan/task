@@ -55,7 +55,7 @@ describe('Members API', () => {
     const response = await fetch(`http://localhost:3000/api/projects/${projectId}/members`, {
       method: 'POST',
       headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-      body: JSON.stringify({ userId: viewerId, role: 'viewer' }),
+      body: JSON.stringify({ userId: viewerId }),
     });
     expect(response.status).toBe(201);
   });

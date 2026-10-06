@@ -92,7 +92,7 @@ describe('Projects API', () => {
     expect(response.status).toBe(200);
   });
 
-  it('Cannot archive project with tasks', async () => {
+  it('Delete project with tasks archives instead of hard deleting', async () => {
     const board = await prisma.board.create({
       data: {
         projectId,
@@ -121,6 +121,11 @@ describe('Projects API', () => {
       method: 'DELETE',
       headers: { 'x-user-id': adminId },
     });
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(200);
+
+    // Verify project is archived, not deleted
+    const archivedProject = await prisma.project.findUnique({ where: { id: projectId } });
+    expect(archivedProject).toBeDefined();
+    expect(archivedProject?.archivedAt).not.toBeNull();
   });
 });

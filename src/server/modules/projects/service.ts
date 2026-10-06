@@ -13,7 +13,6 @@ export class ProjectService {
         members: {
           create: {
             userId: createdById,
-            role: "admin",
           },
         },
       },
@@ -43,7 +42,7 @@ export class ProjectService {
       return prisma.project.findMany({
         where: { archivedAt: null },
         include: {
-          members: { select: { userId: true, role: true } },
+          members: { select: { userId: true } },
         },
       });
     }
@@ -56,7 +55,7 @@ export class ProjectService {
         },
       },
       include: {
-        members: { select: { userId: true, role: true } },
+        members: { select: { userId: true } },
       },
     });
   }
@@ -75,31 +74,30 @@ export class ProjectService {
     });
   }
 
-  static async archiveProject(projectId: string) {
+  static async deleteOrArchiveProject(projectId: string) {
     const taskCount = await prisma.task.count({
       where: { projectId },
     });
 
     if (taskCount > 0) {
-      throw new Error("Cannot archive project with existing tasks");
+      // Archive if has tasks
+      return prisma.project.update({
+        where: { id: projectId },
+        data: { archivedAt: new Date() },
+      });
     }
 
-    return prisma.project.update({
+    // Hard delete if no tasks
+    return prisma.project.delete({
       where: { id: projectId },
-      data: { archivedAt: new Date() },
     });
   }
 
-  static async addMember(
-    projectId: string,
-    userId: string,
-    role: string
-  ) {
+  static async addMember(projectId: string, userId: string) {
     return prisma.projectMember.create({
       data: {
         projectId,
         userId,
-        role,
       },
       include: {
         user: { select: { id: true, name: true, email: true } },
@@ -115,17 +113,13 @@ export class ProjectService {
     });
   }
 
-  static async getUserRole(
-    projectId: string,
-    userId: string
-  ): Promise<string | null> {
+  static async isMember(projectId: string, userId: string): Promise<boolean> {
     const member = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: { projectId, userId },
       },
-      select: { role: true },
     });
-    return member?.role ?? null;
+    return member !== null;
   }
 
   static async listMembers(projectId: string) {
