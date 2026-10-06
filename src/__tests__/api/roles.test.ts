@@ -58,6 +58,16 @@ describe('Roles API', () => {
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.role.permissionKeys).toContain('task.delete');
+
+    // Restore member role to its original permissions for test isolation
+    const restoreRes = await fetch('http://localhost:3000/api/roles/member', {
+      method: 'PATCH',
+      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        permissionKeys: ['task.create', 'task.update', 'task.move', 'task.delete.own', 'comment.create', 'attachment.upload'],
+      }),
+    });
+    expect(restoreRes.status).toBe(200);
   });
 
   it('Cannot update role without role.manage permission', async () => {
@@ -87,7 +97,7 @@ describe('Roles API', () => {
       method: 'POST',
       headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
       body: JSON.stringify({
-        name: `Custom Role ${timestamp}`,
+        name: `custom-role-${timestamp}`,
         permissionKeys: ['task.create', 'task.update'],
       }),
     });
@@ -98,7 +108,7 @@ describe('Roles API', () => {
     expect(response.status).toBe(201);
     const data = await response.json();
     expect(data.role).toBeDefined();
-    expect(data.role.name).toBe(`Custom Role ${timestamp}`);
+    expect(data.role.name).toBe(`custom-role-${timestamp}`);
     expect(data.role.permissionKeys).toContain('task.create');
     expect(data.role.permissionKeys).toContain('task.update');
   });
@@ -109,7 +119,7 @@ describe('Roles API', () => {
       method: 'POST',
       headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
       body: JSON.stringify({
-        name: `Single Perm Role ${timestamp}`,
+        name: `single-perm-${timestamp}`,
         permissionKeys: ['comment.create'],
       }),
     });
@@ -158,5 +168,43 @@ describe('Roles API', () => {
       }),
     });
     expect(response.status).toBe(403);
+  });
+
+  it('Custom role with task.create only allows creating tasks, rejects updates', async () => {
+    const timestamp = Date.now();
+    const customRoleName = `custom-task-creator-${timestamp}`;
+
+    // Create a custom role with only task.create
+    const createRoleRes = await fetch('http://localhost:3000/api/roles', {
+      method: 'POST',
+      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: customRoleName,
+        permissionKeys: ['task.create'],
+      }),
+    });
+    expect(createRoleRes.status).toBe(201);
+
+    // Create a new user
+    const createUserRes = await fetch('http://localhost:3000/api/users', {
+      method: 'POST',
+      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: `Test User ${timestamp}`,
+        email: `test-${timestamp}@example.com`,
+        roleIds: [customRoleName],
+      }),
+    });
+    expect(createUserRes.status).toBe(201);
+    const newUser = (await createUserRes.json()).user;
+
+    // Verify user can create tasks (has task.create permission)
+    const meRes = await fetch('http://localhost:3000/api/me', {
+      headers: { 'x-user-id': newUser.id },
+    });
+    expect(meRes.status).toBe(200);
+    const meData = await meRes.json();
+    expect(meData.permissions).toContain('task.create');
+    expect(meData.permissions).not.toContain('task.update');
   });
 });

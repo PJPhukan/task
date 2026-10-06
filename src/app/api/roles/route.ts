@@ -5,7 +5,6 @@ import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { RoleService } from "@/server/modules/roles/service";
 import { createRoleSchema } from "@/server/modules/roles/schema";
 import { validateRequest } from "@/server/http/route";
-import { permissionCatalog } from "@/server/permissions/catalog";
 
 export async function GET(req: NextRequest) {
   const userId = req.headers.get("x-user-id") || undefined;

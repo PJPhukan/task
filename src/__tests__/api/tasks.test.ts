@@ -221,14 +221,14 @@ describe('Tasks API', () => {
   });
 
   it('User without column MOVE rule gets 403 on move', async () => {
-    // Create a column with MOVE rule for developer only
-    const devColumn = await prisma.boardColumn.create({
-      data: { boardId, name: 'Dev Only', position: 2 },
+    // Create a column with MOVE rule for developer only (restrict moving FROM this column)
+    const restrictedColumn = await prisma.boardColumn.create({
+      data: { boardId, name: 'Dev Move Only', position: 2 },
     });
 
     await (prisma as any).columnRule.create({
       data: {
-        columnId: devColumn.id,
+        columnId: restrictedColumn.id,
         ruleType: 'move',
         roleId: 'developer',
       },
@@ -237,17 +237,21 @@ describe('Tasks API', () => {
     const createRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
       headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-      body: JSON.stringify({ boardId, columnId, title: 'Restricted Move' }),
+      body: JSON.stringify({ boardId, columnId: restrictedColumn.id, title: 'Restricted Move' }),
     });
     const task = (await createRes.json()).task;
 
-    // Admin cannot move (not developer role)
+    // Admin cannot move FROM restrictedColumn (not developer role)
+    const targetColumn = await prisma.boardColumn.create({
+      data: { boardId, name: 'Target', position: 3 },
+    });
+
     const response = await fetch(
       `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`,
       {
         method: 'PATCH',
         headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({ columnId: devColumn.id, index: 0 }),
+        body: JSON.stringify({ columnId: targetColumn.id, index: 0 }),
       }
     );
     expect(response.status).toBe(403);

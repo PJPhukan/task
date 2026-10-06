@@ -2,7 +2,6 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
-import { prisma } from "@/server/lib/prisma";
 import { TaskService } from "@/server/modules/tasks/service";
 import { updateTaskSchema } from "@/server/modules/tasks/schema";
 import { validateRequest } from "@/server/http/route";

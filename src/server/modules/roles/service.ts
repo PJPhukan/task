@@ -5,26 +5,24 @@ import { CreateRoleInput, UpdateRoleInput } from "./schema";
 
 export class RoleService {
   static async createRole(input: CreateRoleInput) {
-    const existing = await prisma.role.findUnique({
-      where: { name: input.name },
-    });
+    const perms = getPerms();
+    await setupPermissions();
 
-    if (existing) {
+    // Check if role already exists
+    const allRoles = await perms.getAllRoles();
+    if (allRoles.includes(input.name)) {
       throw new Error("duplicate");
     }
 
-    const role = await prisma.role.create({
-      data: {
-        name: input.name,
-        permissionKeys: input.permissionKeys,
-      },
-    });
+    // Create the role in permly
+    await perms.createRole(input.name);
+    await perms.role(input.name).syncPermissions(input.permissionKeys);
 
     return {
-      id: role.id,
-      name: role.name,
-      permissionKeys: role.permissionKeys,
-      userCount: role.userCount,
+      id: input.name,
+      name: input.name,
+      permissionKeys: input.permissionKeys,
+      userCount: 0,
     };
   }
 
@@ -45,27 +43,21 @@ export class RoleService {
     const perms = getPerms();
     await setupPermissions();
 
+    const allRoles = await perms.getAllRoles();
     const builtInRoles = ["admin", "manager", "member", "viewer"];
     const roles = [];
 
-    for (const roleId of builtInRoles) {
+    for (const roleId of allRoles) {
       const permissions = await perms.role(roleId).getPermissions({ expand: true });
+      const displayName = builtInRoles.includes(roleId)
+        ? roleId.charAt(0).toUpperCase() + roleId.slice(1)
+        : roleId;
 
       roles.push({
         id: roleId,
-        name: roleId.charAt(0).toUpperCase() + roleId.slice(1),
+        name: displayName,
         permissionKeys: permissions,
         userCount: 0,
-      });
-    }
-
-    const customRoles = await prisma.role.findMany();
-    for (const role of customRoles) {
-      roles.push({
-        id: role.id,
-        name: role.name,
-        permissionKeys: role.permissionKeys,
-        userCount: role.userCount,
       });
     }
 

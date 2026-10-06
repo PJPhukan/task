@@ -1,7 +1,5 @@
 import { execSync } from 'child_process';
 import { config } from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { Pool } from 'pg';
 
 // Load .env.local

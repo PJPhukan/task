@@ -21,7 +21,7 @@ beforeAll(async () => {
   });
   projectId = project.id;
 
-  const member = await prisma.projectMember.create({
+  await prisma.projectMember.create({
     data: { projectId, userId: adminId },
   });
 
@@ -164,6 +164,68 @@ describe('Board Access API', () => {
     expect(response.status).toBe(201);
 
     // Now user should have access to the board
+    const boardsResponse = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/boards`,
+      {
+        headers: { 'x-user-id': newUser.id },
+      }
+    );
+    expect(boardsResponse.status).toBe(200);
+    const data = await boardsResponse.json();
+    const hasBoard = data.boards.some((b: any) => b.id === boardId);
+    expect(hasBoard).toBe(true);
+  });
+
+  it('User with role on restricted board role list can access the board', async () => {
+    const timestamp = Date.now();
+    const customRoleName = `board-access-role-${timestamp}`;
+
+    // Create a custom role
+    const createRoleRes = await fetch('http://localhost:3000/api/roles', {
+      method: 'POST',
+      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: customRoleName,
+        permissionKeys: ['task.create'],
+      }),
+    });
+    expect(createRoleRes.status).toBe(201);
+
+    // Create a new user with the custom role
+    const createUserRes = await fetch('http://localhost:3000/api/users', {
+      method: 'POST',
+      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: `Board User ${timestamp}`,
+        email: `board-user-${timestamp}@example.com`,
+        roleIds: [customRoleName],
+      }),
+    });
+    expect(createUserRes.status).toBe(201);
+    const newUser = (await createUserRes.json()).user;
+
+    // Add user to project
+    await fetch(`http://localhost:3000/api/projects/${projectId}/members`, {
+      method: 'POST',
+      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      body: JSON.stringify({ userId: newUser.id }),
+    });
+
+    // Restrict the board and add the custom role to allowed list
+    await fetch(
+      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`,
+      {
+        method: 'PUT',
+        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          isOpen: false,
+          allowedUserIds: [],
+          allowedRoleIds: [customRoleName],
+        }),
+      }
+    );
+
+    // User with the custom role should see the board
     const boardsResponse = await fetch(
       `http://localhost:3000/api/projects/${projectId}/boards`,
       {

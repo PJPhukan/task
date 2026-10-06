@@ -258,9 +258,6 @@ export class TaskService {
     const canViewTarget = await ColumnRulesService.canViewColumn(userRoles, input.columnId);
     if (!canViewTarget) throw new Error("Cannot access target column");
 
-    const canMoveTo = await ColumnRulesService.canMoveFromColumn(userRoles, input.columnId);
-    if (!canMoveTo) throw new Error("Cannot move to this column");
-
     // Update task and handle stage entries
     const updated = await prisma.$transaction(async (tx) => {
       // If moving to a different column, close current stage entry and open new one
