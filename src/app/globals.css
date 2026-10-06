@@ -2,10 +2,116 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  scroll-behavior: smooth;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+    --primary: 224 71% 4%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 9% 15%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 14% 95%;
+    --accent-foreground: 220 9% 15%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 224 71% 4%;
+    --radius: 0.5rem;
+
+    --sidebar: 210 20% 98%;
+    --sidebar-foreground: 220 9% 30%;
+    --sidebar-primary: 224 71% 4%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 93%;
+    --sidebar-accent-foreground: 220 9% 12%;
+    --sidebar-border: 220 13% 90%;
+    --sidebar-ring: 224 71% 4%;
+
+    /* Priority tokens */
+    --priority-low: 215 16% 47%;
+    --priority-low-foreground: 215 25% 95%;
+    --priority-medium: 38 92% 50%;
+    --priority-medium-foreground: 45 93% 95%;
+    --priority-high: 24 95% 53%;
+    --priority-high-foreground: 24 100% 95%;
+    --priority-urgent: 0 84% 60%;
+    --priority-urgent-foreground: 0 93% 96%;
+
+    /* Column colors (8 colors) */
+    --column-1: 215 16% 50%; /* Slate */
+    --column-2: 0 84% 60%;   /* Red */
+    --column-3: 25 95% 53%;  /* Orange */
+    --column-4: 43 96% 52%;  /* Amber */
+    --column-5: 142 71% 42%; /* Green */
+    --column-6: 173 80% 38%; /* Teal */
+    --column-7: 217 91% 58%; /* Blue */
+    --column-8: 262 83% 58%; /* Purple */
+  }
+
+  .dark {
+    --background: 228 15% 7%;
+    --foreground: 210 20% 98%;
+    --card: 228 15% 10%;
+    --card-foreground: 210 20% 98%;
+    --popover: 228 15% 10%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 210 20% 98%;
+    --primary-foreground: 228 15% 7%;
+    --secondary: 228 13% 15%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 228 13% 14%;
+    --muted-foreground: 217 11% 65%;
+    --accent: 228 13% 16%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 228 12% 18%;
+    --input: 228 12% 18%;
+    --ring: 217 91% 60%;
+
+    --sidebar: 228 17% 6%;
+    --sidebar-foreground: 217 11% 65%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 228 13% 14%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 228 12% 14%;
+    --sidebar-ring: 217 91% 60%;
+
+    /* Priority tokens */
+    --priority-low: 215 20% 65%;
+    --priority-low-foreground: 215 20% 16%;
+    --priority-medium: 45 93% 55%;
+    --priority-medium-foreground: 38 92% 16%;
+    --priority-high: 24 95% 60%;
+    --priority-high-foreground: 20 90% 18%;
+    --priority-urgent: 0 84% 65%;
+    --priority-urgent-foreground: 0 75% 18%;
+
+    /* Column colors (8 colors) */
+    --column-1: 215 18% 65%; /* Slate */
+    --column-2: 0 84% 65%;   /* Red */
+    --column-3: 25 95% 60%;  /* Orange */
+    --column-4: 43 96% 58%;  /* Amber */
+    --column-5: 142 71% 50%; /* Green */
+    --column-6: 173 80% 46%; /* Teal */
+    --column-7: 217 91% 65%; /* Blue */
+    --column-8: 262 83% 66%; /* Purple */
+  }
 }
 
-body {
-  @apply bg-white dark:bg-black text-black dark:text-white;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/10;
+  }
 }
