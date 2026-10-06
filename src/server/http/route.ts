@@ -28,7 +28,6 @@ export function validateRequest<T>(
   return { success: true, data: result.data };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export type RouteHandler = (_req: NextRequest, _context: any) => Promise<NextResponse>;
 
 export function createRouteHandler(handler: RouteHandler): RouteHandler {

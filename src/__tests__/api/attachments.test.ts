@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { prisma } from "@/server/lib/prisma";
-import { setFakeCloudinaryResource, clearFakeCloudinaryResources, getFakeCloudinaryResources } from "@/server/lib/cloudinary";
+import { setFakeCloudinaryResource, clearFakeCloudinaryResources } from "@/server/lib/cloudinary";
 
 let adminId: string;
 let projectId: string;

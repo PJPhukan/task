@@ -34,7 +34,6 @@ function isConfigured(): boolean {
   return !!(cloudinaryCloudName && cloudinaryApiKey && cloudinaryApiSecret);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function generateUploadSignature(
   folder: string,
   _kind: "attachment" | "avatar"
