@@ -19,7 +19,7 @@ const prisma = new PrismaClient({ adapter });
 const DEV_PASSWORD = 'development123';
 
 async function main() {
-  // Hash the development password
+  // Hash the development password using bcrypt (same as Better Auth)
   const hashedPassword = await bcrypt.hash(DEV_PASSWORD, 10);
 
   // Create test users
@@ -29,7 +29,6 @@ async function main() {
     create: {
       name: 'Admin User',
       email: 'admin@example.com',
-      password: hashedPassword,
       emailVerified: true,
       status: 'ACTIVE',
       isActive: true,
@@ -42,7 +41,6 @@ async function main() {
     create: {
       name: 'Manager User',
       email: 'manager@example.com',
-      password: hashedPassword,
       emailVerified: true,
       status: 'ACTIVE',
       isActive: true,
@@ -55,7 +53,6 @@ async function main() {
     create: {
       name: 'Member User',
       email: 'member@example.com',
-      password: hashedPassword,
       emailVerified: true,
       status: 'ACTIVE',
       isActive: true,
@@ -68,7 +65,6 @@ async function main() {
     create: {
       name: 'Viewer User',
       email: 'viewer@example.com',
-      password: hashedPassword,
       emailVerified: true,
       status: 'ACTIVE',
       isActive: true,
@@ -81,7 +77,6 @@ async function main() {
     create: {
       name: 'Developer User',
       email: 'developer@example.com',
-      password: hashedPassword,
       emailVerified: true,
       status: 'ACTIVE',
       isActive: true,
@@ -94,7 +89,6 @@ async function main() {
     create: {
       name: 'QA User',
       email: 'qa@example.com',
-      password: hashedPassword,
       emailVerified: true,
       status: 'ACTIVE',
       isActive: true,
@@ -107,12 +101,27 @@ async function main() {
     create: {
       name: 'Deployment User',
       email: 'deployment@example.com',
-      password: hashedPassword,
       emailVerified: true,
       status: 'ACTIVE',
       isActive: true,
     },
   });
+
+  // Create Better Auth credentials for each user
+  const users = [admin, manager, member, viewer, developer, qa, deployment];
+  for (const user of users) {
+    await prisma.account.upsert({
+      where: { provider_providerAccountId: { provider: 'credential', providerAccountId: user.email } },
+      update: { accessToken: hashedPassword },
+      create: {
+        userId: user.id,
+        type: 'credentials',
+        provider: 'credential',
+        providerAccountId: user.email,
+        accessToken: hashedPassword,
+      },
+    });
+  }
 
   console.log('Users created:');
   console.log(`  Admin: ${admin.id}`);

@@ -22,6 +22,14 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL!,
   basePath: "/api/auth",
   trustedOrigins: [process.env.APP_URL || "http://localhost:3000"],
+  user: {
+    additionalFields: {
+      status: {
+        type: "string",
+        defaultValue: "ACTIVE",
+      },
+    },
+  },
   emailVerification: {
     sendVerificationEmail: async (params: EmailVerificationParams) => {
       const mailer = getMailer();
@@ -46,8 +54,6 @@ export const auth = betterAuth({
   },
   plugins: [],
   rateLimit: {
-    enabled: true,
-    window: 60 * 1000,
-    max: 5,
+    enabled: process.env.NODE_ENV !== "test",
   },
 });
