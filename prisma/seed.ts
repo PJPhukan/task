@@ -19,7 +19,7 @@ async function main() {
   // Create test users
   const admin = await prisma.user.upsert({
     where: { email: 'admin@example.com' },
-    update: {},
+    update: { name: 'Admin User' },
     create: {
       name: 'Admin User',
       email: 'admin@example.com',
@@ -29,7 +29,7 @@ async function main() {
 
   const manager = await prisma.user.upsert({
     where: { email: 'manager@example.com' },
-    update: {},
+    update: { name: 'Manager User' },
     create: {
       name: 'Manager User',
       email: 'manager@example.com',
@@ -39,7 +39,7 @@ async function main() {
 
   const member = await prisma.user.upsert({
     where: { email: 'member@example.com' },
-    update: {},
+    update: { name: 'Member User' },
     create: {
       name: 'Member User',
       email: 'member@example.com',
@@ -49,7 +49,7 @@ async function main() {
 
   const viewer = await prisma.user.upsert({
     where: { email: 'viewer@example.com' },
-    update: {},
+    update: { name: 'Viewer User' },
     create: {
       name: 'Viewer User',
       email: 'viewer@example.com',
@@ -59,7 +59,7 @@ async function main() {
 
   const developer = await prisma.user.upsert({
     where: { email: 'developer@example.com' },
-    update: {},
+    update: { name: 'Developer User' },
     create: {
       name: 'Developer User',
       email: 'developer@example.com',
@@ -69,7 +69,7 @@ async function main() {
 
   const qa = await prisma.user.upsert({
     where: { email: 'qa@example.com' },
-    update: {},
+    update: { name: 'QA User' },
     create: {
       name: 'QA User',
       email: 'qa@example.com',
@@ -79,7 +79,7 @@ async function main() {
 
   const deployment = await prisma.user.upsert({
     where: { email: 'deployment@example.com' },
-    update: {},
+    update: { name: 'Deployment User' },
     create: {
       name: 'Deployment User',
       email: 'deployment@example.com',
@@ -113,10 +113,9 @@ async function main() {
       'task.delete',
       'task.delete.own',
       'comment.create',
-      'comment.update',
-      'comment.delete',
+      'comment.delete.any',
       'attachment.upload',
-      'attachment.delete',
+      'attachment.delete.any',
       'label.manage',
       'member.manage',
       'role.manage',
@@ -149,10 +148,9 @@ async function main() {
     'task.move',
     'task.delete',
     'comment.create',
-    'comment.update',
-    'comment.delete',
+    'comment.delete.any',
     'attachment.upload',
-    'attachment.delete',
+    'attachment.delete.any',
     'label.manage',
   ]);
   await perms.role('member').syncPermissions([

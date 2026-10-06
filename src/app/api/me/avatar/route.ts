@@ -10,15 +10,16 @@ const updateAvatarSchema = z.object({
 });
 
 export async function PUT(req: NextRequest) {
-  const userId = req.headers.get("x-user-id") || undefined;
-  const user = await getCurrentUser(userId);
+  try {
+    const userId = req.headers.get("x-user-id") || undefined;
+    const user = await getCurrentUser(userId);
 
-  if (!user) {
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "User not found" } },
-      { status: 401 }
-    );
-  }
+    if (!user) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "User not found" } },
+        { status: 401 }
+      );
+    }
 
   const body = await req.json();
   const result = updateAvatarSchema.safeParse(body);
@@ -84,4 +85,11 @@ export async function PUT(req: NextRequest) {
       avatarUrl,
     },
   });
+  } catch (error) {
+    console.error("PUT /avatar error:", error);
+    return NextResponse.json(
+      { error: { code: "INTERNAL_ERROR", message: error instanceof Error ? error.message : "Internal server error" } },
+      { status: 500 }
+    );
+  }
 }
