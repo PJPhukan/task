@@ -1,4 +1,5 @@
 import "server-only";
+import { NextRequest, NextResponse } from "next/server";
 import { ZodSchema } from "zod";
 
 export interface RouteContext {
@@ -10,7 +11,6 @@ export interface RouteHandlerOptions {
   permission?: string;
   requireUser?: boolean;
 }
-
 
 export function validateRequest<T>(
   schema: ZodSchema,
@@ -26,4 +26,23 @@ export function validateRequest<T>(
     return { success: false, error: errors };
   }
   return { success: true, data: result.data };
+}
+
+export type RouteHandler = (req: NextRequest, context: any) => Promise<NextResponse>;
+
+export function createRouteHandler(handler: RouteHandler): RouteHandler {
+  return async (req: NextRequest, context: any) => {
+    try {
+      return await handler(req, context);
+    } catch (error) {
+      console.error("Unhandled route error:", error);
+      if (error instanceof Error) {
+        console.error("Stack:", error.stack);
+      }
+      return NextResponse.json(
+        { error: { code: "INTERNAL_SERVER_ERROR", message: "Internal server error" } },
+        { status: 500 }
+      );
+    }
+  };
 }
