@@ -167,7 +167,7 @@ describe("Activity Feed API", () => {
     expect(res.status).toBe(201);
 
     // Check activity was recorded
-    const activities = await prisma.activity.findMany({
+    const activities = await prisma.activityLog.findMany({
       where: { projectId, type: "comment.created", taskId },
       orderBy: { createdAt: "desc" },
       take: 1,
@@ -200,7 +200,7 @@ describe("Activity Feed API", () => {
     expect(editRes.status).toBe(200);
 
     // Check activity was recorded
-    const activities = await prisma.activity.findMany({
+    const activities = await prisma.activityLog.findMany({
       where: { projectId, type: "comment.edited", taskId },
       orderBy: { createdAt: "desc" },
       take: 1,
@@ -230,7 +230,7 @@ describe("Activity Feed API", () => {
     expect(deleteRes.status).toBe(200);
 
     // Check activity was recorded
-    const activities = await prisma.activity.findMany({
+    const activities = await prisma.activityLog.findMany({
       where: { projectId, type: "comment.deleted", taskId },
       orderBy: { createdAt: "desc" },
       take: 1,

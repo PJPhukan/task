@@ -34,7 +34,7 @@ export class AttachmentService {
     // Validate folder (should be under project folder)
     if (!resource.public_id.startsWith(`projects/${projectId}/`)) {
       await deleteResource(input.publicId);
-      throw new Error("Attachment not in project folder");
+      throw new Error("Attachment not found in project folder");
     }
 
     const attachment = await prisma.attachment.create({
