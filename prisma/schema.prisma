@@ -6,4 +6,215 @@ datasource db {
   provider = "postgresql"
 }
 
-// Models to be added during development
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  avatarPublicId String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  projectMembers ProjectMember[]
+  createdBoards  Board[]
+  tasksCreated   Task[]            @relation("reporter")
+  tasksAssigned  Task[]            @relation("assignee")
+  comments       Comment[]
+  attachments    Attachment[]
+  activityLogs   ActivityLog[]
+
+  @@index([email])
+}
+
+model Project {
+  id             String    @id @default(cuid())
+  name           String
+  key            String    @unique @db.VarChar(5)
+  description    String?
+  taskCounter    Int       @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  members        ProjectMember[]
+  boards         Board[]
+  tasks          Task[]
+  labels         Label[]
+  activityLogs   ActivityLog[]
+
+  @@index([key])
+  @@index([archivedAt])
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      String   // admin, manager, member, viewer
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+}
+
+model Board {
+  id          String    @id @default(cuid())
+  projectId   String
+  name        String
+  description String?
+  position    Int
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User          @relation(fields: [createdById], references: [id])
+  columns     BoardColumn[]
+  tasks       Task[]
+
+  @@index([projectId])
+  @@index([createdById])
+}
+
+model BoardColumn {
+  id        String   @id @default(cuid())
+  boardId   String
+  name      String
+  color     String?
+  position  Int
+  isDone    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+
+  @@index([boardId])
+  @@index([isDone])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  projectId   String
+  boardId     String
+  columnId    String
+  number      Int
+  title       String
+  description String?
+  priority    String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  startDate   DateTime? @db.Date
+  dueDate     DateTime? @db.Date
+  assigneeId  String?
+  reporterId  String
+  position    Int
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  board       Board        @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  column      BoardColumn  @relation(fields: [columnId], references: [id])
+  assignee    User?        @relation("assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  reporter    User         @relation("reporter", fields: [reporterId], references: [id])
+  labels      TaskLabel[]
+  comments    Comment[]
+  attachments Attachment[]
+  activityLogs ActivityLog[]
+
+  @@unique([projectId, number])
+  @@index([projectId])
+  @@index([boardId])
+  @@index([columnId])
+  @@index([assigneeId])
+  @@index([reporterId])
+  @@index([completedAt])
+}
+
+model Label {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project  Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks    TaskLabel[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+model TaskLabel {
+  id        String   @id @default(cuid())
+  taskId    String
+  labelId   String
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label     Label    @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, labelId])
+  @@index([taskId])
+  @@index([labelId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@index([taskId])
+  @@index([authorId])
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  taskId       String
+  uploadedById String
+  publicId     String
+  resourceType String
+  format       String
+  bytes        Int
+  width        Int?
+  height       Int?
+  originalName String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy User     @relation(fields: [uploadedById], references: [id])
+
+  @@index([taskId])
+  @@index([uploadedById])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  projectId String
+  taskId    String?
+  actorId   String
+  action    String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor     User     @relation(fields: [actorId], references: [id])
+
+  @@index([projectId])
+  @@index([taskId])
+  @@index([actorId])
+  @@index([createdAt])
+}

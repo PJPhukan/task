@@ -47,12 +47,16 @@ App runs on `http://localhost:3000` (frontend and API routes).
 
 - **No AI attribution in commits:** Git commits must never contain `Co-Authored-By` lines or any AI attribution.
 - **Atomic commits:** One commit per finished piece. Keep commits small and focused.
-- **Full-stack Next.js architecture:**
-  - API routes: `src/app/api/` (backend)
-  - Pages and UI: `src/app/` and `src/components/` (frontend)
-  - Database: Prisma with PostgreSQL
-  - Single app, single dev server on port 3000
-- **Database portability:** Keep code portable to MySQL. No Postgres-only column types (arrays, etc.) or raw SQL unless necessary. If required, stop and ask first.
+- **Backend only:** Build backend logic only. Never edit `src/app/(pages)`, `src/components/`, `src/features/`, `src/hooks/`, `src/providers/`, or `globals.css`.
+- **Backend structure:**
+  - Logic: `src/server/` (services, config, auth, http helpers)
+  - Route handlers: `src/app/api/` (thin, call services)
+  - Database: Prisma with PostgreSQL in `prisma/` 
+  - API docs: Update `docs/API.md` with every route change
+- **Route handlers:** Stay thin. Call services in `src/server/modules/<feature>/{service,schema}.ts`. All server files start with `import "server-only"`.
+- **Input validation:** Every route validates with Zod. Errors return `{ error: { code, message, details? } }`.
+- **Database:** Prisma schema in `prisma/schema.prisma`. Use `npx prisma db push --url=<URL>` for schema sync. Schema is portable to MySQL (no postgres-only types or raw SQL).
+- **Auth:** Temporary only, isolated in `src/server/auth/current-user.ts`. When `AUTH_MODE=dev`, read `x-user-id` header. Later: one file change only.
 - **Dependency versions:** Never guess versions from memory. Always run `npm view <package> version` for current stable releases.
 
 ## Phase: Setup (Initial)
