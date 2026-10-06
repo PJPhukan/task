@@ -154,11 +154,8 @@ describe('Column Rules API', () => {
 
   it('Deleting role removes its column rules', async () => {
     // This is tested by the seed/permission setup
-    // Create a test custom role
+    // Use a test roleId (note: custom roles are stored in DB, not in permly)
     const testRoleId = `test-role-${Date.now()}`;
-    const perms = getPerms();
-    await setupPermissions();
-    await perms.role(testRoleId).syncPermissions(['task.create']);
 
     // Add a view rule for this role
     await (prisma as any).columnRule.create({

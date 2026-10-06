@@ -5,6 +5,7 @@ import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
 import { updateBoardSchema } from "@/server/modules/boards/schema";
 import { BoardAccessService } from "@/server/modules/boards/access-service";
+import { ColumnRulesService } from "@/server/modules/columns/rules-service";
 
 async function checkProjectMembership(projectId: string, userId: string) {
   return prisma.projectMember.findUnique({
@@ -66,7 +67,19 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ board });
+  const filteredColumns = [];
+  for (const column of board.columns) {
+    const canView = await ColumnRulesService.canViewColumn(userRoles, column.id);
+    if (canView) {
+      const canMove = await ColumnRulesService.canMoveFromColumn(userRoles, column.id);
+      filteredColumns.push({
+        ...column,
+        canMove,
+      });
+    }
+  }
+
+  return NextResponse.json({ board: { ...board, columns: filteredColumns } });
 }
 
 export async function PATCH(
