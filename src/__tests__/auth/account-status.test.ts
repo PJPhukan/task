@@ -1,0 +1,65 @@
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { NextRequest } from "next/server";
+import { checkAccountStatus } from "@/server/auth/check-account-status";
+import prisma from "@/server/lib/prisma";
+import { getEnv } from "@/server/config/env";
+
+describe("Account Status Check", () => {
+  let testUserId: string;
+
+  beforeEach(async () => {
+    const testEmail = `test-status-${Date.now()}-${Math.random()}@example.com`;
+    const user = await prisma.user.create({
+      data: {
+        name: "Test User",
+        email: testEmail,
+        isActive: true,
+      },
+    });
+    testUserId = user.id;
+  });
+
+  it("returns authorized for ACTIVE user", async () => {
+    await prisma.user.update({
+      where: { id: testUserId },
+      data: { status: "ACTIVE" },
+    });
+
+    const result = await checkAccountStatus(testUserId);
+    expect(result.authorized).toBe(true);
+    expect(result.user).toBeDefined();
+    expect(result.user?.id).toBe(testUserId);
+  });
+
+  it("returns 403 ACCOUNT_PENDING for PENDING user", async () => {
+    await prisma.user.update({
+      where: { id: testUserId },
+      data: { status: "PENDING" },
+    });
+
+    const result = await checkAccountStatus(testUserId);
+    expect(result.authorized).toBe(false);
+    expect(result.response.status).toBe(403);
+    const json = await result.response.json();
+    expect(json.error.code).toBe("ACCOUNT_PENDING");
+  });
+
+  it("returns 403 ACCOUNT_REJECTED for REJECTED user", async () => {
+    await prisma.user.update({
+      where: { id: testUserId },
+      data: { status: "REJECTED" },
+    });
+
+    const result = await checkAccountStatus(testUserId);
+    expect(result.authorized).toBe(false);
+    expect(result.response.status).toBe(403);
+    const json = await result.response.json();
+    expect(json.error.code).toBe("ACCOUNT_REJECTED");
+  });
+
+  it("returns 401 for non-existent user", async () => {
+    const result = await checkAccountStatus("invalid-user-id");
+    expect(result.authorized).toBe(false);
+    expect(result.response.status).toBe(401);
+  });
+});
