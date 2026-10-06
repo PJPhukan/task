@@ -126,18 +126,7 @@ describe("Activity Feed API", () => {
       },
     });
 
-    // Get activity feed before creating comment on restricted task
-    const beforeRes = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/activity?limit=100`,
-      {
-        headers: { "x-user-id": memberId },
-      }
-    );
-    const beforeData = await beforeRes.json();
-    const beforeCount = beforeData.activities.length;
-
-    // Create comment on restricted task - member cannot view this task
-    // So activity should not appear in their feed
+    // Get activity feed for current state
     // (This test verifies that restricted column tasks don't leak into activity)
     const res = await fetch(
       `http://localhost:3000/api/projects/${projectId}/activity?limit=100`,
@@ -168,12 +157,12 @@ describe("Activity Feed API", () => {
 
     // Check activity was recorded
     const activities = await prisma.activityLog.findMany({
-      where: { projectId, type: "comment.created", taskId },
+      where: { projectId, action: "comment.created", taskId },
       orderBy: { createdAt: "desc" },
       take: 1,
     });
     expect(activities.length).toBeGreaterThan(0);
-    expect(activities[0].userId).toBe(memberId);
+    expect(activities[0].actorId).toBe(memberId);
   });
 
   it("Editing a comment writes activity row", async () => {
@@ -201,7 +190,7 @@ describe("Activity Feed API", () => {
 
     // Check activity was recorded
     const activities = await prisma.activityLog.findMany({
-      where: { projectId, type: "comment.edited", taskId },
+      where: { projectId, action: "comment.edited", taskId },
       orderBy: { createdAt: "desc" },
       take: 1,
     });
@@ -231,7 +220,7 @@ describe("Activity Feed API", () => {
 
     // Check activity was recorded
     const activities = await prisma.activityLog.findMany({
-      where: { projectId, type: "comment.deleted", taskId },
+      where: { projectId, action: "comment.deleted", taskId },
       orderBy: { createdAt: "desc" },
       take: 1,
     });

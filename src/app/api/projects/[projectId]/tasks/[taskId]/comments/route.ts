@@ -6,7 +6,6 @@ import { prisma } from "@/server/lib/prisma";
 import { CommentService } from "@/server/modules/comments/service";
 import { createCommentSchema } from "@/server/modules/comments/schema";
 import { createRouteHandler } from "@/server/http/route";
-import { TaskService } from "@/server/modules/tasks/service";
 import { ColumnRulesService } from "@/server/modules/columns/rules-service";
 
 const getHandler = createRouteHandler(async (

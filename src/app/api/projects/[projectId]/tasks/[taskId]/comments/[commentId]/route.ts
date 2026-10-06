@@ -5,7 +5,6 @@ import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
 import { CommentService } from "@/server/modules/comments/service";
 import { updateCommentSchema } from "@/server/modules/comments/schema";
-import { createRouteHandler } from "@/server/http/route";
 
 async function patchHandler(req: NextRequest, context: any) {
   try {
