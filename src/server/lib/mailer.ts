@@ -1,5 +1,6 @@
 import "server-only";
 import nodemailer from "nodemailer";
+import type { Transporter } from "nodemailer";
 
 interface EmailPayload {
   to: string;
@@ -10,13 +11,13 @@ interface EmailPayload {
 
 interface FakeTransporter {
   sent: EmailPayload[];
-  sendMail(payload: EmailPayload): Promise<void>;
+  sendMail(_payload: EmailPayload): Promise<void>;
 }
 
 let activeMailer: Mailer = null as any;
 
 export class Mailer {
-  private transporter: nodemailer.Transporter | FakeTransporter | null = null;
+  private transporter: (Transporter<any>) | FakeTransporter | null = null;
 
   constructor() {
     this.initTransporter();

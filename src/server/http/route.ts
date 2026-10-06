@@ -19,13 +19,13 @@ export function validateRequest<T>(
   const result = schema.safeParse(data);
   if (!result.success) {
     const errors: Record<string, string> = {};
-    result.error.errors.forEach((err) => {
+    result.error.issues.forEach((err: any) => {
       const path = err.path.join(".");
       errors[path] = err.message;
     });
     return { success: false, error: errors };
   }
-  return { success: true, data: result.data };
+  return { success: true, data: result.data as T };
 }
 
 export type RouteHandler = (_req: NextRequest, _context: any) => Promise<NextResponse>;
