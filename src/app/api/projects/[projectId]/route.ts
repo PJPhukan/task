@@ -34,8 +34,9 @@ async function checkProjectAccess(
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
+  const { projectId } = await params;
   const userId = req.headers.get("x-user-id") || undefined;
   const user = await getCurrentUser(userId);
 
@@ -46,7 +47,7 @@ export async function GET(
     );
   }
 
-  const access = await checkProjectAccess(params.projectId, user.id);
+  const access = await checkProjectAccess(projectId, user.id);
   if ("error" in access) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: access.error } },
@@ -54,7 +55,7 @@ export async function GET(
     );
   }
 
-  const project = await ProjectService.getProject(params.projectId);
+  const project = await ProjectService.getProject(projectId);
   if (!project) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Project not found" } },
@@ -67,8 +68,9 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
+  const { projectId } = await params;
   const userId = req.headers.get("x-user-id") || undefined;
   const user = await getCurrentUser(userId);
 
@@ -100,14 +102,15 @@ export async function PATCH(
     );
   }
 
-  const project = await ProjectService.updateProject(params.projectId, result.data);
+  const project = await ProjectService.updateProject(projectId, result.data);
   return NextResponse.json({ project });
 }
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { projectId: string } }
+  { params }: { params: Promise<{ projectId: string }> }
 ) {
+  const { projectId } = await params;
   const userId = req.headers.get("x-user-id") || undefined;
   const user = await getCurrentUser(userId);
 
@@ -130,7 +133,7 @@ export async function DELETE(
   }
 
   try {
-    await ProjectService.archiveProject(params.projectId);
+    await ProjectService.archiveProject(projectId);
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(
