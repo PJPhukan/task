@@ -1,13 +1,11 @@
 export const permissionCatalog = {
   // Projects
   "project.create": { label: "Create project", group: "Projects" },
-  "project.read": { label: "Read project", group: "Projects" },
   "project.update": { label: "Update project", group: "Projects" },
   "project.delete": { label: "Delete project", group: "Projects" },
 
   // Boards
   "board.create": { label: "Create board", group: "Boards" },
-  "board.read": { label: "Read board", group: "Boards" },
   "board.update": { label: "Update board", group: "Boards" },
   "board.delete": { label: "Delete board", group: "Boards" },
 
