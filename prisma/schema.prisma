@@ -22,6 +22,7 @@ model User {
   comments       Comment[]
   attachments    Attachment[]
   activityLogs   ActivityLog[]
+  boardAccess    BoardAccess[]
 
   @@index([email])
 }
@@ -67,17 +68,34 @@ model Board {
   name        String
   description String?
   position    Int
+  isOpen      Boolean   @default(true)
   createdById String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy   User          @relation(fields: [createdById], references: [id])
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User            @relation(fields: [createdById], references: [id])
   columns     BoardColumn[]
   tasks       Task[]
+  access      BoardAccess[]
 
   @@index([projectId])
   @@index([createdById])
+}
+
+model BoardAccess {
+  id        String   @id @default(cuid())
+  boardId   String
+  userId    String?
+  roleId    String?
+  createdAt DateTime @default(now())
+
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([boardId, userId])
+  @@index([boardId])
+  @@index([userId])
 }
 
 model BoardColumn {
@@ -90,11 +108,25 @@ model BoardColumn {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  board     Board           @relation(fields: [boardId], references: [id], onDelete: Cascade)
   tasks     Task[]
+  rules     ColumnRule[]
 
   @@index([boardId])
   @@index([isDone])
+}
+
+model ColumnRule {
+  id        String   @id @default(cuid())
+  columnId  String
+  ruleType  String   // "view" or "move"
+  roleId    String   // Stored as stable permly role ID
+  createdAt DateTime @default(now())
+
+  column    BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+
+  @@unique([columnId, ruleType, roleId])
+  @@index([columnId])
 }
 
 model Task {
