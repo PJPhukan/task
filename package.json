@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "npm run db:migrate:test && vitest",
-    "db:migrate": "npx prisma migrate dev",
+    "postinstall": "npx prisma generate",
+    "db:migrate": "npx prisma migrate dev && npx prisma generate",
     "db:migrate:test": "node scripts/migrate-test-db.mjs",
     "db:seed": "tsx prisma/seed.ts"
   },
