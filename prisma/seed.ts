@@ -98,6 +98,33 @@ async function main() {
   await perms.user(viewer.id).assignRole('viewer');
 
   console.log('Roles assigned');
+
+  // Grant permissions to roles (regardless of whether roles are newly created)
+  await perms.role('admin').givePermission('*');
+  await perms.role('manager').syncPermissions([
+    'project.update',
+    'member.manage',
+    'task.create',
+    'task.update',
+    'task.move',
+    'task.delete',
+    'comment.create',
+    'comment.update',
+    'comment.delete',
+    'attachment.upload',
+    'attachment.delete',
+    'label.manage',
+  ]);
+  await perms.role('member').syncPermissions([
+    'task.create',
+    'task.update',
+    'task.move',
+    'comment.create',
+    'attachment.upload',
+  ]);
+  // viewer role has no permissions (read-only)
+
+  console.log('Permissions granted');
 }
 
 main()
