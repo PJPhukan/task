@@ -33,7 +33,7 @@ beforeAll(async () => {
 describe('Members API', () => {
   it('Member can list project members', async () => {
     await prisma.projectMember.create({
-      data: { projectId, userId: memberId, role: 'member' },
+      data: { projectId, userId: memberId },
     });
 
     const response = await fetch(`http://localhost:3000/api/projects/${projectId}/members`, {

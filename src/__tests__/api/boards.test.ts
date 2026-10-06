@@ -23,11 +23,11 @@ beforeAll(async () => {
   projectId = project.id;
 
   await prisma.projectMember.create({
-    data: { projectId, userId: memberId, role: 'member' },
+    data: { projectId, userId: memberId },
   });
 
   await prisma.projectMember.create({
-    data: { projectId, userId: viewerId, role: 'viewer' },
+    data: { projectId, userId: viewerId },
   });
 });
 

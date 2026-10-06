@@ -47,14 +47,9 @@ export async function GET(
   }
 
   const isMember = await ProjectService.isMember(projectId, user.id);
-  const perms = getPerms();
-  await setupPermissions();
-
-  const hasGetPermission = await perms.user(user.id).can("project.read");
-
-  if (!isMember && !hasGetPermission) {
+  if (!isMember) {
     return NextResponse.json(
-      { error: { code: "FORBIDDEN", message: "Access denied" } },
+      { error: { code: "FORBIDDEN", message: "Not a project member" } },
       { status: 403 }
     );
   }
