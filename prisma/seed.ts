@@ -111,6 +111,7 @@ async function main() {
       'task.update',
       'task.move',
       'task.delete',
+      'task.delete.own',
       'comment.create',
       'comment.update',
       'comment.delete',

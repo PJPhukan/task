@@ -68,3 +68,13 @@ API specification and endpoint reference for cm-task-manager backend.
 | DELETE | /api/projects/:projectId/columns/:columnId | column.manage | Delete column (with targetColumnId to move tasks) |
 | PATCH | /api/projects/:projectId/boards/:boardId/columns/reorder | column.manage | Reorder columns (atomic transaction) |
 | PUT | /api/projects/:projectId/columns/:columnId/rules | column.manage | Set column view/move rules by role |
+
+## Tasks
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| POST | /api/projects/:projectId/tasks | task.create | Create task with boardId, columnId, title, etc. |
+| GET | /api/projects/:projectId/tasks/:taskId | - | Get task (404 if column not visible to user) |
+| PATCH | /api/projects/:projectId/tasks/:taskId | task.update | Update task fields (title, description, priority, dates, assignee) |
+| DELETE | /api/projects/:projectId/tasks/:taskId | task.delete or task.delete.own | Delete task (delete any or only own reported tasks) |
+| PATCH | /api/projects/:projectId/tasks/:taskId/move | task.move | Move task to different column with reordering |

@@ -56,9 +56,11 @@ App runs on `http://localhost:3000` (frontend and API routes).
 - **Route handlers:** Stay thin. Call services in `src/server/modules/<feature>/{service,schema}.ts`. All server files start with `import "server-only"`.
 - **Input validation:** Every route validates with Zod. Errors return `{ error: { code, message, details? } }`.
 - **Database:** Prisma schema in `prisma/schema.prisma`. Schema changes go through `prisma migrate dev`. Never use `db push`. Never reset a database without asking first. Schema is portable to MySQL (no postgres-only types or raw SQL). The `prisma.config.ts` loads `.env.local` — do not modify this setup.
+- **Migrations:** Never write or rename migration folders by hand. Always generate with `npx prisma migrate dev --name <real_name>`, then run `npm run db:migrate:test` to apply to test database. Never run `prisma migrate dev` without a real `--name` (empty names cause waits for input and lock the database).
 - **Auth:** Temporary only, isolated in `src/server/auth/current-user.ts`. When `AUTH_MODE=dev`, read `x-user-id` header. Later: one file change only.
 - **Permissions:** Use permly permissions only; never check role names in code. Access decisions depend on `perms.user().can(permission)`. Roles will become admin-defined later.
 - **API documentation:** `docs/API.md` may only contain routes that exist and have a passing test. Remove routes if tests fail or implementation is incomplete.
+- **Tests:** Never skip tests with `it.skip`, `describe.skip`, or comments. Never report tests as passing without running the full suite and showing the real summary lines (passed, failed, skipped totals).
 - **Context management:** If running low on context at a module boundary, commit the completed module, and report exactly what is implemented and what is not. Never report a route as complete unless its test passes.
 
 ## Phase: Setup (Initial)
