@@ -4,7 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { createPermissions } from 'permly';
 import { postgresAdapter } from 'permly/postgres';
-import bcrypt from 'bcrypt';
+import { hashPassword } from '@better-auth/utils/password';
 
 loadEnv({ path: '.env.local' });
 loadEnv();
@@ -19,8 +19,8 @@ const prisma = new PrismaClient({ adapter });
 const DEV_PASSWORD = 'development123';
 
 async function main() {
-  // Hash the development password using bcrypt (same as Better Auth)
-  const hashedPassword = await bcrypt.hash(DEV_PASSWORD, 10);
+  // Hash the development password using Better Auth's own password hashing
+  const hashedPassword = await hashPassword(DEV_PASSWORD);
 
   // Create test users
   const admin = await prisma.user.upsert({
