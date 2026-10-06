@@ -45,7 +45,7 @@ describe('Profile API', () => {
     const project = await prisma.project.create({
       data: {
         name: 'Profile Test Project',
-        key: `PROF${Date.now()}`,
+        key: `PF${Math.random().toString(36).substr(2, 3).toUpperCase()}`,
       },
     });
 

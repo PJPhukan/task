@@ -18,7 +18,7 @@ beforeAll(async () => {
   const project = await prisma.project.create({
     data: {
       name: 'Task Test Project',
-      key: `TASK${Date.now()}`,
+      key: `TK${Math.random().toString(36).substr(2, 3).toUpperCase()}`,
     },
   });
   projectId = project.id;
