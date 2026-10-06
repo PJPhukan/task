@@ -23,7 +23,7 @@ API specification and endpoint reference for cm-task-manager backend.
 | Method | Path | Permission | Description |
 |--------|------|-----------|-------------|
 | GET | /api/projects/:projectId/members | - | List project members |
-| POST | /api/projects/:projectId/members | member.manage | Add member to project |
+| POST | /api/projects/:projectId/members | member.manage | Add member to project (with optional boardIds for board access) |
 | DELETE | /api/projects/:projectId/members/:userId | member.manage | Remove member from project |
 
 ## Roles
@@ -43,7 +43,9 @@ API specification and endpoint reference for cm-task-manager backend.
 | POST | /api/users | user.manage | Create new user with name, email, roleIds |
 | PATCH | /api/users/:userId | user.manage | Update user name/email/isActive |
 | PUT | /api/users/:userId/roles | user.manage | Replace user's roles |
+| GET | /api/users/:userId/profile | - | Get user profile (name, email, avatar, roles, projects, boards) |
 | GET | /api/me | - | Get current user with roles and permissions |
+| PATCH | /api/me | - | Update own name |
 
 ## Boards
 
@@ -54,12 +56,15 @@ API specification and endpoint reference for cm-task-manager backend.
 | GET | /api/projects/:projectId/boards/:boardId | - | Get board with columns and tasks in order (kanban-ready) |
 | PATCH | /api/projects/:projectId/boards/:boardId | board.update | Rename/reorder board |
 | DELETE | /api/projects/:projectId/boards/:boardId | board.delete | Delete board |
+| PUT | /api/projects/:projectId/boards/:boardId/access | board.update | Set board access (open or restricted with user/role lists) |
 
 ## Columns
 
 | Method | Path | Permission | Description |
 |--------|------|-----------|-------------|
+| GET | /api/projects/:projectId/boards/:boardId/columns | - | Get board columns (filtered by view rules, includes canMove) |
 | POST | /api/projects/:projectId/boards/:boardId/columns | column.manage | Add column to board |
 | PATCH | /api/projects/:projectId/columns/:columnId | column.manage | Rename/recolor/mark as done column |
 | DELETE | /api/projects/:projectId/columns/:columnId | column.manage | Delete column (with targetColumnId to move tasks) |
 | PATCH | /api/projects/:projectId/boards/:boardId/columns/reorder | column.manage | Reorder columns (atomic transaction) |
+| PUT | /api/projects/:projectId/columns/:columnId/rules | column.manage | Set column view/move rules by role |
