@@ -39,13 +39,12 @@ let permsInstance: ReturnType<typeof createPermissions> | null = null;
 
 function createPermlyInstance() {
   const env = getEnv();
-  const dbUrl = env.TEST_DATABASE_URL || env.DATABASE_URL;
-  if (!dbUrl) {
-    throw new Error("DATABASE_URL or TEST_DATABASE_URL is required");
+  if (!env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required");
   }
 
   const pool = new Pool({
-    connectionString: dbUrl,
+    connectionString: env.DATABASE_URL,
   });
 
   return createPermissions({

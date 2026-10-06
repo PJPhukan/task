@@ -1,11 +1,15 @@
+import { config as loadEnv } from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { createPermissions } from 'permly';
 import { postgresAdapter } from 'permly/postgres';
 
-const dbUrl = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
-if (!dbUrl) throw new Error('DATABASE_URL or TEST_DATABASE_URL is required');
+loadEnv({ path: '.env.local' });
+loadEnv();
+
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) throw new Error('DATABASE_URL is required');
 
 const pool = new Pool({ connectionString: dbUrl });
 const adapter = new PrismaPg(pool);
