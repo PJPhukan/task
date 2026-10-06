@@ -19,7 +19,8 @@ export const permissionCatalog = {
   "task.read": { label: "Read task", group: "Tasks" },
   "task.update": { label: "Update task", group: "Tasks" },
   "task.move": { label: "Move task", group: "Tasks" },
-  "task.delete": { label: "Delete task", group: "Tasks" },
+  "task.delete": { label: "Delete any task", group: "Tasks" },
+  "task.delete.own": { label: "Delete own task", group: "Tasks" },
 
   // Comments
   "comment.create": { label: "Create comment", group: "Comments" },

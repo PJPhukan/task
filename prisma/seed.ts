@@ -158,6 +158,7 @@ async function main() {
     'task.create',
     'task.update',
     'task.move',
+    'task.delete.own',
     'comment.create',
     'attachment.upload',
   ]);
@@ -220,7 +221,7 @@ async function main() {
       name: 'Development',
       position: 0,
       createdById: admin.id,
-      isOpen: false,
+      isOpen: true,
     } as any,
   });
 
