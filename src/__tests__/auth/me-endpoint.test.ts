@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
+import { GET } from "@/app/api/me/route";
 import prisma from "@/server/lib/prisma";
 
 describe("GET /api/me endpoint", () => {
@@ -42,9 +44,10 @@ describe("GET /api/me endpoint", () => {
   });
 
   it("returns full user info for ACTIVE user", async () => {
-    const response = await fetch("http://localhost:3000/api/me", {
-      headers: { "x-user-id": activeUserId },
-    });
+    const headers = new Headers();
+    headers.set("x-user-id", activeUserId);
+    const req = new NextRequest("http://localhost:3000/api/me", { method: "GET", headers });
+    const response = await GET(req);
 
     expect(response.status).toBe(200);
     const data = await response.json();
@@ -57,9 +60,10 @@ describe("GET /api/me endpoint", () => {
   });
 
   it("returns only id, email, status for PENDING user", async () => {
-    const response = await fetch("http://localhost:3000/api/me", {
-      headers: { "x-user-id": pendingUserId },
-    });
+    const headers = new Headers();
+    headers.set("x-user-id", pendingUserId);
+    const req = new NextRequest("http://localhost:3000/api/me", { method: "GET", headers });
+    const response = await GET(req);
 
     expect(response.status).toBe(200);
     const data = await response.json();
@@ -71,9 +75,10 @@ describe("GET /api/me endpoint", () => {
   });
 
   it("returns only id, email, status for REJECTED user", async () => {
-    const response = await fetch("http://localhost:3000/api/me", {
-      headers: { "x-user-id": rejectedUserId },
-    });
+    const headers = new Headers();
+    headers.set("x-user-id", rejectedUserId);
+    const req = new NextRequest("http://localhost:3000/api/me", { method: "GET", headers });
+    const response = await GET(req);
 
     expect(response.status).toBe(200);
     const data = await response.json();
@@ -85,9 +90,10 @@ describe("GET /api/me endpoint", () => {
   });
 
   it("returns 401 for non-existent user", async () => {
-    const response = await fetch("http://localhost:3000/api/me", {
-      headers: { "x-user-id": "invalid-user-id" },
-    });
+    const headers = new Headers();
+    headers.set("x-user-id", "invalid-user-id");
+    const req = new NextRequest("http://localhost:3000/api/me", { method: "GET", headers });
+    const response = await GET(req);
 
     expect(response.status).toBe(401);
     const data = await response.json();

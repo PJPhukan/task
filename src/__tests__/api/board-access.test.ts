@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { prisma } from '@/server/lib/prisma';
 
+function generateProjectKey(length = 4): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
 let adminId: string;
 let viewerId: string;
 let projectId: string;
@@ -16,7 +21,7 @@ beforeAll(async () => {
   const project = await prisma.project.create({
     data: {
       name: 'Test Project',
-      key: `BA${Date.now().toString().slice(-2)}`,
+      key: generateProjectKey(),
     },
   });
   projectId = project.id;

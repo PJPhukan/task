@@ -2,6 +2,11 @@ import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { prisma } from "@/server/lib/prisma";
 import { setFakeCloudinaryResource, clearFakeCloudinaryResources } from "@/server/lib/cloudinary";
 
+function generateProjectKey(length = 4): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
 let adminId: string;
 let projectId: string;
 let taskId: string;
@@ -15,7 +20,7 @@ beforeAll(async () => {
   const project = await prisma.project.create({
     data: {
       name: "Attachments Test",
-      key: `A${Date.now().toString().slice(-2)}`,
+      key: generateProjectKey(),
     },
   });
   projectId = project.id;
