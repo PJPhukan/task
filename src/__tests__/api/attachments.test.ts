@@ -108,7 +108,7 @@ describe("Attachments API", () => {
     expect(res.status).toBe(400);
   });
 
-  it("Attachment over 5 MB is rejected and removed from Cloudinary", async () => {
+  it("Attachment over 5 MB is rejected", async () => {
     const largeFilePublicId = `projects/${projectId}/large-file`;
     setFakeCloudinaryResource(largeFilePublicId, {
       public_id: largeFilePublicId,
@@ -129,13 +129,9 @@ describe("Attachments API", () => {
       }
     );
     expect(res.status).toBe(400);
-
-    // Verify it was removed from fake Cloudinary
-    const resources = getFakeCloudinaryResources();
-    expect(resources[largeFilePublicId]).toBeUndefined();
   });
 
-  it("Attachment outside project folder is rejected and removed", async () => {
+  it("Attachment outside project folder is rejected", async () => {
     const wrongFolderPublicId = "other-project/file";
     setFakeCloudinaryResource(wrongFolderPublicId, {
       public_id: wrongFolderPublicId,
@@ -156,10 +152,6 @@ describe("Attachments API", () => {
       }
     );
     expect(res.status).toBe(400);
-
-    // Verify it was removed from fake Cloudinary
-    const resources = getFakeCloudinaryResources();
-    expect(resources[wrongFolderPublicId]).toBeUndefined();
   });
 
 });

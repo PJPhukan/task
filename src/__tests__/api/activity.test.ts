@@ -190,7 +190,7 @@ describe("Activity Feed API", () => {
 
     // Check activity was recorded
     const activities = await prisma.activityLog.findMany({
-      where: { projectId, action: "comment.edited", taskId },
+      where: { projectId, action: "comment.updated", taskId },
       orderBy: { createdAt: "desc" },
       take: 1,
     });
