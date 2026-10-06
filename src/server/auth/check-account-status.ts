@@ -2,7 +2,11 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "./current-user";
 
-export async function checkAccountStatus(userId?: string) {
+export type AccountStatusResult =
+  | { authorized: true; user: any }
+  | { authorized: false; response: Response };
+
+export async function checkAccountStatus(userId?: string): Promise<AccountStatusResult> {
   const user = await getCurrentUser(userId);
 
   if (!user) {

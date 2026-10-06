@@ -1,8 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { NextRequest } from "next/server";
+import { describe, it, expect, beforeEach } from "vitest";
 import { checkAccountStatus } from "@/server/auth/check-account-status";
 import prisma from "@/server/lib/prisma";
-import { getEnv } from "@/server/config/env";
 
 describe("Account Status Check", () => {
   let testUserId: string;
@@ -27,8 +25,10 @@ describe("Account Status Check", () => {
 
     const result = await checkAccountStatus(testUserId);
     expect(result.authorized).toBe(true);
-    expect(result.user).toBeDefined();
-    expect(result.user?.id).toBe(testUserId);
+    if (result.authorized) {
+      expect(result.user).toBeDefined();
+      expect(result.user.id).toBe(testUserId);
+    }
   });
 
   it("returns 403 ACCOUNT_PENDING for PENDING user", async () => {
@@ -39,9 +39,11 @@ describe("Account Status Check", () => {
 
     const result = await checkAccountStatus(testUserId);
     expect(result.authorized).toBe(false);
-    expect(result.response.status).toBe(403);
-    const json = await result.response.json();
-    expect(json.error.code).toBe("ACCOUNT_PENDING");
+    if (!result.authorized) {
+      expect(result.response.status).toBe(403);
+      const json = await result.response.json();
+      expect(json.error.code).toBe("ACCOUNT_PENDING");
+    }
   });
 
   it("returns 403 ACCOUNT_REJECTED for REJECTED user", async () => {
@@ -52,14 +54,18 @@ describe("Account Status Check", () => {
 
     const result = await checkAccountStatus(testUserId);
     expect(result.authorized).toBe(false);
-    expect(result.response.status).toBe(403);
-    const json = await result.response.json();
-    expect(json.error.code).toBe("ACCOUNT_REJECTED");
+    if (!result.authorized) {
+      expect(result.response.status).toBe(403);
+      const json = await result.response.json();
+      expect(json.error.code).toBe("ACCOUNT_REJECTED");
+    }
   });
 
   it("returns 401 for non-existent user", async () => {
     const result = await checkAccountStatus("invalid-user-id");
     expect(result.authorized).toBe(false);
-    expect(result.response.status).toBe(401);
+    if (!result.authorized) {
+      expect(result.response.status).toBe(401);
+    }
   });
 });

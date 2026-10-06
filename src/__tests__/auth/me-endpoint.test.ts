@@ -39,11 +39,6 @@ describe("GET /api/me endpoint", () => {
       },
     });
     rejectedUserId = rejectedUser.id;
-
-    // Verify the users were created with correct status
-    const checkActive = await prisma.user.findUnique({ where: { id: activeUserId } });
-    const checkPending = await prisma.user.findUnique({ where: { id: pendingUserId } });
-    const checkRejected = await prisma.user.findUnique({ where: { id: rejectedUserId } });
   });
 
   it("returns full user info for ACTIVE user", async () => {
