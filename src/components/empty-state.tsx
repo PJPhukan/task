@@ -58,6 +58,7 @@ export function EmptyState({
             <Button
               variant={action.variant || 'default'}
               size="sm"
+              nativeButton={false}
               render={
                 <Link href={action.href}>
                   {action.label}
