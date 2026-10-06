@@ -6,7 +6,10 @@ export type ActivityAction =
   | "task.updated"
   | "task.assigned"
   | "task.moved"
-  | "task.deleted";
+  | "task.deleted"
+  | "label.created"
+  | "label.updated"
+  | "label.deleted";
 
 export interface ActivityMetadata {
   [key: string]: any;

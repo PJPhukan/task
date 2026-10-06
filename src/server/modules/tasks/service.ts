@@ -80,6 +80,7 @@ export class TaskService {
     return {
       ...task,
       key: `${updatedProject.key}-${task.number}`,
+      labels: [],
       canMove: false,
     };
   }
@@ -90,6 +91,7 @@ export class TaskService {
       include: {
         assignee: { select: { id: true, name: true, email: true } },
         reporter: { select: { id: true, name: true, email: true } },
+        labels: { include: { label: true } },
       },
     });
 
@@ -105,9 +107,19 @@ export class TaskService {
 
     const canMove = await ColumnRulesService.canMoveFromColumn(userRoles, task.columnId);
 
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { key: true },
+    });
+
     return {
       ...task,
-      key: `${(await prisma.project.findUnique({ where: { id: projectId }, select: { key: true } }))?.key}-${task.number}`,
+      key: `${project?.key}-${task.number}`,
+      labels: task.labels.map((tl) => ({
+        id: tl.label.id,
+        name: tl.label.name,
+        color: tl.label.color,
+      })),
       canMove,
     };
   }
@@ -170,6 +182,7 @@ export class TaskService {
       include: {
         assignee: { select: { id: true, name: true, email: true } },
         reporter: { select: { id: true, name: true, email: true } },
+        labels: { include: { label: true } },
       },
     });
 
@@ -195,6 +208,11 @@ export class TaskService {
     return {
       ...updated,
       key: `${project?.key}-${updated.number}`,
+      labels: updated.labels.map((tl) => ({
+        id: tl.label.id,
+        name: tl.label.name,
+        color: tl.label.color,
+      })),
       canMove: false,
     };
   }

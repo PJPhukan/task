@@ -74,7 +74,25 @@ API specification and endpoint reference for cm-task-manager backend.
 | Method | Path | Permission | Description |
 |--------|------|-----------|-------------|
 | POST | /api/projects/:projectId/tasks | task.create | Create task with boardId, columnId, title, etc. |
+| GET | /api/projects/:projectId/tasks | - | List tasks with filters (boardId, columnId, assigneeId, reporterId, priority, labelId, dueFrom, dueTo, overdue, completed, search) and pagination |
 | GET | /api/projects/:projectId/tasks/:taskId | - | Get task (404 if column not visible to user) |
 | PATCH | /api/projects/:projectId/tasks/:taskId | task.update | Update task fields (title, description, priority, dates, assignee) |
 | DELETE | /api/projects/:projectId/tasks/:taskId | task.delete or task.delete.own | Delete task (delete any or only own reported tasks) |
 | PATCH | /api/projects/:projectId/tasks/:taskId/move | task.move | Move task to different column with reordering |
+| PUT | /api/projects/:projectId/tasks/:taskId/labels | task.update | Replace task's label list |
+| GET | /api/projects/:projectId/tasks/:taskId/stages | - | Get task stage history with durations |
+
+## My Tasks
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/me/tasks | - | List tasks assigned to current user with filters (open, overdue, completed) |
+
+## Labels
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/projects/:projectId/labels | - | List project labels |
+| POST | /api/projects/:projectId/labels | label.manage | Create label (name, color) |
+| PATCH | /api/projects/:projectId/labels/:labelId | label.manage | Update label (name and/or color) |
+| DELETE | /api/projects/:projectId/labels/:labelId | label.manage | Delete label |

@@ -285,6 +285,182 @@ async function main() {
   }
 
   console.log(`Demo board created: ${board.id} with column access rules`);
+
+  // Clean up any existing tasks in the demo project for idempotency
+  await prisma.task.deleteMany({
+    where: { projectId: project.id },
+  });
+
+  // Reset task counter
+  await prisma.project.update({
+    where: { id: project.id },
+    data: { taskCounter: 0 },
+  });
+
+  // Create demo labels
+  const labelData = [
+    { name: 'Bug', color: '#FF6B6B' },
+    { name: 'Feature', color: '#4ECDC4' },
+    { name: 'Enhancement', color: '#45B7D1' },
+    { name: 'Documentation', color: '#FFA07A' },
+    { name: 'High Priority', color: '#FFD93D' },
+  ];
+
+  const labels: Record<string, string> = {};
+  for (const label of labelData) {
+    const created = await prisma.label.upsert({
+      where: { projectId_name: { projectId: project.id, name: label.name } },
+      update: {},
+      create: { projectId: project.id, name: label.name, color: label.color },
+    });
+    labels[label.name] = created.id;
+  }
+
+  // Get columns for task creation
+  const columns = await prisma.boardColumn.findMany({
+    where: { boardId: board.id },
+    orderBy: { position: 'asc' },
+  });
+
+  // Demo task data - spread across 30 days and columns
+  const now = new Date();
+  const taskSpecs = [
+    // To Do column tasks
+    { title: 'Setup authentication system', priority: 'HIGH', assignee: developer.id, labels: ['Feature'], daysAgo: 28, columnIndex: 0 },
+    { title: 'Design database schema', priority: 'URGENT', assignee: developer.id, labels: ['Feature', 'Documentation'], daysAgo: 25, columnIndex: 0 },
+    { title: 'Create API endpoints', priority: 'HIGH', assignee: developer.id, labels: ['Feature'], daysAgo: 20, columnIndex: 0 },
+    { title: 'Write unit tests for auth', priority: 'MEDIUM', assignee: developer.id, labels: [], daysAgo: 18, columnIndex: 0 },
+    { title: 'Add error handling', priority: 'MEDIUM', assignee: developer.id, labels: ['Enhancement'], daysAgo: 15, columnIndex: 0 },
+
+    // In Progress column tasks
+    { title: 'Implement user roles', priority: 'HIGH', assignee: developer.id, labels: ['Feature'], daysAgo: 12, columnIndex: 1 },
+    { title: 'Add logging system', priority: 'MEDIUM', assignee: developer.id, labels: ['Enhancement'], daysAgo: 10, columnIndex: 1 },
+    { title: 'Refactor API routes', priority: 'MEDIUM', assignee: developer.id, labels: [], daysAgo: 8, columnIndex: 1 },
+
+    // Ready for QA column tasks
+    { title: 'Test login flow', priority: 'HIGH', assignee: qa.id, labels: [], daysAgo: 6, columnIndex: 2 },
+    { title: 'Verify database migrations', priority: 'MEDIUM', assignee: qa.id, labels: [], daysAgo: 5, columnIndex: 2 },
+    { title: 'Test error messages', priority: 'LOW', assignee: qa.id, labels: [], daysAgo: 4, columnIndex: 2 },
+
+    // Ready for Prod column tasks
+    { title: 'Performance testing', priority: 'HIGH', assignee: qa.id, labels: ['High Priority'], daysAgo: 3, columnIndex: 3 },
+    { title: 'Security audit', priority: 'URGENT', assignee: deployment.id, labels: ['High Priority'], daysAgo: 2, columnIndex: 3 },
+
+    // In Production column tasks
+    { title: 'Monitor prod logs', priority: 'MEDIUM', assignee: deployment.id, labels: [], daysAgo: 1, columnIndex: 4 },
+    { title: 'Fix critical issue in production', priority: 'URGENT', assignee: developer.id, labels: ['Bug', 'High Priority'], daysAgo: 1, columnIndex: 4 },
+
+    // Done column tasks - completed
+    { title: 'Initialize git repository', priority: 'LOW', assignee: developer.id, labels: [], daysAgo: 30, columnIndex: 5, completedDaysAgo: 28 },
+    { title: 'Setup development environment', priority: 'MEDIUM', assignee: manager.id, labels: ['Documentation'], daysAgo: 27, columnIndex: 5, completedDaysAgo: 24 },
+    { title: 'Create project documentation', priority: 'LOW', assignee: manager.id, labels: ['Documentation'], daysAgo: 22, columnIndex: 5, completedDaysAgo: 19 },
+    { title: 'Design API structure', priority: 'HIGH', assignee: developer.id, labels: ['Feature'], daysAgo: 19, columnIndex: 5, completedDaysAgo: 16 },
+    { title: 'Implement basic CRUD', priority: 'HIGH', assignee: developer.id, labels: ['Feature'], daysAgo: 16, columnIndex: 5, completedDaysAgo: 13 },
+    { title: 'Add data validation', priority: 'MEDIUM', assignee: developer.id, labels: ['Enhancement'], daysAgo: 13, columnIndex: 5, completedDaysAgo: 11 },
+    { title: 'Create admin panel', priority: 'MEDIUM', assignee: developer.id, labels: ['Feature'], daysAgo: 11, columnIndex: 5, completedDaysAgo: 8 },
+    { title: 'Setup CI/CD pipeline', priority: 'HIGH', assignee: deployment.id, labels: ['Enhancement'], daysAgo: 9, columnIndex: 5, completedDaysAgo: 6 },
+
+    // Additional open tasks for more data
+    { title: 'Implement caching layer', priority: 'MEDIUM', assignee: developer.id, labels: ['Enhancement'], daysAgo: 5, columnIndex: 2 },
+    { title: 'Write API documentation', priority: 'LOW', assignee: manager.id, labels: ['Documentation'], daysAgo: 4, columnIndex: 1 },
+    { title: 'Setup monitoring alerts', priority: 'HIGH', assignee: deployment.id, labels: ['Enhancement'], daysAgo: 3, columnIndex: 3 },
+  ];
+
+  // Create tasks and stage entries
+  let taskCounter = 0;
+  const projectUpdated = await prisma.project.update({
+    where: { id: project.id },
+    data: { taskCounter: taskSpecs.length },
+  });
+
+  for (const spec of taskSpecs) {
+    taskCounter++;
+    const dueDate = new Date(now);
+    dueDate.setDate(dueDate.getDate() - spec.daysAgo + 7); // Set due date 7 days ahead of creation
+
+    const task = await prisma.task.create({
+      data: {
+        projectId: project.id,
+        boardId: board.id,
+        columnId: columns[spec.columnIndex].id,
+        number: taskCounter,
+        title: spec.title,
+        priority: spec.priority,
+        assigneeId: spec.assignee,
+        reporterId: manager.id,
+        dueDate: dueDate,
+        position: 0,
+        completedAt: spec.completedDaysAgo
+          ? new Date(now.getTime() - spec.completedDaysAgo * 24 * 60 * 60 * 1000)
+          : null,
+      },
+    });
+
+    // Add labels
+    for (const labelName of spec.labels) {
+      await prisma.taskLabel.create({
+        data: {
+          taskId: task.id,
+          labelId: labels[labelName],
+        },
+      });
+    }
+
+    // Create stage history entries going back through previous columns
+    const columnSequence = [];
+    let currentTime = new Date(now.getTime() - spec.daysAgo * 24 * 60 * 60 * 1000);
+
+    if (spec.columnIndex > 0) {
+      // Task moved through columns
+      for (let i = 0; i < spec.columnIndex; i++) {
+        columnSequence.push({
+          column: columns[i],
+          enteredTime: currentTime,
+          duration: Math.floor(Math.random() * 2 * 24 * 60 * 60) + 12 * 60 * 60, // 12h to 2d
+        });
+        currentTime = new Date(currentTime.getTime() + columnSequence[i].duration * 1000);
+      }
+    }
+
+    // Create stage entries for previous columns
+    for (const seq of columnSequence) {
+      const leftTime = new Date(seq.enteredTime.getTime() + seq.duration * 1000);
+      const mover = [developer, qa, deployment][Math.floor(Math.random() * 3)];
+
+      await (prisma as any).taskStageEntry.create({
+        data: {
+          taskId: task.id,
+          columnId: seq.column.id,
+          enteredAt: seq.enteredTime,
+          enteredById: mover.id,
+          leftAt: leftTime,
+          leftById: mover.id,
+          durationSeconds: seq.duration,
+          assigneeAtEntry: spec.assignee,
+        },
+      });
+    }
+
+    // Create current stage entry
+    await (prisma as any).taskStageEntry.create({
+      data: {
+        taskId: task.id,
+        columnId: columns[spec.columnIndex].id,
+        enteredAt: currentTime,
+        enteredById: manager.id,
+        leftAt: spec.completedDaysAgo
+          ? new Date(now.getTime() - spec.completedDaysAgo * 24 * 60 * 60 * 1000)
+          : null,
+        leftById: spec.completedDaysAgo ? manager.id : null,
+        durationSeconds: spec.completedDaysAgo
+          ? Math.floor((new Date(now.getTime() - spec.completedDaysAgo * 24 * 60 * 60 * 1000).getTime() - currentTime.getTime()) / 1000)
+          : null,
+        assigneeAtEntry: spec.assignee,
+      },
+    });
+  }
+
+  console.log(`Created ${taskCounter} demo tasks with labels and stage history`);
 }
 
 main()

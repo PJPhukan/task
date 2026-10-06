@@ -3,9 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
-import { TaskService } from "@/server/modules/tasks/service";
-import { TaskListService } from "@/server/modules/tasks/list-service";
-import { createTaskSchema } from "@/server/modules/tasks/schema";
+import { LabelService } from "@/server/modules/labels/service";
+import { createLabelSchema, type CreateLabelInput } from "@/server/modules/labels/schema";
 import { validateRequest } from "@/server/http/route";
 
 export async function GET(
@@ -34,34 +33,12 @@ export async function GET(
     );
   }
 
-  const searchParams = req.nextUrl.searchParams;
-  const filters = {
-    boardId: searchParams.get("boardId") || undefined,
-    columnId: searchParams.get("columnId") || undefined,
-    assigneeId: searchParams.get("assigneeId") || undefined,
-    reporterId: searchParams.get("reporterId") || undefined,
-    priority: searchParams.get("priority") || undefined,
-    labelId: searchParams.get("labelId") || undefined,
-    dueFrom: searchParams.get("dueFrom") || undefined,
-    dueTo: searchParams.get("dueTo") || undefined,
-    overdue: searchParams.get("overdue") === "true",
-    completed: searchParams.get("completed") === "true",
-    search: searchParams.get("search") || undefined,
-    page: parseInt(searchParams.get("page") || "1"),
-    pageSize: parseInt(searchParams.get("pageSize") || "20"),
-    sortBy: (searchParams.get("sortBy") || "createdAt") as
-      | "createdAt"
-      | "dueDate"
-      | "priority",
-    sortOrder: (searchParams.get("sortOrder") || "desc") as "asc" | "desc",
-  };
-
   try {
-    const result = await TaskListService.listProjectTasks(projectId, filters, user.id);
-    return NextResponse.json(result);
+    const labels = await LabelService.getProjectLabels(projectId);
+    return NextResponse.json({ labels });
   } catch (error: any) {
     return NextResponse.json(
-      { error: { code: "LIST_ERROR", message: error.message || "Failed to list tasks" } },
+      { error: { code: "LIST_ERROR", message: error.message || "Failed to list labels" } },
       { status: 400 }
     );
   }
@@ -85,7 +62,7 @@ export async function POST(
   const perms = getPerms();
   await setupPermissions();
 
-  const hasPermission = await perms.user(user.id).can("task.create");
+  const hasPermission = await perms.user(user.id).can("label.manage");
   if (!hasPermission) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Permission denied" } },
@@ -105,7 +82,7 @@ export async function POST(
   }
 
   const body = await req.json();
-  const validation = validateRequest(createTaskSchema, body);
+  const validation = validateRequest(createLabelSchema, body);
 
   if (!validation.success) {
     return NextResponse.json(
@@ -115,11 +92,16 @@ export async function POST(
   }
 
   try {
-    const task = await TaskService.createTask(projectId, validation.data as any, user.id);
-    return NextResponse.json({ task }, { status: 201 });
+    const data = validation.data as CreateLabelInput;
+    const label = await LabelService.createLabel(
+      projectId,
+      data.name,
+      data.color
+    );
+    return NextResponse.json({ label }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json(
-      { error: { code: "CREATION_ERROR", message: error.message || "Failed to create task" } },
+      { error: { code: "CREATION_ERROR", message: error.message || "Failed to create label" } },
       { status: 400 }
     );
   }
