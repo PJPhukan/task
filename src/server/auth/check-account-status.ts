@@ -1,0 +1,41 @@
+import "server-only";
+import { NextResponse } from "next/server";
+import { getCurrentUser } from "./current-user";
+
+export async function checkAccountStatus(userId?: string) {
+  const user = await getCurrentUser(userId);
+
+  if (!user) {
+    return {
+      authorized: false,
+      response: NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "User not found" } },
+        { status: 401 }
+      ),
+    };
+  }
+
+  const status = (user as any).status || "ACTIVE";
+
+  if (status === "PENDING") {
+    return {
+      authorized: false,
+      response: NextResponse.json(
+        { error: { code: "ACCOUNT_PENDING", message: "Account verification pending" } },
+        { status: 403 }
+      ),
+    };
+  }
+
+  if (status === "REJECTED") {
+    return {
+      authorized: false,
+      response: NextResponse.json(
+        { error: { code: "ACCOUNT_REJECTED", message: "Account has been rejected" } },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return { authorized: true, user };
+}

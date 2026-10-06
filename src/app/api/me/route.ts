@@ -22,6 +22,18 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const status = (user as any).status || "ACTIVE";
+
+  if (status !== "ACTIVE") {
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        status,
+      },
+    });
+  }
+
   const perms = getPerms();
   await setupPermissions();
 
@@ -38,6 +50,7 @@ export async function GET(req: NextRequest) {
       avatarPublicId: user.avatarPublicId,
       avatarUrl,
       isActive: user.isActive,
+      status,
     },
     roles,
     permissions,
