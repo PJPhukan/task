@@ -44,8 +44,19 @@ API specification and endpoint reference for cm-task-manager backend.
 | PATCH | /api/users/:userId | user.manage | Update user name/email/isActive |
 | PUT | /api/users/:userId/roles | user.manage | Replace user's roles |
 | GET | /api/users/:userId/profile | - | Get user profile (name, email, avatar, roles, projects, boards) |
-| GET | /api/me | - | Get current user with roles and permissions |
+| GET | /api/me | - | Get current user with roles and permissions (status for non-ACTIVE users) |
 | PATCH | /api/me | - | Update own name |
+
+## Authentication
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| POST | /api/auth/sign-up | - | Sign up with email and password (creates PENDING account) |
+| POST | /api/auth/sign-in | - | Sign in with email and password (requires verified email) |
+| POST | /api/auth/sign-out | - | Sign out and clear session |
+| POST | /api/auth/forgot-password | - | Request password reset email |
+| POST | /api/auth/reset-password | - | Reset password using reset token |
+| GET | /api/auth/verify-email | - | Verify email using verification token |
 
 ## Permissions
 
