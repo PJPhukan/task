@@ -86,5 +86,19 @@ export async function POST(
     include: { user: { select: { id: true, name: true, email: true } } },
   });
 
+  // Grant board access if boardIds provided
+  if (result.data.boardIds && result.data.boardIds.length > 0) {
+    const boardAccessData = result.data.boardIds.map((boardId) => ({
+      boardId,
+      userId: result.data.userId,
+      roleId: null,
+    }));
+
+    await prisma.boardAccess.createMany({
+      data: boardAccessData,
+      skipDuplicates: true,
+    });
+  }
+
   return NextResponse.json({ member }, { status: 201 });
 }

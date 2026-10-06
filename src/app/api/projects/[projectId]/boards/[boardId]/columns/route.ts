@@ -7,6 +7,65 @@ import {
   createColumnSchema,
   reorderColumnsSchema,
 } from "@/server/modules/columns/schema";
+import { ColumnRulesService } from "@/server/modules/columns/rules-service";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ projectId: string; boardId: string }> }
+) {
+  const { projectId, boardId } = await params;
+  const userId = req.headers.get("x-user-id") || undefined;
+  const user = await getCurrentUser(userId);
+
+  if (!user) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "User not found" } },
+      { status: 401 }
+    );
+  }
+
+  const perms = getPerms();
+  await setupPermissions();
+
+  // Verify board exists and belongs to project
+  const board = await prisma.board.findFirst({
+    where: { id: boardId, projectId },
+  });
+
+  if (!board) {
+    return NextResponse.json(
+      { error: { code: "NOT_FOUND", message: "Board not found" } },
+      { status: 404 }
+    );
+  }
+
+  // Get user roles for rule checking
+  const userRoles = await perms.user(user.id).getRoles();
+  const canManageColumns = await perms.user(user.id).can("column.manage");
+
+  // Get all columns
+  const allColumns = await prisma.boardColumn.findMany({
+    where: { boardId },
+    orderBy: { position: "asc" },
+  });
+
+  // Filter columns based on view rules
+  const visibleColumns = [];
+
+  for (const column of allColumns) {
+    const canView = canManageColumns || await ColumnRulesService.canViewColumn(userRoles, column.id);
+
+    if (canView) {
+      const canMove = canManageColumns || await ColumnRulesService.canMoveFromColumn(userRoles, column.id);
+      visibleColumns.push({
+        ...column,
+        canMove,
+      });
+    }
+  }
+
+  return NextResponse.json({ columns: visibleColumns });
+}
 
 export async function POST(
   req: NextRequest,
