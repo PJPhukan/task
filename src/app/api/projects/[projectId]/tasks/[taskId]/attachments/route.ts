@@ -1,10 +1,12 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/server/auth/current-user";
+import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
 import { AttachmentService } from "@/server/modules/attachments/service";
 import { createAttachmentSchema } from "@/server/modules/attachments/schema";
 import { createRouteHandler } from "@/server/http/route";
+import { ColumnRulesService } from "@/server/modules/columns/rules-service";
 
 const getHandler = createRouteHandler(async (
   req: NextRequest,
@@ -26,6 +28,19 @@ const getHandler = createRouteHandler(async (
     where: { id: taskId, projectId },
   });
   if (!task) {
+    return NextResponse.json(
+      { error: { code: "NOT_FOUND", message: "Task not found" } },
+      { status: 404 }
+    );
+  }
+
+  // Check column visibility
+  const perms = getPerms();
+  await setupPermissions();
+  const userRoles = await perms.user(user.id).getRoles();
+  const canViewColumn = await ColumnRulesService.canViewColumn(userRoles, task.columnId);
+
+  if (!canViewColumn) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Task not found" } },
       { status: 404 }
@@ -56,6 +71,19 @@ const postHandler = createRouteHandler(async (
     where: { id: taskId, projectId },
   });
   if (!task) {
+    return NextResponse.json(
+      { error: { code: "NOT_FOUND", message: "Task not found" } },
+      { status: 404 }
+    );
+  }
+
+  // Check column visibility
+  const perms = getPerms();
+  await setupPermissions();
+  const userRoles = await perms.user(user.id).getRoles();
+  const canViewColumn = await ColumnRulesService.canViewColumn(userRoles, task.columnId);
+
+  if (!canViewColumn) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Task not found" } },
       { status: 404 }

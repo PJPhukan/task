@@ -18,6 +18,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       'server-only': path.resolve(__dirname, './src/__tests__/__mocks__/server-only.ts'),
+      '@/server/lib/cloudinary': path.resolve(__dirname, './src/__tests__/__mocks__/cloudinary.ts'),
     },
   },
 });

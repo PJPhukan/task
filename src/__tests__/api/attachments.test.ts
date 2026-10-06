@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { prisma } from "@/server/lib/prisma";
+import { setFakeCloudinaryResource, clearFakeCloudinaryResources, getFakeCloudinaryResources } from "@/server/lib/cloudinary";
 
 let adminId: string;
 let projectId: string;
@@ -48,6 +49,10 @@ beforeAll(async () => {
     },
   });
   taskId = task.id;
+});
+
+beforeEach(() => {
+  clearFakeCloudinaryResources();
 });
 
 describe("Attachments API", () => {
@@ -101,5 +106,136 @@ describe("Attachments API", () => {
       }
     );
     expect(res.status).toBe(400);
+  });
+
+  it("Attachment over 5 MB is rejected and removed from Cloudinary", async () => {
+    const largeFilePublicId = `projects/${projectId}/large-file`;
+    setFakeCloudinaryResource(largeFilePublicId, {
+      public_id: largeFilePublicId,
+      resource_type: "image",
+      format: "jpg",
+      bytes: 6 * 1024 * 1024, // 6 MB
+    });
+
+    const res = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`,
+      {
+        method: "POST",
+        headers: { "x-user-id": adminId, "content-type": "application/json" },
+        body: JSON.stringify({
+          publicId: largeFilePublicId,
+          originalName: "large-file.jpg",
+        }),
+      }
+    );
+    expect(res.status).toBe(400);
+
+    // Verify it was removed from fake Cloudinary
+    const resources = getFakeCloudinaryResources();
+    expect(resources[largeFilePublicId]).toBeUndefined();
+  });
+
+  it("Attachment outside project folder is rejected and removed", async () => {
+    const wrongFolderPublicId = "other-project/file";
+    setFakeCloudinaryResource(wrongFolderPublicId, {
+      public_id: wrongFolderPublicId,
+      resource_type: "image",
+      format: "jpg",
+      bytes: 100 * 1024, // 100 KB
+    });
+
+    const res = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`,
+      {
+        method: "POST",
+        headers: { "x-user-id": adminId, "content-type": "application/json" },
+        body: JSON.stringify({
+          publicId: wrongFolderPublicId,
+          originalName: "file.jpg",
+        }),
+      }
+    );
+    expect(res.status).toBe(400);
+
+    // Verify it was removed from fake Cloudinary
+    const resources = getFakeCloudinaryResources();
+    expect(resources[wrongFolderPublicId]).toBeUndefined();
+  });
+
+  it("Deleting an attachment removes it from Cloudinary", async () => {
+    const attachmentPublicId = `projects/${projectId}/test-attachment`;
+    setFakeCloudinaryResource(attachmentPublicId, {
+      public_id: attachmentPublicId,
+      resource_type: "image",
+      format: "jpg",
+      bytes: 100 * 1024,
+    });
+
+    // Create attachment
+    const createRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`,
+      {
+        method: "POST",
+        headers: { "x-user-id": adminId, "content-type": "application/json" },
+        body: JSON.stringify({
+          publicId: attachmentPublicId,
+          originalName: "test.jpg",
+        }),
+      }
+    );
+    expect(createRes.status).toBe(201);
+    const attachment = await createRes.json();
+
+    // Delete attachment
+    const deleteRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments/${attachment.attachment.id}`,
+      {
+        method: "DELETE",
+        headers: { "x-user-id": adminId },
+      }
+    );
+    expect(deleteRes.status).toBe(200);
+
+    // Verify it was removed from fake Cloudinary
+    const resources = getFakeCloudinaryResources();
+    expect(resources[attachmentPublicId]).toBeUndefined();
+  });
+
+  it("Deleting a task removes its attachments from Cloudinary", async () => {
+    const attachmentPublicId = `projects/${projectId}/task-attachment`;
+    setFakeCloudinaryResource(attachmentPublicId, {
+      public_id: attachmentPublicId,
+      resource_type: "image",
+      format: "jpg",
+      bytes: 100 * 1024,
+    });
+
+    // Create attachment
+    const createRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`,
+      {
+        method: "POST",
+        headers: { "x-user-id": adminId, "content-type": "application/json" },
+        body: JSON.stringify({
+          publicId: attachmentPublicId,
+          originalName: "test.jpg",
+        }),
+      }
+    );
+    expect(createRes.status).toBe(201);
+
+    // Delete task
+    const deleteTaskRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}`,
+      {
+        method: "DELETE",
+        headers: { "x-user-id": adminId },
+      }
+    );
+    expect(deleteTaskRes.status).toBe(200);
+
+    // Verify attachments were removed from fake Cloudinary
+    const resources = getFakeCloudinaryResources();
+    expect(resources[attachmentPublicId]).toBeUndefined();
   });
 });

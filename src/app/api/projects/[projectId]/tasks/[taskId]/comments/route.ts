@@ -6,6 +6,8 @@ import { prisma } from "@/server/lib/prisma";
 import { CommentService } from "@/server/modules/comments/service";
 import { createCommentSchema } from "@/server/modules/comments/schema";
 import { createRouteHandler } from "@/server/http/route";
+import { TaskService } from "@/server/modules/tasks/service";
+import { ColumnRulesService } from "@/server/modules/columns/rules-service";
 
 const getHandler = createRouteHandler(async (
   req: NextRequest,
@@ -27,6 +29,19 @@ const getHandler = createRouteHandler(async (
     where: { id: taskId, projectId },
   });
   if (!task) {
+    return NextResponse.json(
+      { error: { code: "NOT_FOUND", message: "Task not found" } },
+      { status: 404 }
+    );
+  }
+
+  // Check column visibility
+  const perms = getPerms();
+  await setupPermissions();
+  const userRoles = await perms.user(user.id).getRoles();
+  const canViewColumn = await ColumnRulesService.canViewColumn(userRoles, task.columnId);
+
+  if (!canViewColumn) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Task not found" } },
       { status: 404 }
@@ -75,6 +90,17 @@ const postHandler = createRouteHandler(async (
 
   const perms = getPerms();
   await setupPermissions();
+
+  // Check column visibility
+  const userRoles = await perms.user(user.id).getRoles();
+  const canViewColumn = await ColumnRulesService.canViewColumn(userRoles, task.columnId);
+
+  if (!canViewColumn) {
+    return NextResponse.json(
+      { error: { code: "NOT_FOUND", message: "Task not found" } },
+      { status: 404 }
+    );
+  }
 
   const hasPermission = await perms.user(user.id).can("comment.create");
   const isAdmin = await perms.user(user.id).hasRole("admin");

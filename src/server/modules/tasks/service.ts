@@ -4,6 +4,7 @@ import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { CreateTaskInput, UpdateTaskInput, MoveTaskInput } from "./schema";
 import { ActivityService } from "@/server/modules/activity/service";
 import { ColumnRulesService } from "@/server/modules/columns/rules-service";
+import { deleteResource } from "@/server/lib/cloudinary";
 
 export class TaskService {
   static async createTask(projectId: string, input: CreateTaskInput, userId: string) {
@@ -231,6 +232,14 @@ export class TaskService {
 
     if (!hasDeleteAny && !(hasDeleteOwn && task.reporterId === userId)) {
       throw new Error("Permission denied");
+    }
+
+    // Delete all attachments from Cloudinary
+    const attachments = await prisma.attachment.findMany({
+      where: { taskId },
+    });
+    for (const attachment of attachments) {
+      await deleteResource(attachment.publicId);
     }
 
     await ActivityService.recordActivity(projectId, "task.deleted", userId, taskId, {

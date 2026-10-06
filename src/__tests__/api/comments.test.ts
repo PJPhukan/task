@@ -160,4 +160,146 @@ describe("Comments API", () => {
     );
     expect(res.status).toBe(404);
   });
+
+  it("DELETE with comment.delete.any allows deleting someone else's comment", async () => {
+    // Admin has comment.delete.any
+    const commentRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`,
+      {
+        method: "POST",
+        headers: { "x-user-id": memberId, "content-type": "application/json" },
+        body: JSON.stringify({ body: "Comment to delete by admin" }),
+      }
+    );
+    const comment = await commentRes.json();
+
+    // Admin deletes member's comment
+    const deleteRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}`,
+      {
+        method: "DELETE",
+        headers: { "x-user-id": adminId },
+      }
+    );
+    expect(deleteRes.status).toBe(200);
+
+    const checkRes = await prisma.comment.findUnique({
+      where: { id: comment.comment.id },
+    });
+    expect(checkRes).toBeNull();
+  });
+
+  it("DELETE without comment.delete.any cannot delete someone else's comment", async () => {
+    // Member does not have comment.delete.any
+    const commentRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`,
+      {
+        method: "POST",
+        headers: { "x-user-id": adminId, "content-type": "application/json" },
+        body: JSON.stringify({ body: "Admin comment" }),
+      }
+    );
+    const comment = await commentRes.json();
+
+    // Member tries to delete admin's comment
+    const deleteRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}`,
+      {
+        method: "DELETE",
+        headers: { "x-user-id": memberId },
+      }
+    );
+    expect(deleteRes.status).toBe(403);
+
+    const checkRes = await prisma.comment.findUnique({
+      where: { id: comment.comment.id },
+    });
+    expect(checkRes).not.toBeNull();
+  });
+
+  it("Member role can create, edit and delete their own comments", async () => {
+    // Create comment
+    const createRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`,
+      {
+        method: "POST",
+        headers: { "x-user-id": memberId, "content-type": "application/json" },
+        body: JSON.stringify({ body: "Member comment" }),
+      }
+    );
+    expect(createRes.status).toBe(201);
+    const comment = await createRes.json();
+
+    // Edit own comment
+    const editRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}`,
+      {
+        method: "PATCH",
+        headers: { "x-user-id": memberId, "content-type": "application/json" },
+        body: JSON.stringify({ body: "Edited member comment" }),
+      }
+    );
+    expect(editRes.status).toBe(200);
+
+    // Delete own comment
+    const deleteRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}`,
+      {
+        method: "DELETE",
+        headers: { "x-user-id": memberId },
+      }
+    );
+    expect(deleteRes.status).toBe(200);
+  });
+
+  it("User cannot view task gets 404 on comments", async () => {
+    // Create a restricted board
+    const restrictedBoard = await prisma.board.create({
+      data: {
+        projectId,
+        name: "Restricted Board",
+        position: 1,
+        createdById: adminId,
+        isOpen: false,
+      },
+    });
+
+    const restrictedColumn = await prisma.boardColumn.create({
+      data: {
+        boardId: restrictedBoard.id,
+        name: "Secret",
+        position: 0,
+      },
+    });
+
+    const restrictedTask = await prisma.task.create({
+      data: {
+        projectId,
+        boardId: restrictedBoard.id,
+        columnId: restrictedColumn.id,
+        number: 99,
+        title: "Restricted Task",
+        reporterId: adminId,
+        position: 0,
+      },
+    });
+
+    // Viewer cannot access this board's tasks
+    const commentsRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${restrictedTask.id}/comments`,
+      {
+        headers: { "x-user-id": viewerId },
+      }
+    );
+    expect(commentsRes.status).toBe(404);
+
+    // And attachments too
+    const attachmentsRes = await fetch(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${restrictedTask.id}/attachments`,
+      {
+        headers: { "x-user-id": viewerId },
+      }
+    );
+    expect(attachmentsRes.status).toBe(404);
+  });
 });

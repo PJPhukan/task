@@ -25,6 +25,10 @@ export interface CloudinaryError {
 const cloudinaryCloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 const cloudinaryApiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
 const cloudinaryApiSecret = process.env.CLOUDINARY_API_SECRET;
+const useFakeCloudinary = process.env.USE_FAKE_CLOUDINARY === "true";
+
+// Fake Cloudinary storage for testing
+const fakeCloudinaryStorage: Record<string, CloudinaryResource> = {};
 
 function isConfigured(): boolean {
   return !!(cloudinaryCloudName && cloudinaryApiKey && cloudinaryApiSecret);
@@ -65,6 +69,10 @@ export async function generateUploadSignature(
 }
 
 export async function getResourceInfo(publicId: string): Promise<CloudinaryResource | null> {
+  if (useFakeCloudinary) {
+    return fakeCloudinaryStorage[publicId] || null;
+  }
+
   if (!isConfigured()) {
     return null;
   }
@@ -96,6 +104,14 @@ export async function getResourceInfo(publicId: string): Promise<CloudinaryResou
 }
 
 export async function deleteResource(publicId: string): Promise<boolean> {
+  if (useFakeCloudinary) {
+    if (fakeCloudinaryStorage[publicId]) {
+      delete fakeCloudinaryStorage[publicId];
+      return true;
+    }
+    return false;
+  }
+
   if (!isConfigured()) {
     return false;
   }
@@ -133,4 +149,24 @@ export function buildImageUrl(publicId: string, width?: number): string {
 
 export function isCloudinaryConfigured(): boolean {
   return isConfigured();
+}
+
+// Test helpers for fake Cloudinary
+export function setFakeCloudinaryResource(publicId: string, resource: CloudinaryResource) {
+  if (useFakeCloudinary) {
+    fakeCloudinaryStorage[publicId] = resource;
+  }
+}
+
+export function clearFakeCloudinaryResources() {
+  if (useFakeCloudinary) {
+    Object.keys(fakeCloudinaryStorage).forEach(key => delete fakeCloudinaryStorage[key]);
+  }
+}
+
+export function getFakeCloudinaryResources() {
+  if (useFakeCloudinary) {
+    return { ...fakeCloudinaryStorage };
+  }
+  return {};
 }
