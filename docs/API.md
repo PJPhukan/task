@@ -64,6 +64,7 @@ API specification and endpoint reference for cm-task-manager backend.
 |--------|------|-----------|-------------|
 | GET | /api/projects/:projectId/boards/:boardId/columns | - | Get board columns (filtered by view rules, includes canMove) |
 | POST | /api/projects/:projectId/boards/:boardId/columns | column.manage | Add column to board |
+| PATCH | /api/projects/:projectId/boards/:boardId/columns | column.manage | Reorder columns (atomic transaction) |
 | PATCH | /api/projects/:projectId/columns/:columnId | column.manage | Rename/recolor/mark as done column |
 | DELETE | /api/projects/:projectId/columns/:columnId | column.manage | Delete column (with targetColumnId to move tasks) |
 | PUT | /api/projects/:projectId/columns/:columnId/rules | column.manage | Set column view/move rules by role |
