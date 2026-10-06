@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { prisma } from '@/server/lib/prisma';
 
+function generateProjectKey(length = 4): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
 let adminId: string, memberId: string, viewerId: string, projectId: string, boardId: string;
 
 beforeAll(async () => {
@@ -11,7 +16,7 @@ beforeAll(async () => {
   memberId = users.find((u) => u.email === 'member@example.com')!.id;
   viewerId = users.find((u) => u.email === 'viewer@example.com')!.id;
 
-  const projectKey = Math.random().toString(36).substring(2, 5).toUpperCase();
+  const projectKey = generateProjectKey();
   const project = await prisma.project.create({
     data: { name: 'Boards Test Project', key: projectKey },
   });

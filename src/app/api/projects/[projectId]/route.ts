@@ -4,7 +4,6 @@ import { getCurrentUser } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { ProjectService } from "@/server/modules/projects/service";
 import { updateProjectSchema } from "@/server/modules/projects/schema";
-import { z } from "zod";
 
 async function checkProjectAccess(
   projectId: string,
@@ -135,7 +134,7 @@ export async function DELETE(
   try {
     await ProjectService.archiveProject(projectId);
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: { code: "CONFLICT", message: "Cannot archive project with existing tasks" } },
       { status: 409 }

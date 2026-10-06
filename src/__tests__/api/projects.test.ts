@@ -1,14 +1,18 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { prisma } from '@/server/lib/prisma';
 
-let adminId: string, memberId: string, viewerId: string, nonMemberId: string;
+function generateProjectKey(length = 4): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+let adminId: string, viewerId: string, nonMemberId: string;
 
 beforeAll(async () => {
   const users = await prisma.user.findMany({
-    where: { email: { in: ['admin@example.com', 'member@example.com', 'viewer@example.com'] } },
+    where: { email: { in: ['admin@example.com', 'viewer@example.com'] } },
   });
   adminId = users.find((u) => u.email === 'admin@example.com')!.id;
-  memberId = users.find((u) => u.email === 'member@example.com')!.id;
   viewerId = users.find((u) => u.email === 'viewer@example.com')!.id;
 
   const nonMember = await prisma.user.create({
@@ -21,7 +25,7 @@ describe('Projects API', () => {
   let projectId: string;
 
   it('Admin can create a project', async () => {
-    const projectKey = Math.random().toString(36).substring(2, 5).toUpperCase();
+    const projectKey = generateProjectKey();
     const response = await fetch('http://localhost:3000/api/projects', {
       method: 'POST',
       headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
@@ -78,9 +82,8 @@ describe('Projects API', () => {
   });
 
   it('Admin can archive empty project', async () => {
-    const projectKey = Math.random().toString(36).substring(2, 4).toUpperCase();
     const newProject = await prisma.project.create({
-      data: { name: 'Empty Project', key: `EMP${projectKey}`.slice(0, 5) },
+      data: { name: 'Empty Project', key: generateProjectKey() },
     });
     const response = await fetch(`http://localhost:3000/api/projects/${newProject.id}`, {
       method: 'DELETE',

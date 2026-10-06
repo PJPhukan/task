@@ -60,7 +60,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ projectId: string; boardId: string }> }
 ) {
-  const { projectId, boardId } = await params;
+  const { boardId } = await params;
   const userId = req.headers.get("x-user-id") || undefined;
   const user = await getCurrentUser(userId);
 
@@ -112,7 +112,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ projectId: string; boardId: string }> }
 ) {
-  const { projectId, boardId } = await params;
+  const { boardId } = await params;
   const userId = req.headers.get("x-user-id") || undefined;
   const user = await getCurrentUser(userId);
 

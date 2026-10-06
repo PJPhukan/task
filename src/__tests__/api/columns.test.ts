@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { prisma } from '@/server/lib/prisma';
 
+function generateProjectKey(length = 4): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
 let adminId: string, memberId: string, viewerId: string, projectId: string, boardId: string, columnId: string;
 
 beforeAll(async () => {
@@ -11,7 +16,7 @@ beforeAll(async () => {
   memberId = users.find((u) => u.email === 'member@example.com')!.id;
   viewerId = users.find((u) => u.email === 'viewer@example.com')!.id;
 
-  const projectKey = Math.random().toString(36).substring(2, 5).toUpperCase();
+  const projectKey = generateProjectKey();
   const project = await prisma.project.create({
     data: { name: 'Columns Test Project', key: projectKey },
   });
@@ -120,7 +125,7 @@ describe('Columns API', () => {
 
   it('Cannot delete column with tasks without targetColumnId', async () => {
     const col = await prisma.boardColumn.findFirst({ where: { boardId } });
-    const task = await prisma.task.create({
+    await prisma.task.create({
       data: {
         projectId,
         boardId,
