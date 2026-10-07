@@ -11,6 +11,7 @@ model User {
   name          String
   email         String    @unique
   emailVerified Boolean   @default(false)
+  image         String?
   avatarPublicId String?
   status        String    @default("ACTIVE")
   isActive      Boolean   @default(true)
@@ -39,6 +40,8 @@ model Session {
   userId    String
   token     String    @unique
   expiresAt DateTime
+  ipAddress String?
+  userAgent String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -53,9 +56,14 @@ model Account {
   type            String
   provider        String
   providerAccountId String
+  accountId       String?
+  providerId      String?
+  password        String?
   refreshToken    String?
   accessToken     String?
   expiresAt       Int?
+  accessTokenExpiresAt Int?
+  refreshTokenExpiresAt Int?
   tokenType       String?
   scope           String?
   idToken         String?

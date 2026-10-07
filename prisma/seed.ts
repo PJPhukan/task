@@ -25,7 +25,7 @@ async function main() {
   // Create test users
   const admin = await prisma.user.upsert({
     where: { email: 'admin@example.com' },
-    update: { name: 'Admin User' },
+    update: { name: 'Admin User', emailVerified: true, status: 'ACTIVE', isActive: true },
     create: {
       name: 'Admin User',
       email: 'admin@example.com',
@@ -37,7 +37,7 @@ async function main() {
 
   const manager = await prisma.user.upsert({
     where: { email: 'manager@example.com' },
-    update: { name: 'Manager User' },
+    update: { name: 'Manager User', emailVerified: true, status: 'ACTIVE', isActive: true },
     create: {
       name: 'Manager User',
       email: 'manager@example.com',
@@ -49,7 +49,7 @@ async function main() {
 
   const member = await prisma.user.upsert({
     where: { email: 'member@example.com' },
-    update: { name: 'Member User' },
+    update: { name: 'Member User', emailVerified: true, status: 'ACTIVE', isActive: true },
     create: {
       name: 'Member User',
       email: 'member@example.com',
@@ -61,7 +61,7 @@ async function main() {
 
   const viewer = await prisma.user.upsert({
     where: { email: 'viewer@example.com' },
-    update: { name: 'Viewer User' },
+    update: { name: 'Viewer User', emailVerified: true, status: 'ACTIVE', isActive: true },
     create: {
       name: 'Viewer User',
       email: 'viewer@example.com',
@@ -73,7 +73,7 @@ async function main() {
 
   const developer = await prisma.user.upsert({
     where: { email: 'developer@example.com' },
-    update: { name: 'Developer User' },
+    update: { name: 'Developer User', emailVerified: true, status: 'ACTIVE', isActive: true },
     create: {
       name: 'Developer User',
       email: 'developer@example.com',
@@ -85,7 +85,7 @@ async function main() {
 
   const qa = await prisma.user.upsert({
     where: { email: 'qa@example.com' },
-    update: { name: 'QA User' },
+    update: { name: 'QA User', emailVerified: true, status: 'ACTIVE', isActive: true },
     create: {
       name: 'QA User',
       email: 'qa@example.com',
@@ -97,7 +97,7 @@ async function main() {
 
   const deployment = await prisma.user.upsert({
     where: { email: 'deployment@example.com' },
-    update: { name: 'Deployment User' },
+    update: { name: 'Deployment User', emailVerified: true, status: 'ACTIVE', isActive: true },
     create: {
       name: 'Deployment User',
       email: 'deployment@example.com',
@@ -112,13 +112,13 @@ async function main() {
   for (const user of users) {
     await prisma.account.upsert({
       where: { provider_providerAccountId: { provider: 'credential', providerAccountId: user.email } },
-      update: { accessToken: hashedPassword },
+      update: { password: hashedPassword },
       create: {
         userId: user.id,
         type: 'credentials',
         provider: 'credential',
         providerAccountId: user.email,
-        accessToken: hashedPassword,
+        password: hashedPassword,
       },
     });
   }
