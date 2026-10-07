@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/server/lib/prisma";
 import { CreateCommentInput, UpdateCommentInput } from "./schema";
 import { ActivityService } from "@/server/modules/activity/service";
+import { NotificationService } from "@/server/modules/notifications/service";
 
 export class CommentService {
   static async createComment(
@@ -10,11 +11,25 @@ export class CommentService {
     input: CreateCommentInput,
     userId: string
   ) {
+    let parentId = input.parentId;
+
+    if (parentId) {
+      const parent = await prisma.comment.findUnique({ where: { id: parentId } });
+      if (!parent) throw new Error("Parent comment not found");
+      if (parent.taskId !== taskId) throw new Error("Parent comment must belong to the same task");
+
+      // Replies are one level deep: if parent is a reply, attach to its parent instead
+      if (parent.parentId) {
+        parentId = parent.parentId;
+      }
+    }
+
     const comment = await prisma.comment.create({
       data: {
         taskId,
         authorId: userId,
         body: input.body,
+        parentId,
       },
       include: {
         author: {
@@ -27,29 +42,61 @@ export class CommentService {
       commentId: comment.id,
     });
 
+    // Notify parent comment author if this is a reply
+    if (parentId) {
+      const parent = await prisma.comment.findUnique({
+        where: { id: parentId },
+        select: { authorId: true },
+      });
+
+      if (parent && parent.authorId && parent.authorId !== userId) {
+        await NotificationService.createNotification(
+          projectId,
+          parent.authorId,
+          "comment.reply",
+          taskId,
+          userId,
+          { commentId: comment.id, parentCommentId: parentId }
+        );
+      }
+    }
+
     return comment;
   }
 
   static async getComments(projectId: string, taskId: string, page: number = 1, pageSize: number = 20) {
     const skip = (page - 1) * pageSize;
 
-    const [comments, total] = await Promise.all([
-      prisma.comment.findMany({
-        where: { taskId },
-        include: {
-          author: {
-            select: { id: true, name: true, avatarPublicId: true, email: true },
+    const topLevelComments = await prisma.comment.findMany({
+      where: { taskId, parentId: null },
+      include: {
+        author: {
+          select: { id: true, name: true, avatarPublicId: true, email: true },
+        },
+        replies: {
+          where: { isDeleted: false },
+          orderBy: { createdAt: "asc" },
+          include: {
+            author: {
+              select: { id: true, name: true, avatarPublicId: true, email: true },
+            },
           },
         },
-        orderBy: { createdAt: "asc" },
-        skip,
-        take: pageSize,
-      }),
-      prisma.comment.count({ where: { taskId } }),
-    ]);
+      },
+      orderBy: { createdAt: "asc" },
+      skip,
+      take: pageSize,
+    });
+
+    const total = await prisma.comment.count({ where: { taskId, parentId: null } });
+
+    const formattedComments = topLevelComments.map((c) => ({
+      ...c,
+      deleted: c.isDeleted ? true : undefined,
+    }));
 
     return {
-      comments,
+      comments: formattedComments,
       total,
       page,
       pageSize,
@@ -95,7 +142,10 @@ export class CommentService {
     userId: string,
     canDeleteAny: boolean
   ) {
-    const comment = await prisma.comment.findUnique({ where: { id: commentId } });
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      include: { replies: true },
+    });
     if (!comment) throw new Error("Comment not found");
 
     const isAuthor = comment.authorId === userId;
@@ -103,7 +153,28 @@ export class CommentService {
       throw new Error("You can only delete your own comments");
     }
 
-    await prisma.comment.delete({ where: { id: commentId } });
+    if (comment.replies.length > 0) {
+      // Soft delete: keep comment with cleared body
+      await prisma.comment.update({
+        where: { id: commentId },
+        data: { body: null, isDeleted: true },
+      });
+    } else {
+      // Hard delete if no replies
+      await prisma.comment.delete({ where: { id: commentId } });
+
+      // If this was a reply to a deleted parent, check if we should delete the parent
+      if (comment.parentId) {
+        const parent = await prisma.comment.findUnique({
+          where: { id: comment.parentId },
+          include: { replies: true },
+        });
+
+        if (parent && parent.isDeleted && parent.replies.length === 0) {
+          await prisma.comment.delete({ where: { id: comment.parentId } });
+        }
+      }
+    }
 
     await ActivityService.recordActivity(projectId, "comment.deleted", userId, taskId, {
       commentId,

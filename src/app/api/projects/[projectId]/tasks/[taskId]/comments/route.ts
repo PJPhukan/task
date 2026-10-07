@@ -120,8 +120,18 @@ const postHandler = createRouteHandler(async (
     );
   }
 
-  const comment = await CommentService.createComment(projectId, taskId, result.data, user.id);
-  return NextResponse.json({ comment }, { status: 201 });
+  try {
+    const comment = await CommentService.createComment(projectId, taskId, result.data, user.id);
+    return NextResponse.json({ comment }, { status: 201 });
+  } catch (error: any) {
+    if (error.message === "Parent comment not found" || error.message === "Parent comment must belong to the same task") {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: error.message } },
+        { status: 400 }
+      );
+    }
+    throw error;
+  }
 });
 
 export async function GET(req: NextRequest, context: any) {

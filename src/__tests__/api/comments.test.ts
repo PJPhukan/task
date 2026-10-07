@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { NextRequest } from "next/server";
 import { GET as getCommentsRoute, POST as createCommentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/route";
 import { PATCH as updateCommentRoute, DELETE as deleteCommentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/route";
 import { prisma } from "@/server/lib/prisma";
+import { reseedDatabase, cleanupNonSeededUsers } from "@/__tests__/__helpers__/seed";
 
 function generateProjectKey(length = 4): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -263,6 +264,233 @@ describe("Comments API", () => {
     });
     const deleteRes = await deleteCommentRoute(deleteReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
     expect(deleteRes.status).toBe(200);
+  });
+
+  it("reply to comment is returned nested under parent", async () => {
+    // Create parent comment
+    const parentHeaders = new Headers();
+    parentHeaders.set("x-user-id", memberId);
+    parentHeaders.set("content-type", "application/json");
+    const parentReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: parentHeaders,
+      body: JSON.stringify({ body: "Parent comment" }),
+    });
+    const parentRes = await createCommentRoute(parentReq, { params: Promise.resolve({ projectId, taskId }) });
+    const parentComment = await parentRes.json();
+
+    // Create reply
+    const replyHeaders = new Headers();
+    replyHeaders.set("x-user-id", adminId);
+    replyHeaders.set("content-type", "application/json");
+    const replyReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: replyHeaders,
+      body: JSON.stringify({ body: "This is a reply", parentId: parentComment.comment.id }),
+    });
+    const replyRes = await createCommentRoute(replyReq, { params: Promise.resolve({ projectId, taskId }) });
+    expect(replyRes.status).toBe(201);
+    const reply = await replyRes.json();
+    expect(reply.comment.parentId).toBe(parentComment.comment.id);
+
+    // Get comments and verify reply is nested
+    const getHeaders = new Headers();
+    getHeaders.set("x-user-id", memberId);
+    const getReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "GET",
+      headers: getHeaders,
+    });
+    const getRes = await getCommentsRoute(getReq, { params: Promise.resolve({ projectId, taskId }) });
+    const data = await getRes.json();
+    const fetchedParent = data.comments.find((c: any) => c.id === parentComment.comment.id);
+    expect(fetchedParent).toBeDefined();
+    expect(fetchedParent.replies).toBeDefined();
+    expect(fetchedParent.replies.length).toBe(1);
+    expect(fetchedParent.replies[0].id).toBe(reply.comment.id);
+  });
+
+  it("reply to reply attaches to top-level comment", async () => {
+    // Create top-level comment
+    const topHeaders = new Headers();
+    topHeaders.set("x-user-id", memberId);
+    topHeaders.set("content-type", "application/json");
+    const topReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: topHeaders,
+      body: JSON.stringify({ body: "Top level" }),
+    });
+    const topRes = await createCommentRoute(topReq, { params: Promise.resolve({ projectId, taskId }) });
+    const topComment = await topRes.json();
+
+    // Create first reply
+    const reply1Headers = new Headers();
+    reply1Headers.set("x-user-id", adminId);
+    reply1Headers.set("content-type", "application/json");
+    const reply1Req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: reply1Headers,
+      body: JSON.stringify({ body: "First reply", parentId: topComment.comment.id }),
+    });
+    const reply1Res = await createCommentRoute(reply1Req, { params: Promise.resolve({ projectId, taskId }) });
+    const reply1 = await reply1Res.json();
+
+    // Create reply to reply (should attach to top-level)
+    const reply2Headers = new Headers();
+    reply2Headers.set("x-user-id", memberId);
+    reply2Headers.set("content-type", "application/json");
+    const reply2Req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: reply2Headers,
+      body: JSON.stringify({ body: "Reply to reply", parentId: reply1.comment.id }),
+    });
+    const reply2Res = await createCommentRoute(reply2Req, { params: Promise.resolve({ projectId, taskId }) });
+    expect(reply2Res.status).toBe(201);
+    const reply2 = await reply2Res.json();
+    expect(reply2.comment).toBeDefined();
+    expect(reply2.comment.parentId).toBe(topComment.comment.id);
+  });
+
+  it("parentId from another task is rejected", async () => {
+    // Create second task
+    const column = await prisma.boardColumn.findFirst({ where: { boardId: (await prisma.task.findUnique({ where: { id: taskId } }))!.boardId } });
+    const task2 = await prisma.task.create({
+      data: {
+        projectId,
+        boardId: (await prisma.task.findUnique({ where: { id: taskId } }))!.boardId,
+        columnId: column!.id,
+        number: 2,
+        title: "Second task",
+        reporterId: adminId,
+        position: 1,
+      },
+    });
+
+    // Create comment on task 1
+    const comment1Headers = new Headers();
+    comment1Headers.set("x-user-id", memberId);
+    comment1Headers.set("content-type", "application/json");
+    const comment1Req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: comment1Headers,
+      body: JSON.stringify({ body: "Comment on task 1" }),
+    });
+    const comment1Res = await createCommentRoute(comment1Req, { params: Promise.resolve({ projectId, taskId }) });
+    const comment1 = await comment1Res.json();
+
+    // Try to reply with parentId from task 1 on task 2
+    const replyHeaders = new Headers();
+    replyHeaders.set("x-user-id", adminId);
+    replyHeaders.set("content-type", "application/json");
+    const replyReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task2.id}/comments`, {
+      method: "POST",
+      headers: replyHeaders,
+      body: JSON.stringify({ body: "Reply", parentId: comment1.comment.id }),
+    });
+    const replyRes = await createCommentRoute(replyReq, { params: Promise.resolve({ projectId, taskId: task2.id }) });
+    expect(replyRes.status).toBe(400);
+
+    await prisma.task.delete({ where: { id: task2.id } });
+  });
+
+  it("delete comment with replies keeps it as deleted with empty body", async () => {
+    // Create parent comment
+    const parentHeaders = new Headers();
+    parentHeaders.set("x-user-id", memberId);
+    parentHeaders.set("content-type", "application/json");
+    const parentReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: parentHeaders,
+      body: JSON.stringify({ body: "Parent to soft delete" }),
+    });
+    const parentRes = await createCommentRoute(parentReq, { params: Promise.resolve({ projectId, taskId }) });
+    const parentComment = await parentRes.json();
+
+    // Create reply
+    const replyHeaders = new Headers();
+    replyHeaders.set("x-user-id", adminId);
+    replyHeaders.set("content-type", "application/json");
+    const replyReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: replyHeaders,
+      body: JSON.stringify({ body: "Reply that will remain", parentId: parentComment.comment.id }),
+    });
+    const replyRes = await createCommentRoute(replyReq, { params: Promise.resolve({ projectId, taskId }) });
+    const reply = await replyRes.json();
+
+    // Delete parent comment
+    const deleteHeaders = new Headers();
+    deleteHeaders.set("x-user-id", memberId);
+    const deleteReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${parentComment.comment.id}`, {
+      method: "DELETE",
+      headers: deleteHeaders,
+    });
+    const deleteRes = await deleteCommentRoute(deleteReq, { params: Promise.resolve({ projectId, taskId, commentId: parentComment.comment.id }) });
+    expect(deleteRes.status).toBe(200);
+
+    // Verify comment is soft-deleted
+    const deletedComment = await prisma.comment.findUnique({
+      where: { id: parentComment.comment.id },
+      include: { replies: true },
+    });
+    expect(deletedComment).not.toBeNull();
+    expect(deletedComment?.isDeleted).toBe(true);
+    expect(deletedComment?.body).toBeNull();
+    expect(deletedComment?.replies.length).toBe(1);
+  });
+
+  it("delete last reply of deleted parent removes parent", async () => {
+    // Create parent comment
+    const parentHeaders = new Headers();
+    parentHeaders.set("x-user-id", memberId);
+    parentHeaders.set("content-type", "application/json");
+    const parentReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: parentHeaders,
+      body: JSON.stringify({ body: "Parent for final deletion" }),
+    });
+    const parentRes = await createCommentRoute(parentReq, { params: Promise.resolve({ projectId, taskId }) });
+    const parentComment = await parentRes.json();
+
+    // Create single reply
+    const replyHeaders = new Headers();
+    replyHeaders.set("x-user-id", adminId);
+    replyHeaders.set("content-type", "application/json");
+    const replyReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: replyHeaders,
+      body: JSON.stringify({ body: "Only reply", parentId: parentComment.comment.id }),
+    });
+    const replyRes = await createCommentRoute(replyReq, { params: Promise.resolve({ projectId, taskId }) });
+    const reply = await replyRes.json();
+
+    // Delete parent (soft delete since it has reply)
+    const deleteParentHeaders = new Headers();
+    deleteParentHeaders.set("x-user-id", memberId);
+    const deleteParentReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${parentComment.comment.id}`, {
+      method: "DELETE",
+      headers: deleteParentHeaders,
+    });
+    await deleteCommentRoute(deleteParentReq, { params: Promise.resolve({ projectId, taskId, commentId: parentComment.comment.id }) });
+
+    // Delete the reply (should trigger parent deletion)
+    const deleteReplyHeaders = new Headers();
+    deleteReplyHeaders.set("x-user-id", adminId);
+    const deleteReplyReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${reply.comment.id}`, {
+      method: "DELETE",
+      headers: deleteReplyHeaders,
+    });
+    await deleteCommentRoute(deleteReplyReq, { params: Promise.resolve({ projectId, taskId, commentId: reply.comment.id }) });
+
+    // Verify both are deleted
+    const deletedParent = await prisma.comment.findUnique({ where: { id: parentComment.comment.id } });
+    const deletedReply = await prisma.comment.findUnique({ where: { id: reply.comment.id } });
+    expect(deletedParent).toBeNull();
+    expect(deletedReply).toBeNull();
+  });
+
+  afterAll(async () => {
+    await reseedDatabase();
+    await cleanupNonSeededUsers();
   });
 
 });
