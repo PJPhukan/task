@@ -34,15 +34,28 @@ export function isCloudinaryConfigured(): boolean {
   return false;
 }
 
-// Test helpers
-export function setFakeResource(publicId: string, resource: CloudinaryResource) {
+// Test helpers - matching the real module's exports
+export function setFakeCloudinaryResource(publicId: string, resource: CloudinaryResource) {
   fakeCloudinaryStorage[publicId] = resource;
 }
 
-export function clearFakeResources() {
+export function clearFakeCloudinaryResources() {
   Object.keys(fakeCloudinaryStorage).forEach(key => delete fakeCloudinaryStorage[key]);
 }
 
-export function getFakeResources() {
+export function getFakeCloudinaryResources() {
   return { ...fakeCloudinaryStorage };
+}
+
+// Legacy names for backward compatibility
+export function setFakeResource(publicId: string, resource: CloudinaryResource) {
+  setFakeCloudinaryResource(publicId, resource);
+}
+
+export function clearFakeResources() {
+  clearFakeCloudinaryResources();
+}
+
+export function getFakeResources() {
+  return getFakeCloudinaryResources();
 }

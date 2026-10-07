@@ -1,9 +1,12 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { NextRequest } from "next/server";
 import { GET as getAttachmentsRoute, POST as createAttachmentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/route";
+import { DELETE as deleteAttachmentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/[attachmentId]/route";
 import { POST as getSignatureRoute } from "@/app/api/uploads/signature/route";
+import { DELETE as deleteTaskRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/route";
 import { prisma } from "@/server/lib/prisma";
-import { setFakeCloudinaryResource, clearFakeCloudinaryResources } from "@/server/lib/cloudinary";
+import { setFakeCloudinaryResource, clearFakeCloudinaryResources, getFakeCloudinaryResources, buildImageUrl } from "@/server/lib/cloudinary";
+import { reseedDatabase, cleanupNonSeededUsers } from "@/__tests__/__helpers__/seed";
 
 function generateProjectKey(length = 4): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -64,6 +67,7 @@ beforeEach(() => {
 });
 
 describe("Attachments API", () => {
+
   it("GET /api/projects/:projectId/tasks/:taskId/attachments returns empty list initially", async () => {
     const headers = new Headers();
     headers.set("x-user-id", adminId);
@@ -134,6 +138,19 @@ describe("Attachments API", () => {
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`, { method: "POST", headers, body: JSON.stringify({ publicId: wrongFolderPublicId, originalName: "file.jpg" }) });
     const res = await createAttachmentRoute(req, { params: Promise.resolve({ projectId, taskId }) });
     expect(res.status).toBe(400);
+  });
+
+
+  afterAll(async () => {
+    // Clean up test data
+    if (projectId) {
+      await prisma.task.deleteMany({ where: { projectId } });
+      await prisma.board.deleteMany({ where: { projectId } });
+      await prisma.projectMember.deleteMany({ where: { projectId } });
+      await prisma.project.delete({ where: { id: projectId } });
+    }
+    await reseedDatabase();
+    await cleanupNonSeededUsers();
   });
 
 });
