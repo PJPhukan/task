@@ -15,7 +15,6 @@ let devUserId: string;
 let projectId: string;
 let boardId: string;
 let toDoColumnId: string;
-let inProgressColumnId: string;
 let qaColumnId: string;
 let doneColumnId: string;
 
@@ -93,14 +92,13 @@ beforeAll(async () => {
   });
   toDoColumnId = toDoCol.id;
 
-  const inProgressCol = await prisma.boardColumn.create({
+  await prisma.boardColumn.create({
     data: {
       boardId,
       name: "In Progress",
       position: 1,
     },
   });
-  inProgressColumnId = inProgressCol.id;
 
   const qaCol = await prisma.boardColumn.create({
     data: {

@@ -227,7 +227,7 @@ export class NotificationService {
   private static async createNotification(
     recipientId: string,
     type: NotificationType,
-    actorId: string,
+    actorId: string | null,
     projectId: string,
     taskId: string,
     commentId: string | null,

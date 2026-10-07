@@ -3,7 +3,6 @@ import { NextRequest } from "next/server";
 import { PATCH as updateColumnRoute } from "@/app/api/projects/[projectId]/columns/[columnId]/route";
 import { POST as checkTimeLimitsRoute } from "@/app/api/jobs/check-time-limits/route";
 import { GET as getBoardRoute } from "@/app/api/projects/[projectId]/boards/[boardId]/route";
-import { POST as createTaskRoute } from "@/app/api/projects/[projectId]/tasks/route";
 import { prisma } from "@/server/lib/prisma";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 
@@ -16,7 +15,6 @@ let adminId: string;
 let userId1: string;
 let projectId: string;
 let boardId: string;
-let toDoColumnId: string;
 let inProgressColumnId: string;
 let doneColumnId: string;
 
@@ -71,14 +69,13 @@ beforeAll(async () => {
   boardId = board.id;
 
   // Create columns
-  const toDoCol = await prisma.boardColumn.create({
+  await prisma.boardColumn.create({
     data: {
       boardId,
       name: "To Do",
       position: 0,
     },
   });
-  toDoColumnId = toDoCol.id;
 
   const inProgressCol = await prisma.boardColumn.create({
     data: {
@@ -129,7 +126,6 @@ describe("Time Limits API", () => {
 
     // Create task in In Progress
     const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
     const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
 
     // Create task that entered 30 minutes ago (under limit)
