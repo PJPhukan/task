@@ -84,7 +84,7 @@ export class ReportService {
 
   static async getOverviewReport(
     userId: string,
-    { projectId, boardId, from, to }: OverviewReportQuery
+    { boardId, from, to }: OverviewReportQuery
   ): Promise<OverviewReportResponse> {
     const perms = getPerms();
 
@@ -131,7 +131,7 @@ export class ReportService {
 
   static async getStageTimesReport(
     userId: string,
-    { projectId, boardId }: StageTimesReportQuery
+    { boardId }: StageTimesReportQuery
   ): Promise<StageTimesReportResponse> {
     const perms = getPerms();
 
