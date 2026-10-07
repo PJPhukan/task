@@ -30,9 +30,13 @@ export type Env = z.infer<typeof envSchema>;
 let cached: Env | null = null;
 
 export function getEnv(): Env {
-  if (cached) return cached;
+  // During tests, always re-parse to pick up process.env.AUTH_MODE
+  const isTest = process.env.NODE_ENV === 'test';
+  if (cached && !isTest) return cached;
 
   const env = envSchema.parse(process.env);
-  cached = env;
+  if (!isTest) {
+    cached = env;
+  }
   return env;
 }

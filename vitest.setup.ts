@@ -4,6 +4,9 @@ import { getEnv } from './src/server/config/env';
 import { reseedDatabase } from './src/__tests__/__helpers__/seed';
 
 beforeAll(async () => {
+  // Force AUTH_MODE=dev for tests, regardless of .env.local
+  process.env.AUTH_MODE = 'dev';
+
   const env = getEnv();
   const databaseUrl = env.DATABASE_URL;
 
