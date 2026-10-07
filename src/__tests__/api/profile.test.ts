@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET as getProfileRoute } from '@/app/api/users/[userId]/profile/route';
 import { PATCH as updateMeRoute } from '@/app/api/me/route';
 import { prisma } from '@/server/lib/prisma';
+import { cleanupNonSeededUsers } from '@/__tests__/__helpers__/seed';
 
 let adminId: string;
 let userId: string;
@@ -107,5 +108,9 @@ describe('Profile API', () => {
     });
     const response = await updateMeRoute(req);
     expect(response.status).toBe(401);
+  });
+
+  afterAll(async () => {
+    await cleanupNonSeededUsers();
   });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/server/lib/prisma';
 import { GET as getMeRoute } from '@/app/api/me/route';
@@ -6,6 +6,7 @@ import { POST as authPost } from '@/app/api/auth/[...all]/route';
 import { GET as authGet } from '@/app/api/auth/[...all]/route';
 import { auth } from '@/server/auth/better-auth';
 import { getMailer } from '@/server/lib/mailer';
+import { cleanupNonSeededUsers } from '@/__tests__/__helpers__/seed';
 
 describe('Seeded User Sign-In', () => {
   it('Seeded Admin user exists with stored password hash', async () => {
@@ -375,5 +376,9 @@ describe('Seeded User Sign-In', () => {
 
     const projectsData = await projectsRes.json();
     expect(projectsData.error.code).toBe('UNAUTHORIZED');
+  });
+
+  afterAll(async () => {
+    await cleanupNonSeededUsers();
   });
 });

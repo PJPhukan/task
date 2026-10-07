@@ -172,6 +172,27 @@ export async function reseedDatabase() {
     'comment.create',
     'attachment.upload',
   ]);
+
+  // Create or restore demo project
+  const demoProject = await prisma.project.upsert({
+    where: { key: 'DEMO' },
+    update: {},
+    create: {
+      name: 'Demo Project',
+      key: 'DEMO',
+      description: 'Demo project for testing',
+    },
+  });
+
+  // Add all seeded users as project members
+  const allUsers = [admin, manager, member, viewer, developer, qa, deployment];
+  for (const user of allUsers) {
+    await prisma.projectMember.upsert({
+      where: { projectId_userId: { projectId: demoProject.id, userId: user.id } },
+      update: {},
+      create: { projectId: demoProject.id, userId: user.id },
+    });
+  }
 }
 
 export async function cleanupNonSeededUsers() {

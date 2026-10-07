@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, afterAll } from "vitest";
 import { NextRequest } from "next/server";
 import { GET as listRequests } from "@/app/api/join-requests/route";
 import { POST as approveUser } from "@/app/api/join-requests/[userId]/approve/route";
@@ -6,6 +6,7 @@ import { POST as rejectUser } from "@/app/api/join-requests/[userId]/reject/rout
 import prisma from "@/server/lib/prisma";
 import { getMailer } from "@/server/lib/mailer";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
+import { cleanupNonSeededUsers } from "@/__tests__/__helpers__/seed";
 
 describe("Join Requests API", () => {
   let testMailer: ReturnType<typeof getMailer>;
@@ -228,5 +229,9 @@ describe("Join Requests API", () => {
       const data = await response.json();
       expect(data.error.code).toBe("FORBIDDEN");
     });
+  });
+
+  afterAll(async () => {
+    await cleanupNonSeededUsers();
   });
 });

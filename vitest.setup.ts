@@ -1,6 +1,7 @@
 import { beforeAll } from 'vitest';
 import { Pool } from 'pg';
 import { getEnv } from './src/server/config/env';
+import { reseedDatabase } from './src/__tests__/__helpers__/seed';
 
 beforeAll(async () => {
   const env = getEnv();
@@ -24,4 +25,6 @@ beforeAll(async () => {
       `Actual: ${dbName}`
     );
   }
+
+  await reseedDatabase();
 });
