@@ -4,6 +4,7 @@ import { GET as getMeReport } from '@/app/api/reports/me/route';
 import { GET as getUserReport } from '@/app/api/reports/users/[userId]/route';
 import { GET as getOverviewReport } from '@/app/api/reports/overview/route';
 import { GET as getStageTimesReport } from '@/app/api/reports/stage-times/route';
+import { GET as getExportReport } from '@/app/api/reports/export/route';
 import { prisma } from '@/server/lib/prisma';
 import { reseedDatabase, cleanupNonSeededUsers } from '@/__tests__/__helpers__/seed';
 
@@ -20,7 +21,13 @@ async function buildTestData() {
   });
   adminId = admin!.id;
 
-  // Create unique test users to isolate data
+  // Use seeded viewer user
+  const viewer = await prisma.user.findUnique({
+    where: { email: 'viewer@example.com' },
+  });
+  viewerId = viewer!.id;
+
+  // Create unique test member to isolate data
   const testMember = await prisma.user.create({
     data: {
       name: 'Report Test Member',
@@ -31,17 +38,6 @@ async function buildTestData() {
     },
   });
   memberId = testMember.id;
-
-  const testViewer = await prisma.user.create({
-    data: {
-      name: 'Report Test Viewer',
-      email: `report-viewer-${Date.now()}@test.example.com`,
-      emailVerified: true,
-      status: 'ACTIVE',
-      isActive: true,
-    },
-  });
-  viewerId = testViewer.id;
 
   // Create isolated test project and board
   const project = await prisma.project.create({
@@ -321,6 +317,67 @@ describe('Reports API', () => {
     expect(Array.isArray(data.report.tasksPerColumn)).toBe(true);
   });
 
+  it('Excel export returns file with correct content type', async () => {
+    const headers = new Headers();
+    headers.set('x-user-id', memberId);
+
+    const req = new NextRequest(
+      `http://localhost:3000/api/reports/export?report=me&format=xlsx&from=2026-09-15&to=2026-10-31`,
+      { method: 'GET', headers }
+    );
+    const response = await getExportReport(req);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    const buffer = await response.arrayBuffer();
+    expect(buffer.byteLength).toBeGreaterThan(0);
+  });
+
+  it('PDF export returns file with correct content type', async () => {
+    const headers = new Headers();
+    headers.set('x-user-id', memberId);
+
+    const req = new NextRequest(
+      `http://localhost:3000/api/reports/export?report=me&format=pdf&from=2026-09-15&to=2026-10-31`,
+      { method: 'GET', headers }
+    );
+    const response = await getExportReport(req);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/pdf');
+    const buffer = await response.arrayBuffer();
+    // PDF files start with %PDF signature
+    const view = new Uint8Array(buffer);
+    expect(view[0]).toBe(37); // %
+    expect(view[1]).toBe(80); // P
+    expect(view[2]).toBe(68); // D
+    expect(view[3]).toBe(70); // F
+  });
+
+  it('Unknown report format returns 400', async () => {
+    const headers = new Headers();
+    headers.set('x-user-id', memberId);
+
+    const req = new NextRequest(
+      `http://localhost:3000/api/reports/export?report=me&format=invalid`,
+      { method: 'GET', headers }
+    );
+    const response = await getExportReport(req);
+    expect(response.status).toBe(400);
+  });
+
+  it('Export with missing projectId/boardId for overview returns 400', async () => {
+    const headers = new Headers();
+    headers.set('x-user-id', memberId);
+
+    const req = new NextRequest(
+      `http://localhost:3000/api/reports/export?report=overview&format=xlsx`,
+      { method: 'GET', headers }
+    );
+    const response = await getExportReport(req);
+    expect(response.status).toBe(400);
+  });
+
   afterAll(async () => {
     // Clean up test data
     if (projectId) {
@@ -331,9 +388,6 @@ describe('Reports API', () => {
     }
     if (memberId) {
       await prisma.user.delete({ where: { id: memberId } }).catch(() => {});
-    }
-    if (viewerId) {
-      await prisma.user.delete({ where: { id: viewerId } }).catch(() => {});
     }
     await reseedDatabase();
     await cleanupNonSeededUsers();

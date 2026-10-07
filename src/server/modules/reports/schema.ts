@@ -26,11 +26,22 @@ export const stageTimesReportQuerySchema = z.object({
   boardId: z.string().min(1, 'Board ID is required'),
 });
 
+export const exportReportQuerySchema = z.object({
+  report: z.enum(['me', 'user', 'overview', 'stage-times']),
+  format: z.enum(['xlsx', 'pdf']),
+  userId: z.string().nullable().optional(),
+  from: z.string().date().nullable().optional(),
+  to: z.string().date().nullable().optional(),
+  projectId: z.string().nullable().optional(),
+  boardId: z.string().nullable().optional(),
+});
+
 export type ReportDateRange = z.infer<typeof reportDateRangeSchema>;
 export type MeReportQuery = z.infer<typeof meReportQuerySchema>;
 export type UserReportQuery = z.infer<typeof userReportQuerySchema>;
 export type OverviewReportQuery = z.infer<typeof overviewReportQuerySchema>;
 export type StageTimesReportQuery = z.infer<typeof stageTimesReportQuerySchema>;
+export type ExportReportQuery = z.infer<typeof exportReportQuerySchema>;
 
 export interface ChartDataPoint {
   label: string;
