@@ -14,10 +14,11 @@ export async function GET(req: NextRequest) {
   const user = userResult.user;
 
   try {
-    // Get all tasks assigned to the user that are not completed
-    const tasks = await TaskListService.listMyTasks(user.id, {
-      open: true,
-    });
+    const url = new URL(req.url);
+    const assignedOnly = url.searchParams.get("assignedOnly") === "true";
+
+    // Get tasks in user's queue (includes tasks with MOVE rules for their roles + assigned to them in columns with no MOVE rule)
+    const tasks = await TaskListService.getMyQueueTasks(user.id, assignedOnly);
 
     return NextResponse.json({ tasks });
   } catch (error: any) {

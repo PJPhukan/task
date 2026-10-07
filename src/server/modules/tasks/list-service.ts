@@ -214,6 +214,98 @@ export class TaskListService {
     return tasks.map((t) => this.formatTask(t));
   }
 
+  static async getMyQueueTasks(userId: string, assignedOnlyFilter?: boolean) {
+    const perms = getPerms();
+    await setupPermissions();
+    const userRoles = await perms.user(userId).getRoles();
+
+    // Get all columns
+    const columns = await prisma.boardColumn.findMany({
+      include: { board: { include: { project: true } } },
+    });
+
+    // Get all rules for all columns
+    const allRules = await (prisma as any).columnRule.findMany({});
+
+    // Collect column IDs for queue tasks
+    const queueColumnIds = new Set<string>();
+
+    for (const column of columns) {
+      // Skip done columns
+      if (column.isDone) continue;
+
+      // Get column rules
+      const columnRules = allRules.filter((r: any) => r.columnId === column.id);
+      const moveRoleIds = columnRules
+        .filter((r: any) => r.ruleType === "move")
+        .map((r: any) => r.roleId);
+
+      // Condition a: Column has MOVE rule that includes one of my roles
+      if (moveRoleIds.length > 0 && moveRoleIds.some((roleId: string) => userRoles.includes(roleId))) {
+        // Check if user can view this column
+        const canView = await ColumnRulesService.canViewColumn(userRoles, column.id);
+        if (canView) {
+          queueColumnIds.add(column.id);
+        }
+      } else if (moveRoleIds.length === 0) {
+        // Condition b: Column has no MOVE rule (so we need to include all tasks assigned to me)
+        const canView = await ColumnRulesService.canViewColumn(userRoles, column.id);
+        if (canView) {
+          queueColumnIds.add(column.id);
+        }
+      }
+    }
+
+    // Get tasks in queue columns
+    const tasks = await prisma.task.findMany({
+      where: {
+        columnId: { in: Array.from(queueColumnIds) },
+        completedAt: null,
+        ...(assignedOnlyFilter ? { assigneeId: userId } : {}),
+      },
+      include: {
+        assignee: { select: { id: true, name: true, email: true } },
+        reporter: { select: { id: true, name: true, email: true } },
+        labels: { include: { label: true } },
+        column: true,
+        board: true,
+        project: true,
+        stageHistory: {
+          where: { leftAt: null },
+          take: 1,
+        },
+      },
+    });
+
+    // Format tasks and add queueReason field
+    const formattedTasks = tasks.map((task) => {
+      const formatted = this.formatTask(task);
+
+      // Determine queue reason
+      const columnRules = allRules.filter((r: any) => r.columnId === task.columnId);
+      const moveRoleIds = columnRules
+        .filter((r: any) => r.ruleType === "move")
+        .map((r: any) => r.roleId);
+
+      let queueReason = "";
+      if (moveRoleIds.length > 0 && moveRoleIds.some((roleId: string) => userRoles.includes(roleId))) {
+        queueReason = "move_rule";
+      } else if (task.assigneeId === userId) {
+        queueReason = "assigned_to_me";
+      }
+
+      return {
+        ...formatted,
+        queueReason,
+      };
+    });
+
+    // Sort by waitingSeconds, longest first
+    formattedTasks.sort((a, b) => b.waitingSeconds - a.waitingSeconds);
+
+    return formattedTasks;
+  }
+
   private static getOrderBy(
     sortBy?: string,
     sortOrder?: string

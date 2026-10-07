@@ -908,6 +908,296 @@ describe("Notifications API", () => {
     expect(updatedNotification?.commentId).toBeNull();
   });
 
+  it("Sent-back notification: assignee receives it when task is sent back", async () => {
+    const { PATCH: moveTaskRoute } = await import("@/app/api/projects/[projectId]/tasks/[taskId]/move/route");
+
+    // Create columns: To Do (pos 0) and In Progress (pos 1)
+    const inProgressColumn = await prisma.boardColumn.create({
+      data: { boardId, name: "In Progress for Sent Back", position: 1 },
+    });
+
+    // Create task assigned to user1, in In Progress
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId: inProgressColumn.id,
+        number: 601,
+        title: "Task to send back",
+        reporterId: adminId,
+        assigneeId: userId1,
+        position: 0,
+      },
+    });
+
+    // Create initial stage entry
+    await prisma.taskStageEntry.create({
+      data: {
+        taskId: task.id,
+        columnId: inProgressColumn.id,
+        enteredById: adminId,
+        assigneeAtEntry: userId1,
+      },
+    });
+
+    // Clear any existing notifications for this task
+    await prisma.notification.deleteMany({
+      where: { taskId: task.id },
+    });
+
+    // Send task back from In Progress to To Do
+    const headers = new Headers();
+    headers.set("x-user-id", adminId);
+    headers.set("content-type", "application/json");
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        columnId, // To Do, position 0
+        index: 0,
+        reason: "Needs more work",
+      }),
+    });
+
+    const response = await moveTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
+    expect(response.status).toBe(200);
+
+    // Check that assignee got sent_back notification
+    const assigneeNotif = await prisma.notification.findFirst({
+      where: {
+        taskId: task.id,
+        recipientId: userId1,
+        type: "task.sent_back",
+      },
+    });
+    expect(assigneeNotif).not.toBeNull();
+    expect(assigneeNotif?.payload).toEqual(expect.objectContaining({ reason: "Needs more work" }));
+  });
+
+  it("Sent-back notification: person who moved it forward gets notified", async () => {
+    const { PATCH: moveTaskRoute } = await import("@/app/api/projects/[projectId]/tasks/[taskId]/move/route");
+
+    // Create columns: To Do (pos 0) and In Progress (pos 1)
+    const inProgressColumn = await prisma.boardColumn.findFirst({
+      where: { boardId, name: "In Progress for Sent Back" },
+    }) || await prisma.boardColumn.create({
+      data: { boardId, name: "In Progress for Forward", position: 2 },
+    });
+
+    // Create task in To Do, assigned to user2
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId, // To Do column
+        number: 602,
+        title: "Task moved forward then back",
+        reporterId: adminId,
+        assigneeId: userId2,
+        position: 0,
+      },
+    });
+
+    // Create initial stage entry
+    await prisma.taskStageEntry.create({
+      data: {
+        taskId: task.id,
+        columnId,
+        enteredById: adminId,
+        assigneeAtEntry: userId2,
+      },
+    });
+
+    // First, user1 moves it forward to In Progress
+    let moveHeaders = new Headers();
+    moveHeaders.set("x-user-id", userId1);
+    moveHeaders.set("content-type", "application/json");
+    let moveReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`, {
+      method: "PATCH",
+      headers: moveHeaders,
+      body: JSON.stringify({
+        columnId: inProgressColumn.id,
+        index: 0,
+      }),
+    });
+
+    let moveResponse = await moveTaskRoute(moveReq, { params: Promise.resolve({ projectId, taskId: task.id }) });
+    expect(moveResponse.status).toBe(200);
+
+    // Clear notifications from forward move
+    await prisma.notification.deleteMany({
+      where: { taskId: task.id },
+    });
+
+    // Now admin sends it back
+    moveHeaders = new Headers();
+    moveHeaders.set("x-user-id", adminId);
+    moveHeaders.set("content-type", "application/json");
+    moveReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`, {
+      method: "PATCH",
+      headers: moveHeaders,
+      body: JSON.stringify({
+        columnId, // Back to To Do
+        index: 0,
+        reason: "Incomplete implementation",
+      }),
+    });
+
+    moveResponse = await moveTaskRoute(moveReq, { params: Promise.resolve({ projectId, taskId: task.id }) });
+    expect(moveResponse.status).toBe(200);
+
+    // Check that user1 (who moved it forward) got sent_back notification
+    const forwardUserNotif = await prisma.notification.findFirst({
+      where: {
+        taskId: task.id,
+        recipientId: userId1,
+        type: "task.sent_back",
+      },
+    });
+    expect(forwardUserNotif).not.toBeNull();
+    expect(forwardUserNotif?.payload).toEqual(expect.objectContaining({ reason: "Incomplete implementation" }));
+  });
+
+  it("Sent-back notification: sender is never notified", async () => {
+    const { PATCH: moveTaskRoute } = await import("@/app/api/projects/[projectId]/tasks/[taskId]/move/route");
+
+    // Create a new In Progress column for this test
+    const testColumn = await prisma.boardColumn.create({
+      data: { boardId, name: "In Progress for sender test", position: 3 },
+    });
+
+    // Create task in test column
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId: testColumn.id,
+        number: 603,
+        title: "Task sent back by assignee",
+        reporterId: adminId,
+        assigneeId: userId1,
+        position: 0,
+      },
+    });
+
+    // Create stage entry
+    await prisma.taskStageEntry.create({
+      data: {
+        taskId: task.id,
+        columnId: testColumn.id,
+        enteredById: adminId,
+        assigneeAtEntry: userId1,
+      },
+    });
+
+    // Clear notifications
+    await prisma.notification.deleteMany({
+      where: { taskId: task.id },
+    });
+
+    // User1 sends it back (they are both sender and assignee)
+    const headers = new Headers();
+    headers.set("x-user-id", userId1);
+    headers.set("content-type", "application/json");
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        columnId, // Back to To Do
+        index: 0,
+        reason: "Self-rejection",
+      }),
+    });
+
+    const response = await moveTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
+    expect(response.status).toBe(200);
+
+    // Check that user1 did NOT get a notification (they are the sender)
+    const senderNotif = await prisma.notification.findFirst({
+      where: {
+        taskId: task.id,
+        recipientId: userId1,
+        type: "task.sent_back",
+      },
+    });
+    expect(senderNotif).toBeNull();
+  });
+
+  it("Sent-back notification: fake mailer receives the email", async () => {
+    const { PATCH: moveTaskRoute } = await import("@/app/api/projects/[projectId]/tasks/[taskId]/move/route");
+
+    // Create columns
+    const sendBackColumn = await prisma.boardColumn.create({
+      data: { boardId, name: "Send Back Email Test", position: 4 },
+    });
+
+    // Create task
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId: sendBackColumn.id,
+        number: 604,
+        title: "Task for email test",
+        reporterId: adminId,
+        assigneeId: userId1,
+        position: 0,
+      },
+    });
+
+    // Create stage entry
+    await prisma.taskStageEntry.create({
+      data: {
+        taskId: task.id,
+        columnId: sendBackColumn.id,
+        enteredById: adminId,
+        assigneeAtEntry: userId1,
+      },
+    });
+
+    // Ensure user1 has email enabled
+    await prisma.notificationSetting.upsert({
+      where: { userId: userId1 },
+      update: { emailEnabled: true },
+      create: { userId: userId1, emailEnabled: true },
+    });
+
+    // Clear previous emails from fake mailer
+    const { getMailer } = await import("@/server/lib/mailer");
+    const mailer = getMailer();
+    mailer.clearSentEmails();
+
+    // Send task back
+    const headers = new Headers();
+    headers.set("x-user-id", adminId);
+    headers.set("content-type", "application/json");
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        columnId, // Back to To Do
+        index: 0,
+        reason: "Needs revision",
+      }),
+    });
+
+    const response = await moveTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
+    expect(response.status).toBe(200);
+
+    // Send pending notification emails
+    const { sendPendingNotificationEmails } = await import("@/server/modules/notifications/email-sender");
+    await (sendPendingNotificationEmails as any)(projectId);
+
+    // Check the fake mailer received the sent_back email
+    const sentEmails = mailer.getSentEmails();
+    const user1Email = (await prisma.user.findUnique({
+      where: { id: userId1 },
+      select: { email: true },
+    }))?.email;
+    const sentBackEmail = sentEmails.find((e: any) => e.to === user1Email && e.subject.includes("604"));
+    expect(sentBackEmail).toBeDefined();
+  });
+
   afterAll(async () => {
     // Cleanup - no need as tests run on isolated database
   });
