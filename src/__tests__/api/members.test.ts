@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { NextRequest } from 'next/server';
+import { GET as getMembersRoute, POST as addMemberRoute } from '@/app/api/projects/[projectId]/members/route';
+import { DELETE as removeMemberRoute } from '@/app/api/projects/[projectId]/members/[userId]/route';
+import { GET as getUsersRoute } from '@/app/api/users/route';
 import { prisma } from '@/server/lib/prisma';
 
 function generateProjectKey(length = 4): string {
@@ -36,58 +40,70 @@ describe('Members API', () => {
       data: { projectId, userId: memberId },
     });
 
-    const response = await fetch(`http://localhost:3000/api/projects/${projectId}/members`, {
-      headers: { 'x-user-id': memberId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', memberId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/members`, { method: 'GET', headers });
+    const response = await getMembersRoute(req, { params: { projectId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.members)).toBe(true);
   });
 
   it('Non-member cannot list members', async () => {
-    const response = await fetch(`http://localhost:3000/api/projects/${projectId}/members`, {
-      headers: { 'x-user-id': viewerId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/members`, { method: 'GET', headers });
+    const response = await getMembersRoute(req, { params: { projectId } });
     expect(response.status).toBe(403);
   });
 
   it('Admin can add member', async () => {
-    const response = await fetch(`http://localhost:3000/api/projects/${projectId}/members`, {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/members`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({ userId: viewerId }),
     });
+    const response = await addMemberRoute(req, { params: { projectId } });
     expect(response.status).toBe(201);
   });
 
   it('Viewer cannot add members', async () => {
-    const response = await fetch(`http://localhost:3000/api/projects/${projectId}/members`, {
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/members`, {
       method: 'POST',
-      headers: { 'x-user-id': viewerId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({ userId: newUserId, role: 'member' }),
     });
+    const response = await addMemberRoute(req, { params: { projectId } });
     expect(response.status).toBe(403);
   });
 
   it('Admin can remove member', async () => {
-    const response = await fetch(`http://localhost:3000/api/projects/${projectId}/members/${viewerId}`, {
-      method: 'DELETE',
-      headers: { 'x-user-id': adminId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/members/${viewerId}`, { method: 'DELETE', headers });
+    const response = await removeMemberRoute(req, { params: { projectId, userId: viewerId } });
     expect(response.status).toBe(200);
   });
 
   it('GET /api/users requires member.manage permission', async () => {
-    const response = await fetch('http://localhost:3000/api/users', {
-      headers: { 'x-user-id': viewerId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    const req = new NextRequest('http://localhost:3000/api/users', { method: 'GET', headers });
+    const response = await getUsersRoute(req);
     expect(response.status).toBe(403);
   });
 
   it('Admin can get active users list', async () => {
-    const response = await fetch('http://localhost:3000/api/users', {
-      headers: { 'x-user-id': adminId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest('http://localhost:3000/api/users', { method: 'GET', headers });
+    const response = await getUsersRoute(req);
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.users)).toBe(true);
