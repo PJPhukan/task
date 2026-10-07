@@ -1,6 +1,6 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/server/auth/current-user";
+import { getCurrentUserWithStatus } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
 import { generateUploadSignature, isCloudinaryConfigured } from "@/server/lib/cloudinary";
@@ -9,14 +9,13 @@ import { uploadSignatureSchema } from "@/server/modules/attachments/schema";
 export async function POST(req: NextRequest) {
   try {
     const userId = req.headers.get("x-user-id") || undefined;
-    const user = await getCurrentUser(userId);
+    const userResult = await getCurrentUserWithStatus(userId, req);
 
-    if (!user) {
-      return NextResponse.json(
-        { error: { code: "UNAUTHORIZED", message: "User not found" } },
-        { status: 401 }
-      );
+    if (!userResult.ok) {
+      return userResult.response;
     }
+
+    const user = userResult.user;
 
     const body = await req.json();
     const result = uploadSignatureSchema.safeParse(body);

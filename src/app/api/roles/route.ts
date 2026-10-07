@@ -1,6 +1,6 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/server/auth/current-user";
+import { getCurrentUserWithStatus } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { RoleService } from "@/server/modules/roles/service";
 import { createRoleSchema } from "@/server/modules/roles/schema";
@@ -8,13 +8,10 @@ import { validateRequest } from "@/server/http/route";
 
 export async function GET(req: NextRequest) {
   const userId = req.headers.get("x-user-id") || undefined;
-  const user = await getCurrentUser(userId);
+  const userResult = await getCurrentUserWithStatus(userId, req);
 
-  if (!user) {
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "User not found" } },
-      { status: 401 }
-    );
+  if (!userResult.ok) {
+    return userResult.response;
   }
 
   try {
@@ -30,14 +27,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const userId = req.headers.get("x-user-id") || undefined;
-  const user = await getCurrentUser(userId);
+  const userResult = await getCurrentUserWithStatus(userId, req);
 
-  if (!user) {
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "User not found" } },
-      { status: 401 }
-    );
+  if (!userResult.ok) {
+    return userResult.response;
   }
+
+  const user = userResult.user;
 
   const perms = getPerms();
   await setupPermissions();

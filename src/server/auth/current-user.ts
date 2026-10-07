@@ -34,12 +34,8 @@ export async function getCurrentUser(userId?: string, req?: NextRequest) {
         where: { id: userId },
       });
 
-      if (!user) {
+      if (!user || !user.isActive) {
         return null;
-      }
-
-      if (!user.isActive) {
-        throw new Error("User is inactive");
       }
 
       return user;
