@@ -2,6 +2,7 @@ import "server-only";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
 import { CreateUserInput, UpdateUserInput, UpdateUserRolesInput } from "./schema";
+import { RoleService } from "@/server/modules/roles/service";
 
 export class UserService {
   static async createUser(input: CreateUserInput) {
@@ -24,7 +25,8 @@ export class UserService {
     }
 
     const perms = getPerms();
-    const roles = await perms.user(user.id).getRoles();
+    const roleIds = await perms.user(user.id).getRoles();
+    const roles = await RoleService.enrichRolesWithDisplayNames(roleIds);
     const permissions = await perms.user(user.id).getPermissions({ expand: true });
 
     return {
@@ -75,7 +77,8 @@ export class UserService {
 
     const perms = getPerms();
     await setupPermissions();
-    const roles = await perms.user(user.id).getRoles();
+    const roleIds = await perms.user(user.id).getRoles();
+    const roles = await RoleService.enrichRolesWithDisplayNames(roleIds);
     const permissions = await perms.user(user.id).getPermissions({ expand: true });
 
     return {
@@ -117,7 +120,8 @@ export class UserService {
 
     if (!user) throw new Error("User not found");
 
-    const newRoles = await perms.user(userId).getRoles();
+    const newRoleIds = await perms.user(userId).getRoles();
+    const newRoles = await RoleService.enrichRolesWithDisplayNames(newRoleIds);
     const permissions = await perms.user(userId).getPermissions({ expand: true });
 
     return {
@@ -138,7 +142,8 @@ export class UserService {
 
     const usersWithRoles = await Promise.all(
       users.map(async (user) => {
-        const roles = await perms.user(user.id).getRoles();
+        const roleIds = await perms.user(user.id).getRoles();
+        const roles = await RoleService.enrichRolesWithDisplayNames(roleIds);
         const permissions = await perms.user(user.id).getPermissions({ expand: true });
         return {
           ...user,

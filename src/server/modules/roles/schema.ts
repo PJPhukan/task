@@ -4,10 +4,9 @@ import { permissionCatalog } from '@/server/permissions/catalog';
 const permissionKeys = Object.keys(permissionCatalog) as Array<keyof typeof permissionCatalog>;
 
 export const createRoleSchema = z.object({
-  name: z.string()
-    .min(1, 'Role name is required')
-    .max(255)
-    .regex(/^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*$/, 'Role name must use letters, numbers, "_" and "-", separated by dots (e.g. "posts.edit")'),
+  displayName: z.string()
+    .min(1, 'Display name is required')
+    .max(40, 'Display name must be 40 characters or less'),
   permissionKeys: z.array(
     z.enum(permissionKeys as [string, ...string[]])
   ).refine(
@@ -17,7 +16,7 @@ export const createRoleSchema = z.object({
 });
 
 export const updateRoleSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
+  displayName: z.string().min(1).max(40).optional(),
   permissionKeys: z
     .array(
       z.enum(permissionKeys as [string, ...string[]])

@@ -1,6 +1,7 @@
 import "server-only";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
+import { RoleService } from "@/server/modules/roles/service";
 
 export class ProfileService {
   static async getUserProfile(userId: string) {
@@ -22,7 +23,8 @@ export class ProfileService {
     const perms = getPerms();
     await setupPermissions();
 
-    const roles = await perms.user(userId).getRoles();
+    const roleIds = await perms.user(userId).getRoles();
+    const roles = await RoleService.enrichRolesWithDisplayNames(roleIds);
     const permissions = await perms.user(userId).getPermissions({ expand: true });
 
     // Get user's projects
@@ -106,7 +108,8 @@ export class ProfileService {
     const perms = getPerms();
     await setupPermissions();
 
-    const roles = await perms.user(user.id).getRoles();
+    const roleIds = await perms.user(user.id).getRoles();
+    const roles = await RoleService.enrichRolesWithDisplayNames(roleIds);
     const permissions = await perms.user(user.id).getPermissions({ expand: true });
 
     return {

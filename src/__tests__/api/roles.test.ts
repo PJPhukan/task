@@ -19,7 +19,7 @@ beforeAll(async () => {
 });
 
 describe('Roles API', () => {
-  it('GET /api/roles returns list of built-in roles', async () => {
+  it('GET /api/roles returns list of built-in roles with displayName', async () => {
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest('http://localhost:3000/api/roles', { method: 'GET', headers });
@@ -31,7 +31,8 @@ describe('Roles API', () => {
     const adminRole = data.roles.find((r: any) => r.id === 'admin');
     expect(adminRole).toBeDefined();
     expect(adminRole).toHaveProperty('id');
-    expect(adminRole).toHaveProperty('name');
+    expect(adminRole).toHaveProperty('displayName');
+    expect(adminRole.displayName).toBe('Admin');
     expect(adminRole).toHaveProperty('permissionKeys');
     expect(adminRole).toHaveProperty('userCount');
   });
@@ -117,8 +118,9 @@ describe('Roles API', () => {
     expect([400, 409]).toContain(response.status);
   });
 
-  it('POST /api/roles creates custom role with permissions', async () => {
+  it('POST /api/roles creates custom role with displayName and generates slug', async () => {
     const timestamp = Date.now();
+    const displayName = `Team Lead ${timestamp}`;
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     headers.set('content-type', 'application/json');
@@ -126,7 +128,7 @@ describe('Roles API', () => {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        name: `custom-role-${timestamp}`,
+        displayName,
         permissionKeys: ['task.create', 'task.update'],
       }),
     });
@@ -138,7 +140,8 @@ describe('Roles API', () => {
     expect(response.status).toBe(201);
     const data = await response.json();
     expect(data.role).toBeDefined();
-    expect(data.role.name).toBe(`custom-role-${timestamp}`);
+    expect(data.role.displayName).toBe(displayName);
+    expect(data.role.id).toBe(`team-lead-${timestamp}`);
     expect(data.role.permissionKeys).toContain('task.create');
     expect(data.role.permissionKeys).toContain('task.update');
   });
@@ -152,7 +155,7 @@ describe('Roles API', () => {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        name: `single-perm-${timestamp}`,
+        displayName: `Commentator ${timestamp}`,
         permissionKeys: ['comment.create'],
       }),
     });
@@ -172,7 +175,7 @@ describe('Roles API', () => {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        name: `Invalid Perm Role ${timestamp}`,
+        displayName: `Invalid Perm Role ${timestamp}`,
         permissionKeys: ['invalid.permission', 'task.create'],
       }),
     });
@@ -191,12 +194,44 @@ describe('Roles API', () => {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        name: `Duplicate Perm Role ${timestamp}`,
+        displayName: `Duplicate Perm Role ${timestamp}`,
         permissionKeys: ['task.create', 'task.create'],
       }),
     });
     const response = await createRoleRoute(req);
     expect(response.status).toBe(400);
+  });
+
+  it('POST /api/roles rejects duplicate displayName', async () => {
+    const timestamp = Date.now();
+    const displayName = `Unique Role ${timestamp}`;
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+
+    // First create a role
+    const req1 = new NextRequest('http://localhost:3000/api/roles', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        displayName,
+        permissionKeys: ['task.create'],
+      }),
+    });
+    const response1 = await createRoleRoute(req1);
+    expect(response1.status).toBe(201);
+
+    // Try to create another role with the same displayName
+    const req2 = new NextRequest('http://localhost:3000/api/roles', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        displayName,
+        permissionKeys: ['task.create'],
+      }),
+    });
+    const response2 = await createRoleRoute(req2);
+    expect(response2.status).toBe(409);
   });
 
   it('User without role.manage cannot create roles', async () => {
@@ -208,12 +243,87 @@ describe('Roles API', () => {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        name: `Unauthorized Role ${timestamp}`,
+        displayName: `Unauthorized Role ${timestamp}`,
         permissionKeys: ['task.create'],
       }),
     });
     const response = await createRoleRoute(req);
     expect(response.status).toBe(403);
+  });
+
+  it('Two display names that slug the same both work (numbered)', async () => {
+    const timestamp = Date.now();
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+
+    // Create first role
+    const displayName1 = `Senior Dev ${timestamp}`;
+    const req1 = new NextRequest('http://localhost:3000/api/roles', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        displayName: displayName1,
+        permissionKeys: ['task.create'],
+      }),
+    });
+    const res1 = await createRoleRoute(req1);
+    expect(res1.status).toBe(201);
+    const data1 = await res1.json();
+    const expectedId1 = `senior-dev-${timestamp}`;
+    expect(data1.role.id).toBe(expectedId1);
+
+    // Create second role with different display name that slugs to same base
+    const displayName2 = `Senior-Dev ${timestamp}`;
+    const req2 = new NextRequest('http://localhost:3000/api/roles', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        displayName: displayName2,
+        permissionKeys: ['task.create'],
+      }),
+    });
+    const res2 = await createRoleRoute(req2);
+    expect(res2.status).toBe(201);
+    const data2 = await res2.json();
+    const expectedId2 = `senior-dev-${timestamp}-2`;
+    expect(data2.role.id).toBe(expectedId2);
+  });
+
+  it('PATCH /api/roles/:roleId can update displayName without changing slug', async () => {
+    const timestamp = Date.now();
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+
+    // First create a role
+    const createReq = new NextRequest('http://localhost:3000/api/roles', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        displayName: `Updatable Role ${timestamp}`,
+        permissionKeys: ['task.create'],
+      }),
+    });
+    const createRes = await createRoleRoute(createReq);
+    expect(createRes.status).toBe(201);
+    const createData = await createRes.json();
+    const roleId = createData.role.id;
+
+    // Update the displayName
+    const updatedDisplayName = `Updatable Role Updated ${timestamp}`;
+    const updateReq = new NextRequest(`http://localhost:3000/api/roles/${roleId}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({
+        displayName: updatedDisplayName,
+      }),
+    });
+    const updateRes = await updateRoleRoute(updateReq, { params: Promise.resolve({ roleId }) });
+    expect(updateRes.status).toBe(200);
+    const updateData = await updateRes.json();
+    expect(updateData.role.id).toBe(roleId);
+    expect(updateData.role.displayName).toBe(updatedDisplayName);
   });
 
   it('Cannot remove role.manage permission from the last user with it', async () => {
@@ -232,9 +342,9 @@ describe('Roles API', () => {
     expect(response.status).toBe(400);
   });
 
-  it('Custom role with task.create only allows creating tasks, rejects updates', async () => {
+  it('Custom role with task.create only allows creating tasks, user response includes displayName', async () => {
     const timestamp = Date.now();
-    const customRoleName = `custom-task-creator-${timestamp}`;
+    const customDisplayName = `Custom Creator ${timestamp}`;
 
     // Create a custom role with only task.create
     const createRoleHeaders = new Headers();
@@ -244,12 +354,14 @@ describe('Roles API', () => {
       method: 'POST',
       headers: createRoleHeaders,
       body: JSON.stringify({
-        name: customRoleName,
+        displayName: customDisplayName,
         permissionKeys: ['task.create'],
       }),
     });
     const createRoleRes = await createRoleRoute(createRoleReq);
     expect(createRoleRes.status).toBe(201);
+    const roleData = await createRoleRes.json();
+    const customRoleId = roleData.role.id;
 
     // Create a new user
     const createUserHeaders = new Headers();
@@ -261,7 +373,7 @@ describe('Roles API', () => {
       body: JSON.stringify({
         name: `Test User ${timestamp}`,
         email: `test-${timestamp}@example.com`,
-        roleIds: [customRoleName],
+        roleIds: [customRoleId],
       }),
     });
     const createUserRes = await createUserRoute(createUserReq);
@@ -277,6 +389,12 @@ describe('Roles API', () => {
     const meData = await meRes.json();
     expect(meData.permissions).toContain('task.create');
     expect(meData.permissions).not.toContain('task.update');
+
+    // Verify the user's roles include displayName
+    expect(meData.roles).toBeDefined();
+    const userRole = meData.roles.find((r: any) => r.id === customRoleId);
+    expect(userRole).toBeDefined();
+    expect(userRole.displayName).toBe(customDisplayName);
   });
 
   afterAll(async () => {

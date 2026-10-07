@@ -67,8 +67,8 @@ describe('Users API', () => {
     expect(user.email).toBe(email);
     expect(user.isActive).toBe(true);
     expect(Array.isArray(user.roles)).toBe(true);
-    expect(user.roles).toContain('member');
-    expect(user.roles).toContain('viewer');
+    expect(user.roles.some((r: any) => r.id === 'member')).toBe(true);
+    expect(user.roles.some((r: any) => r.id === 'viewer')).toBe(true);
     // User with both member and viewer roles should have union of their permissions
     expect(Array.isArray(user.permissions)).toBe(true);
     expect(user.permissions.length).toBeGreaterThan(0);
@@ -94,8 +94,8 @@ describe('Users API', () => {
     const data = await response.json();
     const user = data.user;
 
-    expect(user.roles).toContain('member');
-    expect(user.roles).toContain('manager');
+    expect(user.roles.some((r: any) => r.id === 'member')).toBe(true);
+    expect(user.roles.some((r: any) => r.id === 'manager')).toBe(true);
     // Both member and manager have permissions, so combined should be greater
     expect(Array.isArray(user.permissions)).toBe(true);
     // Should have member's permissions (task.create, etc) and manager's permissions
@@ -191,9 +191,9 @@ describe('Users API', () => {
     const response = await setUserRolesRoute(req, { params: Promise.resolve({ userId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
-    expect(data.user.roles).toContain('manager');
-    expect(data.user.roles).toContain('viewer');
-    expect(data.user.roles).not.toContain('member');
+    expect(data.user.roles.some((r: any) => r.id === 'manager')).toBe(true);
+    expect(data.user.roles.some((r: any) => r.id === 'viewer')).toBe(true);
+    expect(data.user.roles.some((r: any) => r.id === 'member')).toBe(false);
   });
 
   it('Cannot deactivate the last user with role.manage', async () => {

@@ -64,7 +64,7 @@ describe('GET /api/me', () => {
     expect(res.status).toBe(200);
 
     const data = await res.json();
-    expect(data.roles).toContain('admin');
+    expect(data.roles.some((r: any) => r.id === 'admin')).toBe(true);
   });
 
   it('viewer user has only view permissions', async () => {
@@ -75,7 +75,7 @@ describe('GET /api/me', () => {
     expect(res.status).toBe(200);
 
     const data = await res.json();
-    expect(data.roles).toContain('viewer');
+    expect(data.roles.some((r: any) => r.id === 'viewer')).toBe(true);
     expect(data.permissions).toEqual([]);
   });
 });

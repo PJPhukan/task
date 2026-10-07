@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { ProfileService } from "@/server/modules/users/profile-service";
+import { RoleService } from "@/server/modules/roles/service";
 import { buildImageUrl } from "@/server/lib/cloudinary";
 import { z } from "zod";
 import { validateRequest } from "@/server/http/route";
@@ -37,7 +38,8 @@ export async function GET(req: NextRequest) {
   const perms = getPerms();
   await setupPermissions();
 
-  const roles = await perms.user(user.id).getRoles();
+  const roleIds = await perms.user(user.id).getRoles();
+  const roles = await RoleService.enrichRolesWithDisplayNames(roleIds);
   const permissions = await perms.user(user.id).getPermissions({ expand: true });
 
   const avatarUrl = user.avatarPublicId ? buildImageUrl(user.avatarPublicId, 32) : null;

@@ -1,26 +1,69 @@
 import "server-only";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
+import { createSlug } from "@/server/lib/slug";
 import { CreateRoleInput, UpdateRoleInput } from "./schema";
 
 export class RoleService {
+  static async enrichRolesWithDisplayNames(roleIds: string[]) {
+    const roles = [];
+    for (const roleId of roleIds) {
+      const roleLabel = await prisma.roleLabel.findUnique({
+        where: { roleId },
+      });
+      roles.push({
+        id: roleId,
+        displayName: roleLabel?.displayName || roleId,
+      });
+    }
+    return roles;
+  }
+
   static async createRole(input: CreateRoleInput) {
     const perms = getPerms();
     await setupPermissions();
 
-    // Check if role already exists
-    const allRoles = await perms.getAllRoles();
-    if (allRoles.includes(input.name)) {
-      throw new Error("duplicate");
+    // Check if displayName is already used
+    const existingLabel = await prisma.roleLabel.findUnique({
+      where: { displayName: input.displayName },
+    });
+    if (existingLabel) {
+      throw new Error("displayname-duplicate");
+    }
+
+    // Generate slug from displayName
+    let slug = createSlug(input.displayName);
+
+    // Check if slug is already taken and append number if needed
+    let roleId = slug;
+    let counter = 2;
+    while (true) {
+      const existingRole = await prisma.roleLabel.findUnique({
+        where: { roleId },
+      });
+      if (!existingRole && !((await perms.getAllRoles()).includes(roleId))) {
+        break;
+      }
+      roleId = `${slug}-${counter}`;
+      counter++;
     }
 
     // Create the role in permly
-    await perms.createRole(input.name);
-    await perms.role(input.name).syncPermissions(input.permissionKeys);
+    await perms.createRole(roleId);
+    await perms.role(roleId).syncPermissions(input.permissionKeys);
+
+    // Create the RoleLabel
+    await prisma.roleLabel.create({
+      data: {
+        roleId,
+        displayName: input.displayName,
+        slug,
+      },
+    });
 
     return {
-      id: input.name,
-      name: input.name,
+      id: roleId,
+      displayName: input.displayName,
       permissionKeys: input.permissionKeys,
       userCount: 0,
     };
@@ -32,8 +75,13 @@ export class RoleService {
 
     const permissions = await perms.role(roleId).getPermissions({ expand: true });
 
+    const roleLabel = await prisma.roleLabel.findUnique({
+      where: { roleId },
+    });
+
     return {
       id: roleId,
+      displayName: roleLabel?.displayName || roleId,
       permissionKeys: permissions,
       userCount: 0,
     };
@@ -44,18 +92,18 @@ export class RoleService {
     await setupPermissions();
 
     const allRoles = await perms.getAllRoles();
-    const builtInRoles = ["admin", "manager", "member", "viewer"];
     const roles = [];
 
     for (const roleId of allRoles) {
       const permissions = await perms.role(roleId).getPermissions({ expand: true });
-      const displayName = builtInRoles.includes(roleId)
-        ? roleId.charAt(0).toUpperCase() + roleId.slice(1)
-        : roleId;
+
+      const roleLabel = await prisma.roleLabel.findUnique({
+        where: { roleId },
+      });
 
       roles.push({
         id: roleId,
-        name: displayName,
+        displayName: roleLabel?.displayName || roleId,
         permissionKeys: permissions,
         userCount: 0,
       });
@@ -68,15 +116,51 @@ export class RoleService {
     const perms = getPerms();
     await setupPermissions();
 
+    if (input.displayName) {
+      // Check if new displayName is already used
+      const existingLabel = await prisma.roleLabel.findUnique({
+        where: { displayName: input.displayName },
+      });
+      if (existingLabel && existingLabel.roleId !== roleId) {
+        throw new Error("displayname-duplicate");
+      }
+
+      // Update or create the RoleLabel
+      const currentLabel = await prisma.roleLabel.findUnique({
+        where: { roleId },
+      });
+
+      if (currentLabel) {
+        await prisma.roleLabel.update({
+          where: { roleId },
+          data: { displayName: input.displayName },
+        });
+      } else {
+        // If there's no label yet, create one
+        const slug = createSlug(input.displayName);
+        await prisma.roleLabel.create({
+          data: {
+            roleId,
+            displayName: input.displayName,
+            slug,
+          },
+        });
+      }
+    }
+
     if (input.permissionKeys) {
       await perms.role(roleId).syncPermissions(input.permissionKeys);
     }
 
     const permissions = await perms.role(roleId).getPermissions({ expand: true });
 
+    const roleLabel = await prisma.roleLabel.findUnique({
+      where: { roleId },
+    });
+
     return {
       id: roleId,
-      name: input.name || roleId,
+      displayName: roleLabel?.displayName || roleId,
       permissionKeys: permissions,
       userCount: 0,
     };

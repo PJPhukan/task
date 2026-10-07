@@ -46,6 +46,12 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ roleI
     const role = await RoleService.updateRole(roleId, validation.data as any);
     return NextResponse.json({ role });
   } catch (error: any) {
+    if (error.message === "displayname-duplicate") {
+      return NextResponse.json(
+        { error: { code: "CONFLICT", message: "Display name already exists" } },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { error: { code: "UPDATE_ERROR", message: error.message || "Failed to update role" } },
       { status: 400 }

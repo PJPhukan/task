@@ -60,9 +60,9 @@ export async function POST(req: NextRequest) {
     const newRole = await RoleService.createRole(validation.data as any);
     return NextResponse.json({ role: newRole }, { status: 201 });
   } catch (error: any) {
-    if (error.message.includes("duplicate")) {
+    if (error.message === "displayname-duplicate") {
       return NextResponse.json(
-        { error: { code: "CONFLICT", message: "Role name already exists" } },
+        { error: { code: "CONFLICT", message: "Display name already exists" } },
         { status: 409 }
       );
     }

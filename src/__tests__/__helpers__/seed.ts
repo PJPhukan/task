@@ -178,6 +178,27 @@ export async function reseedDatabase() {
     'mention.all',
   ]);
 
+  // Create or update RoleLabels for seeded roles
+  const roleDisplayNames: Record<string, string> = {
+    'admin': 'Admin',
+    'manager': 'Manager',
+    'member': 'Member',
+    'viewer': 'Viewer',
+    'developer': 'Developer',
+    'qa': 'QA',
+    'deployment': 'Deployment',
+  };
+
+  for (const [roleId, displayName] of Object.entries(roleDisplayNames)) {
+    await prisma.roleLabel.upsert({
+      where: { roleId },
+      update: { displayName },
+      create: { roleId, displayName, slug: roleId },
+    });
+  }
+
+  console.log('Roles assigned');
+
   // Create or restore demo project
   const demoProject = await prisma.project.upsert({
     where: { key: 'DEMO' },

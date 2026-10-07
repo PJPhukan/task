@@ -53,7 +53,7 @@ describe('Seeded User Sign-In', () => {
     expect(meData.user).toBeDefined();
     expect(meData.user.email).toBe(email);
     expect(meData.user.name).toBe('Admin User');
-    expect(meData.roles).toContain('admin');
+    expect(meData.roles.some((r: any) => r.id === 'admin')).toBe(true);
   });
 
   it('Seeded Admin can sign in and access /api/me with session cookie', async () => {

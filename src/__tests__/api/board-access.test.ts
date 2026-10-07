@@ -153,7 +153,7 @@ describe('Board Access API', () => {
     const roleHeaders = new Headers();
     roleHeaders.set('x-user-id', adminId);
     roleHeaders.set('content-type', 'application/json');
-    const roleReq = new NextRequest('http://localhost:3000/api/roles', { method: 'POST', headers: roleHeaders, body: JSON.stringify({ name: customRoleName, permissionKeys: ['task.create'] }) });
+    const roleReq = new NextRequest('http://localhost:3000/api/roles', { method: 'POST', headers: roleHeaders, body: JSON.stringify({ displayName: customRoleName, permissionKeys: ['task.create'] }) });
     const createRoleRes = await createRoleRoute(roleReq);
     expect(createRoleRes.status).toBe(201);
 
