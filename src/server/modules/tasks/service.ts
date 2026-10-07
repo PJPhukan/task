@@ -4,6 +4,7 @@ import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { CreateTaskInput, UpdateTaskInput, MoveTaskInput } from "./schema";
 import { ActivityService } from "@/server/modules/activity/service";
 import { ColumnRulesService } from "@/server/modules/columns/rules-service";
+import { MentionService } from "@/server/modules/mentions/service";
 import { deleteResource } from "@/server/lib/cloudinary";
 
 export class TaskService {
@@ -72,6 +73,14 @@ export class TaskService {
       return newTask;
     });
 
+    if (input.description) {
+      const mentionResult = await MentionService.validateAndSaveMentions(projectId, task.id, input.description, userId);
+      if ("error" in mentionResult) {
+        await prisma.task.delete({ where: { id: task.id } });
+        throw new Error(JSON.stringify(mentionResult.error));
+      }
+    }
+
     // Record activity
     await ActivityService.recordActivity(projectId, "task.created", userId, task.id, {
       title: task.title,
@@ -93,6 +102,11 @@ export class TaskService {
         assignee: { select: { id: true, name: true, email: true } },
         reporter: { select: { id: true, name: true, email: true } },
         labels: { include: { label: true } },
+        mentions: {
+          include: {
+            user: { select: { id: true, name: true, avatarPublicId: true } },
+          },
+        },
       },
     });
 
@@ -113,6 +127,9 @@ export class TaskService {
       select: { key: true },
     });
 
+    const mentions = task.mentions.filter((m) => !m.isAll).map((m) => m.user).filter(Boolean);
+    const mentionsAll = task.mentions.some((m) => m.isAll);
+
     return {
       ...task,
       key: `${project?.key}-${task.number}`,
@@ -121,6 +138,8 @@ export class TaskService {
         name: tl.label.name,
         color: tl.label.color,
       })),
+      mentions: mentions.length > 0 ? mentions : undefined,
+      mentionsAll: mentionsAll ? true : undefined,
       canMove,
     };
   }
@@ -175,6 +194,13 @@ export class TaskService {
     if (input.assigneeId !== undefined) {
       oldValues.assigneeId = task.assigneeId;
       updateData.assigneeId = input.assigneeId;
+    }
+
+    if (input.description !== undefined) {
+      const mentionResult = await MentionService.validateAndSaveMentions(projectId, taskId, input.description, userId);
+      if ("error" in mentionResult) {
+        throw new Error(JSON.stringify(mentionResult.error));
+      }
     }
 
     const updated = await prisma.task.update({

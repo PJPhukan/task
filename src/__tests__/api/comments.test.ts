@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { NextRequest } from "next/server";
 import { GET as getCommentsRoute, POST as createCommentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/route";
 import { PATCH as updateCommentRoute, DELETE as deleteCommentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/route";
-import { POST as likeCommentRoute, DELETE as unlikeCommentRoute, GET as getLikesRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/like/route";
+import { POST as likeCommentRoute, DELETE as unlikeCommentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/like/route";
 import { prisma } from "@/server/lib/prisma";
 import { reseedDatabase, cleanupNonSeededUsers } from "@/__tests__/__helpers__/seed";
 
@@ -416,7 +416,7 @@ describe("Comments API", () => {
       body: JSON.stringify({ body: "Reply that will remain", parentId: parentComment.comment.id }),
     });
     const replyRes = await createCommentRoute(replyReq, { params: Promise.resolve({ projectId, taskId }) });
-    const reply = await replyRes.json();
+    await replyRes.json();
 
     // Delete parent comment
     const deleteHeaders = new Headers();

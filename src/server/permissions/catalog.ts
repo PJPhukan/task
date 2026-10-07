@@ -22,6 +22,7 @@ export const permissionCatalog = {
   // Comments
   "comment.create": { label: "Create comment", group: "Comments" },
   "comment.delete.any": { label: "Delete any comment", group: "Comments" },
+  "mention.all": { label: "Mention all members", group: "Comments" },
 
   // Attachments
   "attachment.upload": { label: "Upload attachment", group: "Comments" },

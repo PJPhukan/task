@@ -41,6 +41,16 @@ export function createNotificationEmailTemplate(
       text: `${actor.name} moved task ${task.number} - ${task.title}\n\nView task: ${taskLink}`,
       html: `<p><strong>${actor.name}</strong> moved task <strong>${task.number}</strong> - ${task.title}</p><p><a href="${taskLink}">View task</a></p>`,
     },
+    "mention": {
+      subject: `You were mentioned on task: ${task.number}`,
+      text: `${actor.name} mentioned you on task ${task.number} - ${task.title}\n\nView task: ${taskLink}`,
+      html: `<p><strong>${actor.name}</strong> mentioned you on task <strong>${task.number}</strong> - ${task.title}</p><p><a href="${taskLink}">View task</a></p>`,
+    },
+    "mention.all": {
+      subject: `Team mentioned on task: ${task.number}`,
+      text: `${actor.name} mentioned the team on task ${task.number} - ${task.title}\n\nView task: ${taskLink}`,
+      html: `<p><strong>${actor.name}</strong> mentioned the team on task <strong>${task.number}</strong> - ${task.title}</p><p><a href="${taskLink}">View task</a></p>`,
+    },
   };
 
   const template = templates[type] || templates["task.created"];

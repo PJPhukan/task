@@ -24,6 +24,7 @@ const permissions = [
   "comment.create",
   "comment.update",
   "comment.delete",
+  "mention.all",
   // Attachment permissions
   "attachment.upload",
   "attachment.delete",
@@ -38,7 +39,7 @@ const permissions = [
   "report.view.all",
 ] as const;
 
-const roles = ["admin", "manager", "member", "viewer"] as const;
+const roles = ["admin", "manager", "member", "viewer", "developer", "qa", "deployment"] as const;
 
 let permsInstance: ReturnType<typeof createPermissions> | null = null;
 
@@ -85,6 +86,7 @@ export async function setupPermissions() {
     "comment.create",
     "comment.update",
     "comment.delete",
+    "mention.all",
     "attachment.upload",
     "attachment.delete",
     "label.manage"
@@ -94,6 +96,30 @@ export async function setupPermissions() {
     "task.update",
     "task.move",
     "comment.create",
+    "mention.all",
+    "attachment.upload"
+  );
+  await perms.role("developer").givePermission(
+    "task.create",
+    "task.update",
+    "task.move",
+    "comment.create",
+    "mention.all",
+    "attachment.upload"
+  );
+  await perms.role("qa").givePermission(
+    "task.create",
+    "task.update",
+    "task.move",
+    "comment.create",
+    "mention.all",
+    "attachment.upload"
+  );
+  await perms.role("deployment").givePermission(
+    "task.update",
+    "task.move",
+    "comment.create",
+    "mention.all",
     "attachment.upload"
   );
 }

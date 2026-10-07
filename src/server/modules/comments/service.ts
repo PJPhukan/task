@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/server/lib/prisma";
 import { CreateCommentInput, UpdateCommentInput } from "./schema";
 import { ActivityService } from "@/server/modules/activity/service";
-import { NotificationService } from "@/server/modules/notifications/service";
+import { MentionService } from "@/server/modules/mentions/service";
 
 export class CommentService {
   static async createComment(
@@ -38,6 +38,12 @@ export class CommentService {
       },
     });
 
+    const mentionResult = await MentionService.validateAndSaveMentions(projectId, taskId, input.body, userId, comment.id);
+    if ("error" in mentionResult) {
+      await prisma.comment.delete({ where: { id: comment.id } });
+      throw new Error(JSON.stringify(mentionResult.error));
+    }
+
     await ActivityService.recordActivity(projectId, "comment.created", userId, taskId, {
       commentId: comment.id,
     });
@@ -50,18 +56,28 @@ export class CommentService {
       });
 
       if (parent && parent.authorId && parent.authorId !== userId) {
-        await NotificationService.createNotification(
-          projectId,
-          parent.authorId,
-          "comment.reply",
-          taskId,
-          userId,
-          { commentId: comment.id, parentCommentId: parentId }
-        );
+        const recipient = await prisma.user.findUnique({
+          where: { id: parent.authorId },
+          select: { isActive: true, status: true },
+        });
+
+        if (recipient && recipient.isActive && recipient.status === "ACTIVE") {
+          await prisma.notification.create({
+            data: {
+              recipientId: parent.authorId,
+              type: "comment.reply",
+              actorId: userId,
+              projectId,
+              taskId,
+              commentId: comment.id,
+              payload: { commentId: comment.id, parentCommentId: parentId },
+            },
+          });
+        }
       }
     }
 
-    return comment;
+    return { ...comment, newMentionUserIds: mentionResult.newMentionUserIds, hasAllMention: mentionResult.hasAllMention };
   }
 
   static async getComments(projectId: string, taskId: string, page: number = 1, pageSize: number = 20, userId?: string) {
@@ -85,6 +101,11 @@ export class CommentService {
         likes: {
           select: { userId: true },
         },
+        mentions: {
+          include: {
+            user: { select: { id: true, name: true, avatarPublicId: true } },
+          },
+        },
       },
       orderBy: { createdAt: "asc" },
       skip,
@@ -96,15 +117,23 @@ export class CommentService {
     const formattedComments = await Promise.all(topLevelComments.map(async (c) => {
       const likeCount = c.likes.length;
       const likedByMe = userId ? c.likes.some((l) => l.userId === userId) : false;
+      const mentions = c.mentions.filter((m) => !m.isAll).map((m) => m.user).filter(Boolean);
+      const mentionsAll = c.mentions.some((m) => m.isAll);
 
       const formattedReplies = await Promise.all(
         c.replies.map(async (reply) => {
           const replyLikeCount = (await prisma.commentLike.count({ where: { commentId: reply.id } }));
           const replyLikedByMe = userId ? !!(await prisma.commentLike.findUnique({ where: { commentId_userId: { commentId: reply.id, userId } } })) : false;
+          const replyMentions = await prisma.mention.findMany({
+            where: { commentId: reply.id },
+            include: { user: { select: { id: true, name: true, avatarPublicId: true } } },
+          });
           return {
             ...reply,
             likeCount: replyLikeCount,
             likedByMe: replyLikedByMe,
+            mentions: replyMentions.filter((m) => !m.isAll).map((m) => m.user).filter(Boolean),
+            mentionsAll: replyMentions.some((m) => m.isAll),
           };
         })
       );
@@ -114,6 +143,8 @@ export class CommentService {
         likes: undefined,
         likeCount,
         likedByMe,
+        mentions: mentions.length > 0 ? mentions : undefined,
+        mentionsAll: mentionsAll ? true : undefined,
         deleted: c.isDeleted ? true : undefined,
         replies: formattedReplies,
       };
@@ -139,6 +170,11 @@ export class CommentService {
     if (!comment) throw new Error("Comment not found");
     if (comment.authorId !== userId) throw new Error("Only the author can edit this comment");
 
+    const mentionResult = await MentionService.validateAndSaveMentions(projectId, taskId, input.body, userId, commentId);
+    if ("error" in mentionResult) {
+      throw new Error(JSON.stringify(mentionResult.error));
+    }
+
     const updated = await prisma.comment.update({
       where: { id: commentId },
       data: {
@@ -156,7 +192,7 @@ export class CommentService {
       commentId,
     });
 
-    return updated;
+    return { ...updated, newMentionUserIds: mentionResult.newMentionUserIds, hasAllMention: mentionResult.hasAllMention };
   }
 
   static async deleteComment(
@@ -178,13 +214,14 @@ export class CommentService {
     }
 
     if (comment.replies.length > 0) {
-      // Soft delete: keep comment with cleared body
+      // Soft delete: keep comment with cleared body and delete mentions
+      await prisma.mention.deleteMany({ where: { commentId } });
       await prisma.comment.update({
         where: { id: commentId },
         data: { body: null, isDeleted: true },
       });
     } else {
-      // Hard delete if no replies
+      // Hard delete if no replies (mentions deleted via CASCADE)
       await prisma.comment.delete({ where: { id: commentId } });
 
       // If this was a reply to a deleted parent, check if we should delete the parent

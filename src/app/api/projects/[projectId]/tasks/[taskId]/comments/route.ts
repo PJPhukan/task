@@ -130,6 +130,15 @@ const postHandler = createRouteHandler(async (
         { status: 400 }
       );
     }
+    try {
+      const parsedError = JSON.parse(error.message);
+      if (parsedError.code === "VALIDATION_ERROR" || parsedError.code === "FORBIDDEN") {
+        return NextResponse.json(
+          { error: parsedError },
+          { status: parsedError.code === "FORBIDDEN" ? 403 : 400 }
+        );
+      }
+    } catch {}
     throw error;
   }
 });

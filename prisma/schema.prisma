@@ -36,6 +36,7 @@ model User {
   notificationsCreated  Notification[] @relation("notificationsCreated")
   notificationSettings  NotificationSetting?
   commentLikes          CommentLike[]
+  mentions              Mention[]
 
   @@index([email])
 }
@@ -244,6 +245,7 @@ model Task {
   activityLogs ActivityLog[]
   stageHistory TaskStageEntry[]
   notifications Notification[]
+  mentions     Mention[]
 
   @@unique([projectId, number])
   @@index([projectId])
@@ -321,6 +323,7 @@ model Comment {
   replies       Comment[]   @relation("CommentReplies")
   likes         CommentLike[]
   notifications Notification[]
+  mentions      Mention[]
 
   @@index([taskId])
   @@index([authorId])
@@ -337,6 +340,23 @@ model CommentLike {
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([commentId, userId])
+  @@index([commentId])
+  @@index([userId])
+}
+
+model Mention {
+  id        String   @id @default(cuid())
+  taskId    String?
+  commentId String?
+  userId    String?
+  isAll     Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
   @@index([commentId])
   @@index([userId])
 }

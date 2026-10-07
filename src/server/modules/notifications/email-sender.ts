@@ -53,6 +53,14 @@ export async function sendPendingNotificationEmails(projectId: string) {
       continue;
     }
 
+    if (!notification.actor) {
+      await prisma.notification.update({
+        where: { id: notification.id },
+        data: { emailStatus: "SKIPPED" },
+      });
+      continue;
+    }
+
     try {
       const taskUrl = `/projects/${notification.task.projectId}/boards/${notification.task.boardId}`;
       const template = createNotificationEmailTemplate(

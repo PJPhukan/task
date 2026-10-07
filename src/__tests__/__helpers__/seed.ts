@@ -143,6 +143,7 @@ export async function reseedDatabase() {
     'attachment.upload',
     'attachment.delete.any',
     'label.manage',
+    'mention.all',
   ]);
   await perms.role('member').syncPermissions([
     'task.create',
@@ -151,6 +152,7 @@ export async function reseedDatabase() {
     'task.delete.own',
     'comment.create',
     'attachment.upload',
+    'mention.all',
   ]);
   await perms.role('developer').syncPermissions([
     'task.create',
@@ -158,6 +160,7 @@ export async function reseedDatabase() {
     'task.move',
     'comment.create',
     'attachment.upload',
+    'mention.all',
   ]);
   await perms.role('qa').syncPermissions([
     'task.create',
@@ -165,12 +168,14 @@ export async function reseedDatabase() {
     'task.move',
     'comment.create',
     'attachment.upload',
+    'mention.all',
   ]);
   await perms.role('deployment').syncPermissions([
     'task.update',
     'task.move',
     'comment.create',
     'attachment.upload',
+    'mention.all',
   ]);
 
   // Create or restore demo project

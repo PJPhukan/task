@@ -143,8 +143,9 @@ API specification and endpoint reference for cm-task-manager backend.
 
 | Method | Path | Permission | Description |
 |--------|------|-----------|-------------|
-| GET | /api/projects/:projectId/tasks/:taskId/comments | - | List comments (oldest first, paginated), each with replies nested and likeCount/likedByMe |
-| POST | /api/projects/:projectId/tasks/:taskId/comments | comment.create | Create comment (optional parentId for replies, one level deep) |
+| GET | /api/projects/:projectId/tasks/:taskId/comments | - | List comments (oldest first, paginated), each with replies nested, likeCount/likedByMe, mentions, mentionsAll |
+| POST | /api/projects/:projectId/tasks/:taskId/comments | comment.create | Create comment (optional parentId for replies, one level deep) with mentions |
+| GET | /api/projects/:projectId/tasks/:taskId/mentionable | - | Get users who can be mentioned (filtered by q), returns canMentionAll |
 | PATCH | /api/projects/:projectId/tasks/:taskId/comments/:commentId | - | Update comment (only author) |
 | DELETE | /api/projects/:projectId/tasks/:taskId/comments/:commentId | - | Delete comment (author or comment.delete.any; soft-deletes if has replies) |
 | POST | /api/projects/:projectId/tasks/:taskId/comments/:commentId/like | - | Like comment (idempotent) |

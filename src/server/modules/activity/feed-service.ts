@@ -35,10 +35,12 @@ export class ActivityFeedService {
     const activities = logs.map((log) => ({
       id: log.id,
       action: log.action,
-      actor: {
-        ...log.actor,
-        avatarUrl: log.actor.avatarPublicId ? buildImageUrl(log.actor.avatarPublicId, 32) : null,
-      },
+      actor: log.actor
+        ? {
+            ...log.actor,
+            avatarUrl: log.actor.avatarPublicId ? buildImageUrl(log.actor.avatarPublicId, 32) : null,
+          }
+        : null,
       task: log.task,
       meta: log.meta,
       createdAt: log.createdAt,
@@ -79,10 +81,12 @@ export class ActivityFeedService {
     const activities = logs.map((log) => ({
       id: log.id,
       action: log.action,
-      actor: {
-        ...log.actor,
-        avatarUrl: log.actor.avatarPublicId ? buildImageUrl(log.actor.avatarPublicId, 32) : null,
-      },
+      actor: log.actor
+        ? {
+            ...log.actor,
+            avatarUrl: log.actor.avatarPublicId ? buildImageUrl(log.actor.avatarPublicId, 32) : null,
+          }
+        : null,
       task: log.task,
       meta: log.meta,
       createdAt: log.createdAt,
