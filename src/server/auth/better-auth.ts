@@ -22,6 +22,10 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL!,
   basePath: "/api/auth",
   trustedOrigins: [process.env.APP_URL || "http://localhost:3000"],
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: false,
+  },
   emailVerification: {
     sendVerificationEmail: async (params: EmailVerificationParams) => {
       const mailer = getMailer();

@@ -1,9 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/server/lib/prisma';
 import { GET as getMeRoute } from '@/app/api/me/route';
+import { POST as authPost } from '@/app/api/auth/[...all]/route';
+import { auth } from '@/server/auth/better-auth';
 
 describe('Seeded User Sign-In', () => {
+  const originalAuthMode = process.env.AUTH_MODE;
+
+  afterEach(() => {
+    process.env.AUTH_MODE = originalAuthMode;
+  });
+
   it('Seeded Admin user exists with stored password hash', async () => {
     const email = 'admin@example.com';
 
@@ -50,5 +58,89 @@ describe('Seeded User Sign-In', () => {
     expect(meData.user.email).toBe(email);
     expect(meData.user.name).toBe('Admin User');
     expect(meData.roles).toContain('admin');
+  });
+
+  it('Admin user can sign in with correct password', async () => {
+    const email = `test-signin-${Date.now()}@example.com`;
+    const password = 'TestPassword123!';
+
+    // First, sign up to create user through Better Auth
+    const signUpReq = new NextRequest('http://localhost:3000/api/auth/sign-up/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': 'http://localhost:3000',
+      },
+      body: JSON.stringify({ email, password, name: 'Test User' }),
+    });
+
+    const signUpRes = await authPost(signUpReq);
+    expect(signUpRes.status).toBe(200);
+
+    // Now sign in with the created credentials
+    const signInReq = new NextRequest('http://localhost:3000/api/auth/sign-in/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': 'http://localhost:3000',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const signInRes = await authPost(signInReq);
+    expect(signInRes.status).toBe(200);
+
+    const signInData = await signInRes.json();
+    expect(signInData.token).toBeDefined();
+
+    // Check for session cookie
+    const setCookieHeader = signInRes.headers.get('set-cookie');
+    console.log('Set-Cookie header:', setCookieHeader);
+    expect(setCookieHeader).toBeDefined();
+    expect(setCookieHeader).toContain('session');
+
+    // Parse cookie from response - just get the name=value part
+    const cookies = setCookieHeader!.split(';')[0];
+
+    // Verify session was created in database by extracting token from cookie
+    let cookieToken = cookies.split('=')[1];
+
+    // URL decode the token (format: sessionId.signature)
+    cookieToken = decodeURIComponent(cookieToken);
+    const sessionId = cookieToken.split('.')[0];
+
+    // Try to find the session
+    const createdSession = await prisma.session.findUnique({
+      where: { token: sessionId },
+      include: { user: true },
+    });
+    expect(createdSession).toBeDefined();
+    expect(createdSession?.user.email).toBe(email);
+
+    // Test that the session can be looked up via Better Auth's API
+    const headers = new Headers();
+    headers.set('Cookie', cookies);
+
+    const sessionFromAuth = await auth.api.getSession({ headers });
+    expect(sessionFromAuth).toBeDefined();
+    expect(sessionFromAuth?.user).toBeDefined();
+    expect(sessionFromAuth?.user.email).toBe(email);
+  });
+
+  it('Sign in fails with wrong password', async () => {
+    const email = 'admin@example.com';
+    const wrongPassword = 'wrongpassword123';
+
+    const signInReq = new NextRequest('http://localhost:3000/api/auth/sign-in/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': 'http://localhost:3000',
+      },
+      body: JSON.stringify({ email, password: wrongPassword }),
+    });
+
+    const signInRes = await authPost(signInReq);
+    expect(signInRes.status).not.toBe(200);
   });
 });

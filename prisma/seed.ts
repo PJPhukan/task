@@ -110,10 +110,16 @@ async function main() {
   // Create Better Auth credentials for each user
   const users = [admin, manager, member, viewer, developer, qa, deployment];
   for (const user of users) {
-    await prisma.account.upsert({
-      where: { provider_providerAccountId: { provider: 'credential', providerAccountId: user.email } },
-      update: { password: hashedPassword },
-      create: {
+    // Delete existing account if any
+    await prisma.account.deleteMany({
+      where: {
+        userId: user.id,
+      },
+    });
+
+    // Create new account with password
+    await prisma.account.create({
+      data: {
         userId: user.id,
         type: 'credentials',
         provider: 'credential',
