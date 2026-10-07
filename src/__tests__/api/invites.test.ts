@@ -404,7 +404,7 @@ describe("Invites API", () => {
         body: JSON.stringify({ email: inviteEmail, password: "SecurePassword123" }),
       });
 
-      const { POST: authPost } = await import("@/app/api/auth/[...all]/route");
+      const { POST: authPost } = await import("@/app/api/auth/[...auth]/route");
       const signInRes = await authPost(signInReq);
       expect(signInRes.status).toBe(200);
     });
@@ -748,7 +748,7 @@ describe("Invites API", () => {
       const userId = userData.user.id;
 
       // Sign in to create session
-      const { POST: authPost } = await import("@/app/api/auth/[...all]/route");
+      const { POST: authPost } = await import("@/app/api/auth/[...auth]/route");
       const signInReq = new NextRequest("http://localhost:3000/api/auth/sign-in/email", {
         method: "POST",
         headers: {
