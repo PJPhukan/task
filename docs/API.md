@@ -216,6 +216,35 @@ All task responses include:
 | GET | /api/reports/stage-times | report.view.all | Get stage timing analysis (average/longest times per column and person) |
 | GET | /api/reports/export | same as underlying report | Export report as Excel (xlsx) or PDF with query params: report, format, userId, from, to, projectId, boardId |
 
+## Calendar
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/calendar | - | Get calendar tasks (from, to dates, optional projectId, boardId, assignedToMe filter) |
+
+### Calendar Query Parameters
+
+- `from` (required): Start date in YYYY-MM-DD format
+- `to` (required): End date in YYYY-MM-DD format (at most 62 days from `from`)
+- `projectId` (optional): Filter to specific project
+- `boardId` (optional): Filter to specific board
+- `assignedToMe` (optional): Filter to tasks assigned to current user (`true` or `false`)
+
+### Calendar Response Fields
+
+Each task includes:
+- `key`: Task identifier (e.g., "CT-123")
+- `title`: Task title
+- `startDate`: Start date (YYYY-MM-DD) or null
+- `dueDate`: Due date (YYYY-MM-DD) or null
+- `priority`: Task priority
+- `project`: Project name
+- `board`: Board name
+- `column`: Column name
+- `assignee`: Assigned user (name, id) or null
+- `isDone`: Boolean indicating if task is in a done column
+- `overLimit`: Boolean indicating if task exceeds column time limit
+
 ## Jobs
 
 | Method | Path | Permission | Description |
