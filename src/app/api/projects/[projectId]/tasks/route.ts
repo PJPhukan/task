@@ -82,18 +82,7 @@ export async function POST(
 
   const user = userResult.user;
 
-  const perms = getPerms();
-  await setupPermissions();
-
-  const hasPermission = await perms.user(user.id).can("task.create");
-  if (!hasPermission) {
-    return NextResponse.json(
-      { error: { code: "FORBIDDEN", message: "Permission denied" } },
-      { status: 403 }
-    );
-  }
-
-  // Verify project exists
+  // Verify project exists (need it early for personal project check)
   const project = await prisma.project.findUnique({
     where: { id: projectId },
   });
@@ -102,6 +91,28 @@ export async function POST(
       { error: { code: "NOT_FOUND", message: "Project not found" } },
       { status: 404 }
     );
+  }
+
+  // Check personal project access
+  if ((project as any).isPersonal && (project as any).ownerId !== user.id) {
+    return NextResponse.json(
+      { error: { code: "FORBIDDEN", message: "Cannot access personal project" } },
+      { status: 403 }
+    );
+  }
+
+  // Skip permission check for personal project owner, check for regular projects
+  const perms = getPerms();
+  await setupPermissions();
+
+  if (!(project as any).isPersonal) {
+    const hasPermission = await perms.user(user.id).can("task.create");
+    if (!hasPermission) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Permission denied" } },
+        { status: 403 }
+      );
+    }
   }
 
   const body = await req.json();

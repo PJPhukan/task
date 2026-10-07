@@ -22,6 +22,18 @@ export class TaskService {
     });
     if (!column) throw new Error("Column not found");
 
+    // Get project to check if personal
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { isPersonal: true, ownerId: true, key: true },
+    });
+    if (!project) throw new Error("Project not found");
+
+    // For personal projects, only owner can create tasks (and they're assigned to owner by default)
+    if (project.isPersonal && project.ownerId !== userId) {
+      throw new Error(JSON.stringify({ code: "FORBIDDEN", message: "Only project owner can create tasks in personal project" }));
+    }
+
     // Verify assignee if provided
     if (input.assigneeId) {
       const assignee = await prisma.user.findUnique({
@@ -29,10 +41,17 @@ export class TaskService {
       });
       if (!assignee || !assignee.isActive) throw new Error("Assignee not found or inactive");
 
-      const isMember = await prisma.projectMember.findUnique({
-        where: { projectId_userId: { projectId, userId: input.assigneeId } },
-      });
-      if (!isMember) throw new Error("Assignee is not a project member");
+      // For personal projects, assignee must be the owner
+      if (project.isPersonal && input.assigneeId !== project.ownerId) {
+        throw new Error("Assignee must be project owner in personal project");
+      }
+
+      if (!project.isPersonal) {
+        const isMember = await prisma.projectMember.findUnique({
+          where: { projectId_userId: { projectId, userId: input.assigneeId } },
+        });
+        if (!isMember) throw new Error("Assignee is not a project member");
+      }
     }
 
     // Get next task number
@@ -55,7 +74,7 @@ export class TaskService {
           priority: input.priority,
           startDate: input.startDate ? new Date(input.startDate) : null,
           dueDate: input.dueDate ? new Date(input.dueDate) : null,
-          assigneeId: input.assigneeId,
+          assigneeId: input.assigneeId || (project.isPersonal ? userId : undefined),
           reporterId: userId,
           position: 0,
         },
@@ -67,7 +86,7 @@ export class TaskService {
           taskId: newTask.id,
           columnId: input.columnId,
           enteredById: userId,
-          assigneeAtEntry: input.assigneeId,
+          assigneeAtEntry: input.assigneeId || (project.isPersonal ? userId : undefined),
         },
       });
 
@@ -93,10 +112,12 @@ export class TaskService {
       columnId: input.columnId,
     });
 
+    const taskKeyPrefix = project.isPersonal ? "ME" : updatedProject.key;
+
     return {
       ...task,
       bounceCount: task.bounceCount ?? 0,
-      key: `${updatedProject.key}-${task.number}`,
+      key: `${taskKeyPrefix}-${task.number}`,
       labels: [],
       canMove: false,
       newMentionUserIds,
@@ -121,6 +142,11 @@ export class TaskService {
 
     if (!task) throw new Error("Task not found");
 
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { key: true, isPersonal: true },
+    });
+
     // Check if user can view the column
     const perms = getPerms();
     await setupPermissions();
@@ -131,17 +157,13 @@ export class TaskService {
 
     const canMove = await ColumnRulesService.canMoveFromColumn(userRoles, task.columnId);
 
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { key: true },
-    });
-
+    const taskKeyPrefix = project?.isPersonal ? "ME" : project?.key;
     const mentions = task.mentions.filter((m) => !m.isAll).map((m) => m.user).filter(Boolean);
     const mentionsAll = task.mentions.some((m) => m.isAll);
 
     return {
       ...task,
-      key: `${project?.key}-${task.number}`,
+      key: `${taskKeyPrefix}-${task.number}`,
       labels: task.labels.map((tl) => ({
         id: tl.label.id,
         name: tl.label.name,

@@ -40,24 +40,41 @@ export class ProjectService {
   static async listProjectsForUser(userId: string, isAdmin: boolean) {
     if (isAdmin) {
       return prisma.project.findMany({
-        where: { archivedAt: null },
+        where: {
+          archivedAt: null,
+          OR: [
+            { isPersonal: false },
+            { isPersonal: true, ownerId: userId },
+          ],
+        },
         include: {
           members: { select: { userId: true } },
         },
       });
     }
 
-    return prisma.project.findMany({
+    const projects = await prisma.project.findMany({
       where: {
         archivedAt: null,
-        members: {
-          some: { userId },
-        },
+        OR: [
+          {
+            isPersonal: false,
+            members: {
+              some: { userId },
+            },
+          },
+          {
+            isPersonal: true,
+            ownerId: userId,
+          },
+        ],
       },
       include: {
         members: { select: { userId: true } },
       },
     });
+
+    return projects;
   }
 
   static async updateProject(

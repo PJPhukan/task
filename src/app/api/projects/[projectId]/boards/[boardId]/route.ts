@@ -27,12 +27,27 @@ export async function GET(
 
   const user = userResult.user;
 
-  const isMember = await checkProjectMembership(projectId, user.id);
-  if (!isMember) {
+  // Check if project is personal first
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { isPersonal: true, ownerId: true },
+  });
+
+  if (project?.isPersonal && project?.ownerId !== user.id) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Not a project member" } },
       { status: 403 }
     );
+  }
+
+  if (!project?.isPersonal) {
+    const isMember = await checkProjectMembership(projectId, user.id);
+    if (!isMember) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Not a project member" } },
+        { status: 403 }
+      );
+    }
   }
 
   const board = await prisma.board.findUnique({

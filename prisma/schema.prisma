@@ -19,6 +19,7 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   projectMembers    ProjectMember[]
+  ownedProjects     Project[]         @relation("personalProject")
   createdBoards     Board[]
   tasksCreated      Task[]            @relation("reporter")
   tasksAssigned     Task[]            @relation("assignee")
@@ -118,10 +119,13 @@ model Project {
   key            String    @unique @db.VarChar(5)
   description    String?
   taskCounter    Int       @default(0)
+  isPersonal     Boolean   @default(false)
+  ownerId        String?
   archivedAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  owner          User?     @relation("personalProject", fields: [ownerId], references: [id], onDelete: Cascade)
   members        ProjectMember[]
   boards         Board[]
   tasks          Task[]
@@ -131,6 +135,8 @@ model Project {
 
   @@index([key])
   @@index([archivedAt])
+  @@index([ownerId])
+  @@index([isPersonal])
 }
 
 model ProjectMember {

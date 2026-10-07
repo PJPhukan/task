@@ -136,6 +136,7 @@ All task responses include:
 
 | Method | Path | Permission | Description |
 |--------|------|-----------|-------------|
+| GET | /api/me/personal-board | - | Get or create user's personal board (creates on first call: project named "Personal", board named "My board", columns To Do, Doing, Done) |
 | GET | /api/me/tasks | - | List tasks assigned to current user with filters (open, overdue, completed) |
 | GET | /api/me/queue | - | Get current user's task queue (includes tasks in columns with MOVE rules for their roles, plus assigned tasks in columns with no MOVE rule). Optionally filter with assignedOnly=true for only tasks assigned to user. Each task includes queueReason ("move_rule" or "assigned_to_me"), sorted by waitingSeconds descending |
 

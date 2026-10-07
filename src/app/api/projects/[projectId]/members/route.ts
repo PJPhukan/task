@@ -55,6 +55,19 @@ export async function POST(
 
   const user = userResult.user;
 
+  // Check if project is personal first (before permission check)
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { isPersonal: true },
+  });
+
+  if (project?.isPersonal) {
+    return NextResponse.json(
+      { error: { code: "BAD_REQUEST", message: "Cannot add members to personal project" } },
+      { status: 400 }
+    );
+  }
+
   const perms = getPerms();
   await setupPermissions();
 
