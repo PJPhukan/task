@@ -100,7 +100,7 @@ export class TaskListService {
       where.completedAt = { not: null };
     }
 
-    // Get tasks with labels
+    // Get tasks with labels and stage entry
     const allTasks = await prisma.task.findMany({
       where,
       include: {
@@ -110,6 +110,10 @@ export class TaskListService {
         column: true,
         board: true,
         project: true,
+        stageHistory: {
+          where: { leftAt: null },
+          take: 1,
+        },
       },
       orderBy: this.getOrderBy(filters.sortBy, filters.sortOrder),
     });
@@ -199,6 +203,10 @@ export class TaskListService {
         column: true,
         board: true,
         project: true,
+        stageHistory: {
+          where: { leftAt: null },
+          take: 1,
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -226,6 +234,20 @@ export class TaskListService {
   }
 
   private static formatTask(task: any) {
+    // Calculate waiting time and over-limit status
+    let waitingSeconds = 0;
+    let overLimit = false;
+
+    if (task.stageHistory && task.stageHistory.length > 0) {
+      const currentEntry = task.stageHistory[0];
+      waitingSeconds = Math.floor((new Date().getTime() - new Date(currentEntry.enteredAt).getTime()) / 1000);
+
+      if (task.column?.timeLimitHours) {
+        const limitSeconds = task.column.timeLimitHours * 3600;
+        overLimit = waitingSeconds > limitSeconds;
+      }
+    }
+
     return {
       id: task.id,
       key: task.key,
@@ -244,6 +266,8 @@ export class TaskListService {
       reporter: task.reporter,
       completedAt: task.completedAt,
       bounceCount: task.bounceCount,
+      waitingSeconds,
+      overLimit,
       labels: task.labels.map((tl: any) => ({
         id: tl.label.id,
         name: tl.label.name,

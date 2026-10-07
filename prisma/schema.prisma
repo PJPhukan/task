@@ -185,14 +185,15 @@ model BoardAccess {
 }
 
 model BoardColumn {
-  id        String   @id @default(cuid())
-  boardId   String
-  name      String
-  color     String?
-  position  Int
-  isDone    Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  boardId         String
+  name            String
+  color           String?
+  position        Int
+  isDone          Boolean  @default(false)
+  timeLimitHours  Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   board        Board            @relation(fields: [boardId], references: [id], onDelete: Cascade)
   tasks        Task[]
