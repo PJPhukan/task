@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { checkAccountStatus } from "@/server/auth/check-account-status";
 import prisma from "@/server/lib/prisma";
+import { cleanupNonSeededUsers } from "@/__tests__/__helpers__/seed";
 
 describe("Account Status Check", () => {
   let testUserId: string;
@@ -15,6 +16,10 @@ describe("Account Status Check", () => {
       },
     });
     testUserId = user.id;
+  });
+
+  afterAll(async () => {
+    await cleanupNonSeededUsers();
   });
 
   it("returns authorized for ACTIVE user", async () => {

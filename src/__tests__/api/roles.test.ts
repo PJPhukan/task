@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET as getRolesRoute, POST as createRoleRoute } from '@/app/api/roles/route';
 import { PATCH as updateRoleRoute, DELETE as deleteRoleRoute } from '@/app/api/roles/[roleId]/route';
 import { GET as getMeRoute } from '@/app/api/me/route';
 import { POST as createUserRoute } from '@/app/api/users/route';
 import { prisma } from '@/server/lib/prisma';
+import { cleanupNonSeededUsers, reseedDatabase } from '@/__tests__/__helpers__/seed';
 
 let adminId: string;
 let viewerId: string;
@@ -15,6 +16,11 @@ beforeAll(async () => {
   });
   adminId = users.find((u) => u.email === 'admin@example.com')!.id;
   viewerId = users.find((u) => u.email === 'viewer@example.com')!.id;
+});
+
+afterAll(async () => {
+  await cleanupNonSeededUsers();
+  await reseedDatabase();
 });
 
 describe('Roles API', () => {

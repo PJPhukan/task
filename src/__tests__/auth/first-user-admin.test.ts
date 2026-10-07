@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach, beforeAll } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, afterAll } from "vitest";
 import prisma from "@/server/lib/prisma";
 import { UserService } from "@/server/modules/users/service";
 import { JoinRequestService } from "@/server/modules/join-requests/service";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { getMailer } from "@/server/lib/mailer";
+import { reseedDatabase, cleanupNonSeededUsers } from "@/__tests__/__helpers__/seed";
 
 const seededEmails = [
   'admin@example.com',
@@ -46,6 +47,15 @@ describe("First User Admin Promotion", () => {
         where: { id: { in: createdUserIds } },
       });
       createdUserIds = [];
+    }
+  });
+
+  afterAll(async () => {
+    await cleanupNonSeededUsers();
+    try {
+      await reseedDatabase();
+    } catch (error) {
+      console.error("Error reseeding database in afterAll:", error);
     }
   });
 

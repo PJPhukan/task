@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { POST as createTaskRoute } from '@/app/api/projects/[projectId]/tasks/route';
 import { GET as getTaskRoute, PATCH as updateTaskRoute, DELETE as deleteTaskRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/route';
 import { PATCH as moveTaskRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/move/route';
 import { prisma } from '@/server/lib/prisma';
+import { cleanupNonSeededUsers, reseedDatabase } from '@/__tests__/__helpers__/seed';
 
 function generateProjectKey(length = 4): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -58,6 +59,11 @@ beforeAll(async () => {
     data: { boardId, name: 'Done', position: 1, isDone: true },
   });
   doneColumnId = done.id;
+});
+
+afterAll(async () => {
+  await cleanupNonSeededUsers();
+  await reseedDatabase();
 });
 
 describe('Tasks API', () => {
