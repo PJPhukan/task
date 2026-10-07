@@ -1,5 +1,7 @@
 import "server-only";
 import { prisma } from "@/server/lib/prisma";
+import { NotificationService } from "../notifications/service";
+import { sendNotificationEmailsAsync } from "../notifications/email-sender";
 
 export type ActivityAction =
   | "task.created"
@@ -28,7 +30,7 @@ export class ActivityService {
     taskId?: string,
     metadata?: ActivityMetadata
   ) {
-    return prisma.activityLog.create({
+    const activity = await prisma.activityLog.create({
       data: {
         projectId,
         action,
@@ -37,5 +39,32 @@ export class ActivityService {
         meta: metadata || {},
       },
     });
+
+    // Trigger notifications for task-related actions
+    if (taskId && this.isTaskAction(action)) {
+      await NotificationService.recordActivityAndNotify(
+        projectId,
+        action,
+        actorId,
+        taskId,
+        metadata
+      );
+
+      // Send emails asynchronously after response
+      sendNotificationEmailsAsync(projectId);
+    }
+
+    return activity;
+  }
+
+  private static isTaskAction(action: string): boolean {
+    return [
+      "task.created",
+      "task.updated",
+      "task.assigned",
+      "task.moved",
+      "comment.created",
+      "comment.updated",
+    ].includes(action);
   }
 }

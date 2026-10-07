@@ -20,23 +20,10 @@ export class NotificationService {
     taskId?: string,
     metadata?: any
   ) {
-    // Record the activity
-    const activity = await prisma.activityLog.create({
-      data: {
-        projectId,
-        action,
-        actorId,
-        taskId,
-        meta: metadata || {},
-      },
-    });
-
     // Determine notification type and send notifications
     if (taskId) {
       await this.notifyForTaskAction(projectId, action, actorId, taskId, metadata);
     }
-
-    return activity;
   }
 
   private static async notifyForTaskAction(
