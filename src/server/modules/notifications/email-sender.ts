@@ -1,11 +1,11 @@
 import "server-only";
 import { prisma } from "@/server/lib/prisma";
 import { getMailer } from "@/server/lib/mailer";
+import { runAfterResponse } from "@/server/lib/run-after-response";
 import { createNotificationEmailTemplate } from "./email-templates";
 
 export async function sendNotificationEmailsAsync(projectId: string) {
-  // Run this async, don't await it
-  setImmediate(async () => {
+  await runAfterResponse(async () => {
     try {
       await sendPendingNotificationEmails(projectId);
     } catch (error) {
