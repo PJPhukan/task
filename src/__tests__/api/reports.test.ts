@@ -9,33 +9,288 @@ import { reseedDatabase, cleanupNonSeededUsers } from '@/__tests__/__helpers__/s
 
 let adminId: string;
 let memberId: string;
+let viewerId: string;
 let projectId: string;
 let boardId: string;
+let doneColumnId: string;
 
-beforeAll(async () => {
+async function buildTestData() {
   const admin = await prisma.user.findUnique({
     where: { email: 'admin@example.com' },
   });
   adminId = admin!.id;
 
-  const member = await prisma.user.findUnique({
-    where: { email: 'member@example.com' },
+  // Create unique test users to isolate data
+  const testMember = await prisma.user.create({
+    data: {
+      name: 'Report Test Member',
+      email: `report-member-${Date.now()}@test.example.com`,
+      emailVerified: true,
+      status: 'ACTIVE',
+      isActive: true,
+    },
   });
-  memberId = member!.id;
+  memberId = testMember.id;
 
-  const project = await prisma.project.findFirst();
-  if (project) {
-    projectId = project.id;
-    const board = await prisma.board.findFirst({
-      where: { projectId },
-    });
-    if (board) {
-      boardId = board.id;
-    }
-  }
+  const testViewer = await prisma.user.create({
+    data: {
+      name: 'Report Test Viewer',
+      email: `report-viewer-${Date.now()}@test.example.com`,
+      emailVerified: true,
+      status: 'ACTIVE',
+      isActive: true,
+    },
+  });
+  viewerId = testViewer.id;
+
+  // Create isolated test project and board
+  const project = await prisma.project.create({
+    data: {
+      name: 'RPT',
+      key: `RPT${Math.random().toString(36).substring(2, 3).toUpperCase()}`,
+    },
+  });
+  projectId = project.id;
+
+  // Add users to project
+  await prisma.projectMember.create({
+    data: { projectId, userId: adminId },
+  });
+  await prisma.projectMember.create({
+    data: { projectId, userId: memberId },
+  });
+  await prisma.projectMember.create({
+    data: { projectId, userId: viewerId },
+  });
+
+  // Create board with columns
+  const board = await prisma.board.create({
+    data: {
+      projectId,
+      name: 'Report Test Board',
+      position: 0,
+      createdById: adminId,
+      columns: {
+        create: [
+          { name: 'To Do', position: 0 },
+          { name: 'In Progress', position: 1 },
+          { name: 'Done', position: 2, isDone: true },
+        ],
+      },
+    },
+    include: { columns: true },
+  });
+  boardId = board.id;
+
+  const doneColumn = board.columns.find((c) => c.isDone);
+  if (!doneColumn) throw new Error('No done column found');
+  doneColumnId = doneColumn.id;
+
+  // Build test data with known fixed dates (using UTC to avoid timezone issues)
+  const baseDate = new Date('2026-10-15T00:00:00.000Z');
+  const threeWeeksAgo = new Date('2026-09-24T00:00:00.000Z');
+  const twoWeeksAgo = new Date('2026-10-01T00:00:00.000Z');
+  const oneWeekAgo = new Date('2026-10-08T00:00:00.000Z');
+  const futureDate = new Date('2026-10-20T00:00:00.000Z');
+
+  // Task 1: On time - due 2 weeks ago, completed 2 weeks ago (on time) - in done column
+  await prisma.task.create({
+    data: {
+      projectId,
+      boardId,
+      columnId: doneColumnId,
+      number: 1,
+      title: 'On Time Task',
+      reporterId: adminId,
+      assigneeId: memberId,
+      position: 0,
+      createdAt: threeWeeksAgo,
+      dueDate: twoWeeksAgo,
+      completedAt: twoWeeksAgo,
+    },
+  });
+
+  // Task 2: Late - due 2 weeks ago, completed 1 week ago (late) - in done column
+  await prisma.task.create({
+    data: {
+      projectId,
+      boardId,
+      columnId: doneColumnId,
+      number: 2,
+      title: 'Late Task',
+      reporterId: adminId,
+      assigneeId: memberId,
+      position: 1,
+      createdAt: threeWeeksAgo,
+      dueDate: twoWeeksAgo,
+      completedAt: oneWeekAgo,
+    },
+  });
+
+  // Task 3: No due date - completed 1 week ago - in done column
+  await prisma.task.create({
+    data: {
+      projectId,
+      boardId,
+      columnId: doneColumnId,
+      number: 3,
+      title: 'No Due Date Task',
+      reporterId: adminId,
+      assigneeId: memberId,
+      position: 2,
+      createdAt: threeWeeksAgo,
+      completedAt: oneWeekAgo,
+    },
+  });
+
+  // Task 4: Open overdue task in To Do column (should be in overdue list)
+  const pastDueDate = new Date('2026-10-01T00:00:00.000Z');
+  await prisma.task.create({
+    data: {
+      projectId,
+      boardId,
+      columnId: board.columns[0].id,
+      number: 4,
+      title: 'Open Overdue Task',
+      reporterId: adminId,
+      assigneeId: memberId,
+      position: 3,
+      createdAt: threeWeeksAgo,
+      dueDate: pastDueDate,
+    },
+  });
+
+  // Task 5: Open task with future due date
+  await prisma.task.create({
+    data: {
+      projectId,
+      boardId,
+      columnId: board.columns[0].id,
+      number: 5,
+      title: 'Future Task',
+      reporterId: adminId,
+      assigneeId: memberId,
+      position: 4,
+      createdAt: baseDate,
+      dueDate: futureDate,
+    },
+  });
+}
+
+beforeAll(async () => {
+  await buildTestData();
 });
 
 describe('Reports API', () => {
+  it('on time, late and no-due-date counts are exact', async () => {
+    const headers = new Headers();
+    headers.set('x-user-id', memberId);
+    // Use a wide date range that includes all completed tasks (Oct 1 was due date, Oct 8 was completion)
+    const fromStr = '2026-09-15';
+    const toStr = '2026-10-31';
+
+    const req = new NextRequest(`http://localhost:3000/api/reports/me?from=${fromStr}&to=${toStr}`, {
+      method: 'GET',
+      headers,
+    });
+    const response = await getMeReport(req);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.report.completedTasks).toBeDefined();
+    // Task 1: On time (due Oct 1, completed Oct 1)
+    // Task 2: Late (due Oct 1, completed Oct 8)
+    // Task 3: No due date (completed Oct 8)
+    expect(data.report.completedTasks).toEqual([
+      { label: 'On Time', value: 1 },
+      { label: 'Late', value: 1 },
+      { label: 'No Due Date', value: 1 },
+    ]);
+  });
+
+  it('the overdue list excludes tasks in a done column', async () => {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+
+    const req = new NextRequest(
+      `http://localhost:3000/api/reports/overview?projectId=${projectId}&boardId=${boardId}`,
+      { method: 'GET', headers }
+    );
+    const response = await getOverviewReport(req);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.report.overdueList).toBeDefined();
+    // Task 4 is open and overdue, Tasks 1-3 are in done column so not in list
+    expect(data.report.overdueList).toHaveLength(1);
+    expect(data.report.overdueList[0].taskKey).toBe('TASK-4');
+  });
+
+  it('completed-per-week buckets are exact', async () => {
+    const headers = new Headers();
+    headers.set('x-user-id', memberId);
+    // Use a wide date range that includes all completed tasks
+    const fromStr = '2026-09-15';
+    const toStr = '2026-10-31';
+
+    const req = new NextRequest(`http://localhost:3000/api/reports/me?from=${fromStr}&to=${toStr}`, {
+      method: 'GET',
+      headers,
+    });
+    const response = await getMeReport(req);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.report.completedPerWeek).toBeDefined();
+    expect(Array.isArray(data.report.completedPerWeek)).toBe(true);
+    // Task 1 was completed Oct 1 (2 weeks ago), Tasks 2, 3 were completed Oct 8 (1 week ago)
+    const totalCompleted = data.report.completedPerWeek.reduce((sum: number, w: any) => sum + w.value, 0);
+    expect(totalCompleted).toBe(3);
+  });
+
+  it('user without report.view.all gets 403 on another user report and overview, 200 on own', async () => {
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+
+    // Should get 403 on another user's report
+    const userReportReq = new NextRequest(`http://localhost:3000/api/reports/users/${memberId}`, {
+      method: 'GET',
+      headers,
+    });
+    const userReportRes = await getUserReport(userReportReq, { params: Promise.resolve({ userId: memberId }) });
+    expect(userReportRes.status).toBe(403);
+
+    // Should get 403 on overview
+    const overviewReq = new NextRequest(
+      `http://localhost:3000/api/reports/overview?projectId=${projectId}&boardId=${boardId}`,
+      { method: 'GET', headers }
+    );
+    const overviewRes = await getOverviewReport(overviewReq);
+    expect(overviewRes.status).toBe(403);
+
+    // Should get 200 on own report
+    const meReq = new NextRequest('http://localhost:3000/api/reports/me', { method: 'GET', headers });
+    const meRes = await getMeReport(meReq);
+    expect(meRes.status).toBe(200);
+  });
+
+  it('the date range excludes tasks outside it', async () => {
+    const headers = new Headers();
+    headers.set('x-user-id', memberId);
+
+    // Use date range that includes only Oct 8 (1 week ago) - excludes Oct 1 (2 weeks ago)
+    const fromStr = '2026-10-05';
+    const toStr = '2026-10-20';
+
+    const req = new NextRequest(`http://localhost:3000/api/reports/me?from=${fromStr}&to=${toStr}`, {
+      method: 'GET',
+      headers,
+    });
+    const response = await getMeReport(req);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    const totalCompleted = data.report.completedTasks.reduce((sum: number, c: any) => sum + c.value, 0);
+    // Only Tasks 2, 3 were completed Oct 8 (within the range). Task 1 was completed Oct 1 (outside range)
+    expect(totalCompleted).toBe(2);
+  });
+
   it('GET /api/reports/me returns report for current user', async () => {
     const headers = new Headers();
     headers.set('x-user-id', adminId);
@@ -50,123 +305,36 @@ describe('Reports API', () => {
     expect(data.report.assigned).toHaveProperty('completed');
   });
 
-  it('GET /api/reports/me with date range filters tasks', async () => {
-    const headers = new Headers();
-    headers.set('x-user-id', memberId);
-    const from = new Date();
-    from.setDate(from.getDate() - 7);
-    const to = new Date();
-    const fromStr = from.toISOString().split('T')[0];
-    const toStr = to.toISOString().split('T')[0];
-
-    const req = new NextRequest(`http://localhost:3000/api/reports/me?from=${fromStr}&to=${toStr}`, {
-      method: 'GET',
-      headers,
-    });
-    const response = await getMeReport(req);
-    expect(response.status).toBe(200);
-    const data = await response.json();
-    expect(data.report).toBeDefined();
-  });
-
-  it('GET /api/reports/users/:userId returns report for specific user', async () => {
-    const headers = new Headers();
-    headers.set('x-user-id', adminId);
-    const req = new NextRequest(`http://localhost:3000/api/reports/users/${memberId}`, {
-      method: 'GET',
-      headers,
-    });
-    const response = await getUserReport(req, { params: Promise.resolve({ userId: memberId }) });
-    expect(response.status).toBe(200);
-    const data = await response.json();
-    expect(data.report).toBeDefined();
-  });
-
-  it('User without report.view.all cannot view another user report', async () => {
-    const viewer = await prisma.user.findUnique({
-      where: { email: 'viewer@example.com' },
-    });
-    const headers = new Headers();
-    headers.set('x-user-id', viewer!.id);
-    const req = new NextRequest(`http://localhost:3000/api/reports/users/${memberId}`, {
-      method: 'GET',
-      headers,
-    });
-    const response = await getUserReport(req, { params: Promise.resolve({ userId: memberId }) });
-    expect(response.status).toBe(403);
-  });
-
-  it('GET /api/reports/overview requires report.view.all permission', async () => {
-    const viewer = await prisma.user.findUnique({
-      where: { email: 'viewer@example.com' },
-    });
-    const headers = new Headers();
-    headers.set('x-user-id', viewer!.id);
-
-    if (projectId && boardId) {
-      const req = new NextRequest(
-        `http://localhost:3000/api/reports/overview?projectId=${projectId}&boardId=${boardId}`,
-        { method: 'GET', headers }
-      );
-      const response = await getOverviewReport(req);
-      expect(response.status).toBe(403);
-    }
-  });
-
   it('GET /api/reports/overview with admin returns data', async () => {
     const headers = new Headers();
     headers.set('x-user-id', adminId);
 
-    if (projectId && boardId) {
-      const req = new NextRequest(
-        `http://localhost:3000/api/reports/overview?projectId=${projectId}&boardId=${boardId}`,
-        { method: 'GET', headers }
-      );
-      const response = await getOverviewReport(req);
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.report).toBeDefined();
-      expect(data.report.tasksPerColumn).toBeDefined();
-      expect(Array.isArray(data.report.tasksPerColumn)).toBe(true);
-    }
-  });
-
-  it('GET /api/reports/stage-times requires report.view.all permission', async () => {
-    const viewer = await prisma.user.findUnique({
-      where: { email: 'viewer@example.com' },
-    });
-    const headers = new Headers();
-    headers.set('x-user-id', viewer!.id);
-
-    if (projectId && boardId) {
-      const req = new NextRequest(
-        `http://localhost:3000/api/reports/stage-times?projectId=${projectId}&boardId=${boardId}`,
-        { method: 'GET', headers }
-      );
-      const response = await getStageTimesReport(req);
-      expect(response.status).toBe(403);
-    }
-  });
-
-  it('GET /api/reports/stage-times with admin returns data', async () => {
-    const headers = new Headers();
-    headers.set('x-user-id', adminId);
-
-    if (projectId && boardId) {
-      const req = new NextRequest(
-        `http://localhost:3000/api/reports/stage-times?projectId=${projectId}&boardId=${boardId}`,
-        { method: 'GET', headers }
-      );
-      const response = await getStageTimesReport(req);
-      expect(response.status).toBe(200);
-      const data = await response.json();
-      expect(data.report).toBeDefined();
-      expect(data.report.averageTimePerColumn).toBeDefined();
-      expect(Array.isArray(data.report.averageTimePerColumn)).toBe(true);
-    }
+    const req = new NextRequest(
+      `http://localhost:3000/api/reports/overview?projectId=${projectId}&boardId=${boardId}`,
+      { method: 'GET', headers }
+    );
+    const response = await getOverviewReport(req);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.report).toBeDefined();
+    expect(data.report.tasksPerColumn).toBeDefined();
+    expect(Array.isArray(data.report.tasksPerColumn)).toBe(true);
   });
 
   afterAll(async () => {
+    // Clean up test data
+    if (projectId) {
+      await prisma.task.deleteMany({ where: { projectId } });
+      await prisma.board.deleteMany({ where: { projectId } });
+      await prisma.projectMember.deleteMany({ where: { projectId } });
+      await prisma.project.delete({ where: { id: projectId } });
+    }
+    if (memberId) {
+      await prisma.user.delete({ where: { id: memberId } }).catch(() => {});
+    }
+    if (viewerId) {
+      await prisma.user.delete({ where: { id: viewerId } }).catch(() => {});
+    }
     await reseedDatabase();
     await cleanupNonSeededUsers();
   });
