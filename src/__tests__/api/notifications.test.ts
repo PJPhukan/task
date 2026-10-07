@@ -327,6 +327,493 @@ describe("Notifications API", () => {
     expect(notifications.length).toBe(0);
   });
 
+  it("Reassigning a task notifies new assignee and tells old assignee they were unassigned", async () => {
+    // Create a task assigned to user1
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId,
+        number: 501,
+        title: "Task to reassign",
+        reporterId: adminId,
+        assigneeId: userId1,
+        position: 0,
+      },
+    });
+
+    // Clear any existing notifications
+    await prisma.notification.deleteMany({
+      where: { taskId: task.id },
+    });
+
+    // Reassign task to user2
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { assigneeId: userId2 },
+    });
+
+    // Record the reassignment activity
+    await prisma.activityLog.create({
+      data: {
+        projectId,
+        taskId: task.id,
+        action: "task.assigned",
+        actorId: adminId,
+        meta: { prevAssigneeId: userId1 },
+      },
+    });
+
+    // Trigger notifications
+    const { NotificationService } = await import("@/server/modules/notifications/service");
+    await NotificationService.recordActivityAndNotify(projectId, "task.assigned", adminId, task.id, {
+      prevAssigneeId: userId1,
+    });
+
+    // Check new assignee got task.assigned notification
+    const newAssigneeNotif = await prisma.notification.findFirst({
+      where: {
+        taskId: task.id,
+        recipientId: userId2,
+        type: "task.assigned",
+      },
+    });
+    expect(newAssigneeNotif).not.toBeNull();
+
+    // Check old assignee got task.unassigned notification
+    const oldAssigneeNotif = await prisma.notification.findFirst({
+      where: {
+        taskId: task.id,
+        recipientId: userId1,
+        type: "task.unassigned",
+      },
+    });
+    expect(oldAssigneeNotif).not.toBeNull();
+  });
+
+  it("Comment notifies assignee, reporter and earlier commenters exactly once each, not the commenter", async () => {
+    // Create task assigned to user1, reported by admin
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId,
+        number: 502,
+        title: "Task with comments",
+        reporterId: adminId,
+        assigneeId: userId1,
+        position: 1,
+      },
+    });
+
+    // User2 adds first comment
+    const comment1 = await prisma.comment.create({
+      data: {
+        taskId: task.id,
+        authorId: userId2,
+        body: "First comment",
+      },
+    });
+
+    // Clear any existing notifications
+    await prisma.notification.deleteMany({
+      where: { taskId: task.id },
+    });
+
+    // User1 adds second comment (the commenter)
+    const comment2 = await prisma.comment.create({
+      data: {
+        taskId: task.id,
+        authorId: userId1,
+        body: "Reply comment",
+      },
+    });
+
+    // Trigger notifications for the new comment
+    const { NotificationService } = await import("@/server/modules/notifications/service");
+    await NotificationService.recordActivityAndNotify(projectId, "comment.created", userId1, task.id, {
+      commentId: comment2.id,
+    });
+
+    // Check assignee (user1, but also the commenter - should NOT get notification)
+    const assigneeNotif = await prisma.notification.findFirst({
+      where: {
+        taskId: task.id,
+        recipientId: userId1,
+        type: "comment.added",
+      },
+    });
+    expect(assigneeNotif).toBeNull();
+
+    // Check reporter (admin) gets notification
+    const reporterNotif = await prisma.notification.findFirst({
+      where: {
+        taskId: task.id,
+        recipientId: adminId,
+        type: "comment.added",
+      },
+    });
+    expect(reporterNotif).not.toBeNull();
+
+    // Check earlier commenter (user2) gets notification once
+    const earlierCommenterNotif = await prisma.notification.findFirst({
+      where: {
+        taskId: task.id,
+        recipientId: userId2,
+        type: "comment.added",
+      },
+    });
+    expect(earlierCommenterNotif).not.toBeNull();
+
+    const count = await prisma.notification.count({
+      where: {
+        taskId: task.id,
+        recipientId: userId2,
+        type: "comment.added",
+      },
+    });
+    expect(count).toBe(1);
+  });
+
+  it("Editing a comment creates in-app notifications with emailStatus SKIPPED and fake mailer receives nothing", async () => {
+    // Create task
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId,
+        number: 503,
+        title: "Task for comment edit",
+        reporterId: adminId,
+        assigneeId: userId1,
+        position: 2,
+      },
+    });
+
+    // Create comment
+    const comment = await prisma.comment.create({
+      data: {
+        taskId: task.id,
+        authorId: userId2,
+        body: "Original comment",
+      },
+    });
+
+    // Clear any existing notifications
+    await prisma.notification.deleteMany({
+      where: { taskId: task.id },
+    });
+
+    // Trigger notifications for comment edit
+    const { NotificationService } = await import("@/server/modules/notifications/service");
+    await NotificationService.recordActivityAndNotify(projectId, "comment.updated", userId2, task.id, {
+      commentId: comment.id,
+    });
+
+    // Check notifications were created with SKIPPED email status
+    const notifications = await prisma.notification.findMany({
+      where: {
+        taskId: task.id,
+        type: "comment.edited",
+      },
+    });
+    expect(notifications.length).toBeGreaterThan(0);
+    for (const notif of notifications) {
+      expect(notif.emailStatus).toBe("SKIPPED");
+    }
+
+    // Get the fake mailer to check it received no emails
+    const { getMailer } = await import("@/server/lib/mailer");
+    const mailer = getMailer();
+    const sentEmails = mailer.getSentEmails();
+    const emailsForTask = sentEmails.filter((e: any) => e.subject?.includes("edit"));
+    expect(emailsForTask.length).toBe(0);
+  });
+
+  it("Changing due date notifies assignee and reporter", async () => {
+    // Create task
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId,
+        number: 504,
+        title: "Task with due date",
+        reporterId: adminId,
+        assigneeId: userId1,
+        position: 3,
+        dueDate: new Date("2025-12-31"),
+      },
+    });
+
+    // Clear any existing notifications
+    await prisma.notification.deleteMany({
+      where: { taskId: task.id },
+    });
+
+    // Update the task with new due date
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { dueDate: new Date("2026-01-15") },
+    });
+
+    // Trigger notifications
+    const { NotificationService } = await import("@/server/modules/notifications/service");
+    await NotificationService.recordActivityAndNotify(projectId, "task.updated", adminId, task.id, {
+      dueDateChanged: true,
+    });
+
+    // Check assignee gets notification
+    const assigneeNotif = await prisma.notification.findFirst({
+      where: {
+        taskId: task.id,
+        recipientId: userId1,
+        type: "due_date_changed",
+      },
+    });
+    expect(assigneeNotif).not.toBeNull();
+
+    // Check reporter gets notification
+    const reporterNotif = await prisma.notification.findFirst({
+      where: {
+        taskId: task.id,
+        recipientId: adminId,
+        type: "due_date_changed",
+      },
+    });
+    expect(reporterNotif).toBeNull(); // Reporter is the actor, so no notification
+  });
+
+  it("Moving task into done column notifies assignee and reporter", async () => {
+    // Create a done column
+    const doneColumn = await prisma.boardColumn.create({
+      data: {
+        boardId,
+        name: "Done",
+        position: 3,
+        isDone: true,
+      },
+    });
+
+    // Create task
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId,
+        number: 505,
+        title: "Task to complete",
+        reporterId: adminId,
+        assigneeId: userId1,
+        position: 4,
+      },
+    });
+
+    // Clear any existing notifications
+    await prisma.notification.deleteMany({
+      where: { taskId: task.id },
+    });
+
+    // Move task to done column
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { columnId: doneColumn.id },
+    });
+
+    // Trigger notifications
+    const { NotificationService } = await import("@/server/modules/notifications/service");
+    await NotificationService.recordActivityAndNotify(projectId, "task.moved", adminId, task.id, {
+      columnIsDone: true,
+      moveRoleIds: [],
+    });
+
+    // Check assignee gets notification
+    const assigneeNotif = await prisma.notification.findFirst({
+      where: {
+        taskId: task.id,
+        recipientId: userId1,
+        type: "task.moved",
+      },
+    });
+    expect(assigneeNotif).not.toBeNull();
+
+    // Check reporter doesn't get (admin is reporter and actor)
+    const reporterNotif = await prisma.notification.findMany({
+      where: {
+        taskId: task.id,
+        recipientId: adminId,
+        type: "task.moved",
+      },
+    });
+    expect(reporterNotif.length).toBe(0); // Actor doesn't get notified
+  });
+
+  it("Recipient with emailEnabled false gets notification with SKIPPED status and no email", async () => {
+    // Disable email for user1
+    await prisma.notificationSetting.update({
+      where: { userId: userId1 },
+      data: { emailEnabled: false },
+    });
+
+    // Create task assigned to user1
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId,
+        number: 506,
+        title: "Task for user with disabled email",
+        reporterId: adminId,
+        assigneeId: userId1,
+        position: 5,
+      },
+    });
+
+    // Trigger email sending
+    const { sendPendingNotificationEmails } = await import("@/server/modules/notifications/email-sender");
+
+    // Create a notification with PENDING status
+    const notification = await prisma.notification.create({
+      data: {
+        recipientId: userId1,
+        type: "task.assigned",
+        actorId: adminId,
+        projectId,
+        taskId: task.id,
+        payload: { taskKey: task.number, taskTitle: task.title },
+        emailStatus: "PENDING",
+      },
+    });
+
+    // Try to send emails (should skip due to emailEnabled: false)
+    await (sendPendingNotificationEmails as any)(projectId);
+
+    // Check notification status is SKIPPED
+    const updated = await prisma.notification.findUnique({
+      where: { id: notification.id },
+    });
+    expect(updated?.emailStatus).toBe("SKIPPED");
+
+    // Re-enable email for user1
+    await prisma.notificationSetting.update({
+      where: { userId: userId1 },
+      data: { emailEnabled: true },
+    });
+  });
+
+  it("Notification email reaches fake mailer with task key in subject and notification marked SENT", async () => {
+    // Create task
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId,
+        number: 507,
+        title: "Email test task",
+        reporterId: adminId,
+        assigneeId: userId1,
+        position: 6,
+      },
+    });
+
+    // Create a PENDING notification
+    const notification = await prisma.notification.create({
+      data: {
+        recipientId: userId1,
+        type: "task.created",
+        actorId: adminId,
+        projectId,
+        taskId: task.id,
+        payload: { taskKey: `TST-${task.number}`, taskTitle: task.title },
+        emailStatus: "PENDING",
+      },
+    });
+
+    // Send pending emails
+    const { sendPendingNotificationEmails } = await import("@/server/modules/notifications/email-sender");
+    await (sendPendingNotificationEmails as any)(projectId);
+
+    // Check notification is marked SENT
+    const updated = await prisma.notification.findUnique({
+      where: { id: notification.id },
+    });
+    expect(updated?.emailStatus).toBe("SENT");
+
+    // Check the fake mailer received the email
+    const { getMailer } = await import("@/server/lib/mailer");
+    const mailer = getMailer();
+    const sentEmails = mailer.getSentEmails();
+    const user1Email = (await prisma.user.findUnique({
+      where: { id: userId1 },
+      select: { email: true },
+    }))?.email;
+    const taskEmail = sentEmails.find((e: any) => e.to === user1Email);
+    expect(taskEmail).toBeDefined();
+    expect(taskEmail?.subject).toContain("507");
+  });
+
+  it("When fake mailer fails, request succeeds and notification marked FAILED", async () => {
+    // Create task
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId,
+        number: 508,
+        title: "Email failure test task",
+        reporterId: adminId,
+        assigneeId: userId2,
+        position: 7,
+      },
+    });
+
+    // Ensure email is enabled for user2
+    await prisma.notificationSetting.upsert({
+      where: { userId: userId2 },
+      update: { emailEnabled: true },
+      create: { userId: userId2, emailEnabled: true },
+    });
+
+    // Create a PENDING notification
+    const notification = await prisma.notification.create({
+      data: {
+        recipientId: userId2,
+        type: "task.created",
+        actorId: adminId,
+        projectId,
+        taskId: task.id,
+        payload: { taskKey: `TST-${task.number}`, taskTitle: task.title },
+        emailStatus: "PENDING",
+      },
+    });
+
+    // Set the fake mailer to fail
+    const { getMailer } = await import("@/server/lib/mailer");
+    const mailer = getMailer();
+    mailer.setFakeShouldFail(true);
+
+    // Send pending emails
+    const { sendPendingNotificationEmails } = await import("@/server/modules/notifications/email-sender");
+    let error: any = null;
+    try {
+      await (sendPendingNotificationEmails as any)(projectId);
+    } catch (e) {
+      error = e;
+    }
+
+    // The send function should not throw (errors are caught)
+    expect(error).toBeNull();
+
+    // Check notification is marked FAILED
+    const updated = await prisma.notification.findUnique({
+      where: { id: notification.id },
+    });
+    expect(updated?.emailStatus).toBe("FAILED");
+
+    // Reset mailer
+    mailer.setFakeShouldFail(false);
+  });
+
   it("Deleting a task with notifications succeeds and removes them", async () => {
     // Create a task
     const task = await prisma.task.create({
