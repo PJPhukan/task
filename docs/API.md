@@ -180,3 +180,12 @@ API specification and endpoint reference for cm-task-manager backend.
 | POST | /api/notifications/read-all | - | Mark all notifications as read |
 | GET | /api/me/notification-settings | - | Get user's notification settings |
 | PATCH | /api/me/notification-settings | - | Update user's notification settings (emailEnabled) |
+
+## Reports
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/reports/me | - | Get current user's report (tasks assigned, reported, commented, on-time metrics) |
+| GET | /api/reports/users/:userId | report.view.all (if viewing another user) | Get specific user's report |
+| GET | /api/reports/overview | report.view.all | Get board overview (tasks per column, completed per week, overdue list, workload) |
+| GET | /api/reports/stage-times | report.view.all | Get stage timing analysis (average/longest times per column and person) |
