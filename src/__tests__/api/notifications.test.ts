@@ -1,12 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { NextRequest } from "next/server";
-import { GET as getNotificationsRoute, POST as getNotificationsReadRoute } from "@/app/api/notifications/route";
+import { GET as getNotificationsRoute } from "@/app/api/notifications/route";
 import { GET as getUnreadCountRoute } from "@/app/api/notifications/unread-count/route";
 import { POST as markAsReadRoute } from "@/app/api/notifications/[notificationId]/read/route";
 import { POST as markAllAsReadRoute } from "@/app/api/notifications/read-all/route";
 import { GET as getSettingsRoute, PATCH as patchSettingsRoute } from "@/app/api/me/notification-settings/route";
 import { POST as createTaskRoute } from "@/app/api/projects/[projectId]/tasks/route";
-import { PATCH as updateTaskRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/route";
 import { prisma } from "@/server/lib/prisma";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 
@@ -21,7 +20,6 @@ let userId2: string;
 let projectId: string;
 let boardId: string;
 let columnId: string;
-let taskId: string;
 
 beforeAll(async () => {
   const admin = await prisma.user.findUnique({
@@ -98,24 +96,25 @@ beforeAll(async () => {
   columnId = column.id;
 });
 
-describe("Notifications API", () => {
-  let testTaskId: string;
+let testTaskId: string;
 
-  beforeAll(async () => {
-    // Create a test task for notification tests
-    const task = await prisma.task.create({
-      data: {
-        projectId,
-        boardId,
-        columnId,
-        number: 999,
-        title: "Notification Test Task",
-        reporterId: adminId,
-        position: 0,
-      },
-    });
-    testTaskId = task.id;
+beforeAll(async () => {
+  // Create a test task for notification tests
+  const task = await prisma.task.create({
+    data: {
+      projectId,
+      boardId,
+      columnId,
+      number: 999,
+      title: "Notification Test Task",
+      reporterId: adminId,
+      position: 0,
+    },
   });
+  testTaskId = task.id;
+});
+
+describe("Notifications API", () => {
 
   it("GET /api/notifications returns user's notifications", async () => {
     await prisma.notification.create({
@@ -407,7 +406,7 @@ describe("Notifications API", () => {
     });
 
     // User2 adds first comment
-    const comment1 = await prisma.comment.create({
+    await prisma.comment.create({
       data: {
         taskId: task.id,
         authorId: userId2,

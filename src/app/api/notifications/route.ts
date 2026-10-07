@@ -2,7 +2,6 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserWithStatus } from "@/server/auth/current-user";
 import { NotificationService } from "@/server/modules/notifications/service";
-import { prisma } from "@/server/lib/prisma";
 import { buildImageUrl } from "@/server/lib/cloudinary";
 
 export async function GET(req: NextRequest) {

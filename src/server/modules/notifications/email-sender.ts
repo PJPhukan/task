@@ -14,7 +14,7 @@ export async function sendNotificationEmailsAsync(projectId: string) {
   });
 }
 
-async function sendPendingNotificationEmails(projectId: string) {
+export async function sendPendingNotificationEmails(projectId: string) {
   const notifications = await prisma.notification.findMany({
     where: {
       projectId,

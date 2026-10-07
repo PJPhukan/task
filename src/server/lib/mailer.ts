@@ -11,6 +11,7 @@ interface EmailPayload {
 
 interface FakeTransporter {
   sent: EmailPayload[];
+  shouldFail?: boolean;
   sendMail(_payload: EmailPayload): Promise<void>;
 }
 
@@ -58,18 +59,14 @@ export class Mailer {
       return;
     }
 
-    try {
-      const from = process.env.MAIL_FROM || "noreply@example.com";
-      if ("sent" in this.transporter) {
-        await this.transporter.sendMail(payload);
-      } else {
-        await this.transporter.sendMail({
-          from,
-          ...payload,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to send email:", error);
+    const from = process.env.MAIL_FROM || "noreply@example.com";
+    if ("sent" in this.transporter) {
+      await this.transporter.sendMail(payload);
+    } else {
+      await this.transporter.sendMail({
+        from,
+        ...payload,
+      });
     }
   }
 
@@ -85,12 +82,26 @@ export class Mailer {
       this.transporter.sent = [];
     }
   }
+
+  setFakeShouldFail(shouldFail: boolean): void {
+    if (this.transporter && "shouldFail" in this.transporter) {
+      this.transporter.shouldFail = shouldFail;
+    }
+  }
+
+  isFakeTransporter(): boolean {
+    return this.transporter != null && "sent" in this.transporter;
+  }
 }
 
 function createFakeTransporter(): FakeTransporter {
   return {
     sent: [],
+    shouldFail: false,
     async sendMail(payload: EmailPayload) {
+      if (this.shouldFail) {
+        throw new Error("Fake mailer is set to fail");
+      }
       console.log(
         `[MAIL] To: ${payload.to}, Subject: ${payload.subject}, Body: ${payload.text}`
       );

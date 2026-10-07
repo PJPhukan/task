@@ -61,7 +61,7 @@ export class NotificationService {
         }
         break;
 
-      case "task.assigned":
+      case "task.assigned": {
         const prevAssigneeId = metadata?.prevAssigneeId;
         if (task.assigneeId && task.assigneeId !== actorId) {
           recipients.add(task.assigneeId);
@@ -80,6 +80,7 @@ export class NotificationService {
           );
         }
         break;
+      }
 
       case "comment.created":
         // Notify assignee, reporter, and previous commenters
@@ -108,7 +109,6 @@ export class NotificationService {
           );
         }
         return;
-        break;
 
       case "comment.updated":
         // Same people as created, but in-app only
@@ -139,7 +139,6 @@ export class NotificationService {
           );
         }
         return;
-        break;
 
       case "task.updated":
         // Check if due date changed

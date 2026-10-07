@@ -4,9 +4,6 @@ import { POST as createInviteRoute, GET as listInvitesRoute } from "@/app/api/in
 import { DELETE as deleteInviteRoute } from "@/app/api/invites/[inviteId]/route";
 import { POST as resendInviteRoute } from "@/app/api/invites/[inviteId]/resend/route";
 import { GET as getAcceptRoute, POST as postAcceptRoute } from "@/app/api/invites/accept/route";
-import { GET as getMeRoute } from "@/app/api/me/route";
-import { POST as patchUserRoute } from "@/app/api/users/[userId]/route";
-import { POST as authSignInRoute } from "@/app/api/auth/[...all]/route";
 import { prisma } from "@/server/lib/prisma";
 import { getMailer } from "@/server/lib/mailer";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
@@ -110,10 +107,6 @@ describe("Invites API", () => {
     });
 
     it("rejects if user already has an account", async () => {
-      const existingUser = await prisma.user.findUnique({
-        where: { email: "admin@example.com" },
-      });
-
       const headers = new Headers();
       headers.set("x-user-id", adminUserId);
       headers.set("content-type", "application/json");
@@ -250,8 +243,7 @@ describe("Invites API", () => {
         body: JSON.stringify({ email, roleIds: ["member"] }),
       });
 
-      const createRes = await createInviteRoute(createReq);
-      const data = await createRes.json();
+      await createInviteRoute(createReq);
 
       // Extract token from email
       const sentEmails = testMailer.getSentEmails();
@@ -286,7 +278,7 @@ describe("Invites API", () => {
       const email = `expired-invite-${Date.now()}@example.com`;
 
       // Create invite with past expiry
-      const expiredInvite = await prisma.invite.create({
+      await prisma.invite.create({
         data: {
           email,
           tokenHash: "test-hash",

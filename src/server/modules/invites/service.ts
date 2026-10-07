@@ -3,7 +3,7 @@ import { createHash, randomBytes } from "crypto";
 import { prisma } from "@/server/lib/prisma";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { getMailer } from "@/server/lib/mailer";
-import { CreateInviteInput, ResendInviteInput } from "./schema";
+import { CreateInviteInput } from "./schema";
 import { hashPassword } from "@better-auth/utils/password";
 
 export class InviteService {
