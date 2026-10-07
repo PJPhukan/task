@@ -327,6 +327,101 @@ describe("Notifications API", () => {
     expect(notifications.length).toBe(0);
   });
 
+  it("Deleting a task with notifications succeeds and removes them", async () => {
+    // Create a task
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId,
+        number: 1000,
+        title: "Task with Notifications",
+        reporterId: adminId,
+        position: 0,
+      },
+    });
+
+    // Create notifications for the task
+    await prisma.notification.create({
+      data: {
+        recipientId: userId1,
+        type: "task.assigned",
+        actorId: adminId,
+        projectId,
+        taskId: task.id,
+        payload: { taskKey: "TEST-1000", taskTitle: "Task with Notifications" },
+        emailStatus: "PENDING",
+      },
+    });
+
+    const notificationsBefore = await prisma.notification.count({
+      where: { taskId: task.id },
+    });
+    expect(notificationsBefore).toBeGreaterThan(0);
+
+    // Delete the task
+    await prisma.task.delete({
+      where: { id: task.id },
+    });
+
+    // Verify task is deleted
+    const deletedTask = await prisma.task.findUnique({
+      where: { id: task.id },
+    });
+    expect(deletedTask).toBeNull();
+
+    // Verify notifications are also deleted
+    const notificationsAfter = await prisma.notification.count({
+      where: { taskId: task.id },
+    });
+    expect(notificationsAfter).toBe(0);
+  });
+
+  it("Deleting a comment with notifications succeeds and sets comment to null", async () => {
+    // Create a comment
+    const comment = await prisma.comment.create({
+      data: {
+        taskId: testTaskId,
+        authorId: userId1,
+        body: "Test comment with notifications",
+      },
+    });
+
+    // Create notification with this comment
+    const notification = await prisma.notification.create({
+      data: {
+        recipientId: userId2,
+        type: "comment.added",
+        actorId: userId1,
+        projectId,
+        taskId: testTaskId,
+        commentId: comment.id,
+        payload: { taskKey: "TEST-1", taskTitle: "Test Task", commentId: comment.id },
+        emailStatus: "PENDING",
+      },
+    });
+
+    expect(notification.commentId).toBe(comment.id);
+
+    // Delete the comment
+    await prisma.comment.delete({
+      where: { id: comment.id },
+    });
+
+    // Verify comment is deleted
+    const deletedComment = await prisma.comment.findUnique({
+      where: { id: comment.id },
+    });
+    expect(deletedComment).toBeNull();
+
+    // Verify notification still exists but commentId is null
+    const updatedNotification = await prisma.notification.findUnique({
+      where: { id: notification.id },
+    });
+    expect(updatedNotification).not.toBeNull();
+    expect(updatedNotification?.commentId).toBeNull();
+  });
+
   afterAll(async () => {
     // Cleanup - no need as tests run on isolated database
   });

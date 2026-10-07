@@ -158,7 +158,7 @@ model Board {
   updatedAt   DateTime  @updatedAt
 
   project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy   User            @relation(fields: [createdById], references: [id])
+  createdBy   User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
   columns     BoardColumn[]
   tasks       Task[]
   access      BoardAccess[]
@@ -226,7 +226,7 @@ model Task {
   startDate   DateTime? @db.Date
   dueDate     DateTime? @db.Date
   assigneeId  String?
-  reporterId  String
+  reporterId  String?
   position    Int
   completedAt DateTime?
   createdAt   DateTime  @default(now())
@@ -236,7 +236,7 @@ model Task {
   board        Board            @relation(fields: [boardId], references: [id], onDelete: Cascade)
   column       BoardColumn      @relation(fields: [columnId], references: [id])
   assignee     User?            @relation("assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  reporter     User             @relation("reporter", fields: [reporterId], references: [id])
+  reporter     User?            @relation("reporter", fields: [reporterId], references: [id], onDelete: SetNull)
   labels       TaskLabel[]
   comments     Comment[]
   attachments  Attachment[]
@@ -267,7 +267,7 @@ model TaskStageEntry {
 
   task              Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
   column            BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  enteredBy         User        @relation("stageEnteredBy", fields: [enteredById], references: [id])
+  enteredBy         User        @relation("stageEnteredBy", fields: [enteredById], references: [id], onDelete: Cascade)
   leftBy            User?       @relation("stageLeftBy", fields: [leftById], references: [id], onDelete: SetNull)
 
   @@index([taskId])
@@ -306,14 +306,15 @@ model TaskLabel {
 model Comment {
   id        String   @id @default(cuid())
   taskId    String
-  authorId  String
+  authorId  String?
   body      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   editedAt  DateTime?
 
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  author    User     @relation(fields: [authorId], references: [id])
+  task          Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author        User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  notifications Notification[]
 
   @@index([taskId])
   @@index([authorId])
@@ -322,7 +323,7 @@ model Comment {
 model Attachment {
   id           String   @id @default(cuid())
   taskId       String
-  uploadedById String
+  uploadedById String?
   publicId     String
   resourceType String
   format       String
@@ -334,7 +335,7 @@ model Attachment {
   updatedAt    DateTime @updatedAt
 
   task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  uploadedBy User     @relation(fields: [uploadedById], references: [id])
+  uploadedBy User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([taskId])
   @@index([uploadedById])
@@ -351,7 +352,7 @@ model ActivityLog {
 
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  actor     User     @relation(fields: [actorId], references: [id])
+  actor     User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([taskId])
@@ -376,6 +377,7 @@ model Notification {
   actor        User     @relation("notificationsCreated", fields: [actorId], references: [id], onDelete: Cascade)
   project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   task         Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  comment      Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
 
   @@index([recipientId, readAt, createdAt])
   @@index([recipientId, createdAt])
