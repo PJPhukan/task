@@ -50,17 +50,6 @@ export const auth = betterAuth({
         text,
       });
     },
-    async sendVerificationEmailOnSignUp() {
-      return true;
-    },
-    async onEmailVerified({ user }: any) {
-      try {
-        await UserService.promoteFirstUserToAdmin(user.id);
-        await JoinRequestService.notifyManagers(user.id);
-      } catch (error) {
-        console.error("Failed to process email verification:", error);
-      }
-    },
   },
   plugins: [],
   rateLimit: {

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, beforeAll } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, beforeAll } from "vitest";
 import prisma from "@/server/lib/prisma";
 import { UserService } from "@/server/modules/users/service";
 import { JoinRequestService } from "@/server/modules/join-requests/service";
@@ -17,8 +17,13 @@ const seededEmails = [
 
 describe("First User Admin Promotion", () => {
   let testMailer: ReturnType<typeof getMailer>;
+  let createdUserIds: string[] = [];
 
-  beforeAll(async () => {
+  beforeEach(async () => {
+    testMailer = getMailer();
+    testMailer.clearSentEmails();
+    createdUserIds = [];
+
     const nonSeeded = await prisma.user.findMany({
       where: {
         NOT: { email: { in: seededEmails } },
@@ -35,9 +40,13 @@ describe("First User Admin Promotion", () => {
     }
   });
 
-  beforeEach(async () => {
-    testMailer = getMailer();
-    testMailer.clearSentEmails();
+  afterEach(async () => {
+    if (createdUserIds.length > 0) {
+      await prisma.user.deleteMany({
+        where: { id: { in: createdUserIds } },
+      });
+      createdUserIds = [];
+    }
   });
 
   describe("promoteFirstUserToAdmin", () => {
@@ -54,6 +63,7 @@ describe("First User Admin Promotion", () => {
           emailVerified: true,
         },
       });
+      createdUserIds.push(firstUser.id);
 
       await UserService.promoteFirstUserToAdmin(firstUser.id);
 
@@ -79,6 +89,7 @@ describe("First User Admin Promotion", () => {
           emailVerified: true,
         },
       });
+      createdUserIds.push(firstUser.id);
 
       const perms = getPerms();
       await setupPermissions();
@@ -93,6 +104,7 @@ describe("First User Admin Promotion", () => {
           emailVerified: true,
         },
       });
+      createdUserIds.push(secondUser.id);
 
       await UserService.promoteFirstUserToAdmin(secondUser.id);
 
@@ -116,6 +128,7 @@ describe("First User Admin Promotion", () => {
           emailVerified: true,
         },
       });
+      createdUserIds.push(admin.id);
 
       const perms = getPerms();
       await setupPermissions();
@@ -132,6 +145,7 @@ describe("First User Admin Promotion", () => {
           emailVerified: true,
         },
       });
+      createdUserIds.push(newUser.id);
 
       await JoinRequestService.notifyManagers(newUser.id);
 
