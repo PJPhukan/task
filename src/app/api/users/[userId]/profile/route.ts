@@ -1,6 +1,6 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/server/auth/current-user";
+import { getCurrentUserWithStatus } from "@/server/auth/current-user";
 import { ProfileService } from "@/server/modules/users/profile-service";
 
 export async function GET(
@@ -9,14 +9,13 @@ export async function GET(
 ) {
   const { userId } = await params;
   const currentUserId = req.headers.get("x-user-id") || undefined;
-  const user = await getCurrentUser(currentUserId);
+  const userResult = await getCurrentUserWithStatus(currentUserId, req);
 
-  if (!user) {
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "User not found" } },
-      { status: 401 }
-    );
+  if (!userResult.ok) {
+    return userResult.response;
   }
+
+  const user = userResult.user;
 
   try {
     const profile = await ProfileService.getUserProfile(userId);

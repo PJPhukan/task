@@ -1,6 +1,6 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/server/auth/current-user";
+import { getCurrentUserWithStatus } from "@/server/auth/current-user";
 import { prisma } from "@/server/lib/prisma";
 import { StageService } from "@/server/modules/tasks/stage-service";
 import { ColumnRulesService } from "@/server/modules/columns/rules-service";
@@ -12,14 +12,13 @@ export async function GET(
 ) {
   const { projectId, taskId } = await params;
   const userId = req.headers.get("x-user-id") || undefined;
-  const user = await getCurrentUser(userId);
+  const userResult = await getCurrentUserWithStatus(userId, req);
 
-  if (!user) {
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "User not found" } },
-      { status: 401 }
-    );
+  if (!userResult.ok) {
+    return userResult.response;
   }
+
+  const user = userResult.user;
 
   // Verify project exists
   const project = await prisma.project.findUnique({

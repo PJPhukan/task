@@ -3,6 +3,9 @@ import { NextRequest } from 'next/server';
 import { GET as getMeRoute } from '@/app/api/me/route';
 import { GET as getDevUsersRoute } from '@/app/api/dev/users/route';
 import { prisma } from '@/server/lib/prisma';
+import { readFileSync } from 'fs';
+import { readdirSync } from 'fs';
+import { join } from 'path';
 
 const dbUrl = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 if (!dbUrl) throw new Error('DATABASE_URL or TEST_DATABASE_URL is required');
@@ -109,5 +112,89 @@ describe('Permission checks', () => {
       WHERE user_id = ${viewerUserId}
     `;
     expect(roles).toBeDefined();
+  });
+});
+
+describe('Account status checks guard', () => {
+  it('all routes use status checking entry points', () => {
+    const exemptRoutes = [
+      '/me',
+      '/auth',
+      '/health',
+      '/invite',
+      '/dev',
+    ];
+
+    const findRouteFiles = (dir: string, basePath = ''): string[] => {
+      const files: string[] = [];
+      try {
+        const entries = readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory() && entry.name !== '__tests__') {
+            files.push(...findRouteFiles(join(dir, entry.name), basePath + '/' + entry.name));
+          } else if (entry.name === 'route.ts') {
+            files.push(basePath + '/route.ts');
+          }
+        }
+      } catch {
+        // Ignore errors
+      }
+      return files;
+    };
+
+    const apiDir = join(__dirname, '../../app/api');
+    const routes = findRouteFiles(apiDir);
+
+    const missingStatusCheck: string[] = [];
+
+    for (const route of routes) {
+      const filePath = join(apiDir, route);
+      const content = readFileSync(filePath, 'utf-8');
+
+      const isExempt = exemptRoutes.some((exemptPath) => route.startsWith(exemptPath));
+
+      if (!isExempt) {
+        const hasStatusCheck =
+          content.includes('getCurrentUserWithStatus') ||
+          content.includes('withAuth') ||
+          content.includes('createRouteHandler');
+
+        if (!hasStatusCheck) {
+          missingStatusCheck.push(route);
+        }
+      }
+    }
+
+    expect(missingStatusCheck).toEqual(
+      [],
+      `The following routes missing account status check: ${missingStatusCheck.join(', ')}`
+    );
+  });
+});
+
+describe('Account status handling', () => {
+  it('PENDING user gets 403 on project routes', async () => {
+    // Create a PENDING user
+    const pendingUser = await prisma.user.create({
+      data: {
+        name: 'Pending Test User',
+        email: `pending-${Date.now()}@example.com`,
+        status: 'PENDING',
+        isActive: true,
+      },
+    });
+
+    try {
+      const { GET: getProjectsRoute } = await import('@/app/api/projects/route');
+      const headers = new Headers();
+      headers.set('x-user-id', pendingUser.id);
+      const req = new NextRequest('http://localhost:3000/api/projects', { method: 'GET', headers });
+      const res = await getProjectsRoute(req);
+      expect(res.status).toBe(403);
+      const data = await res.json();
+      expect(data.error.code).toBe('ACCOUNT_PENDING');
+    } finally {
+      await prisma.user.delete({ where: { id: pendingUser.id } });
+    }
   });
 });
