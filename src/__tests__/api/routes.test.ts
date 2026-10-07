@@ -123,6 +123,7 @@ describe('Account status checks guard', () => {
       '/health',
       '/invites/accept',
       '/dev',
+      '/jobs',
     ];
 
     const findRouteFiles = (dir: string, basePath = ''): string[] => {

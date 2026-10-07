@@ -38,10 +38,19 @@ export async function GET(
   const board = await prisma.board.findUnique({
     where: { id: boardId },
     include: {
+      project: { select: { key: true } },
       columns: {
         orderBy: { position: "asc" },
         include: {
-          tasks: { orderBy: { position: "asc" } },
+          tasks: {
+            orderBy: { position: "asc" },
+            include: {
+              stageHistory: {
+                where: { leftAt: null },
+                take: 1,
+              },
+            },
+          },
         },
       },
     },
@@ -71,8 +80,33 @@ export async function GET(
     const canView = await ColumnRulesService.canViewColumn(userRoles, column.id);
     if (canView) {
       const canMove = await ColumnRulesService.canMoveFromColumn(userRoles, column.id);
+
+      // Format tasks with waitingSeconds and overLimit
+      const formattedTasks = column.tasks.map((task: any) => {
+        let waitingSeconds = 0;
+        let overLimit = false;
+
+        if (task.stageHistory && task.stageHistory.length > 0) {
+          const currentEntry = task.stageHistory[0];
+          waitingSeconds = Math.floor((new Date().getTime() - new Date(currentEntry.enteredAt).getTime()) / 1000);
+
+          if (column.timeLimitHours) {
+            const limitSeconds = column.timeLimitHours * 3600;
+            overLimit = waitingSeconds > limitSeconds;
+          }
+        }
+
+        return {
+          ...task,
+          key: `${board.project.key}-${task.number}`,
+          waitingSeconds,
+          overLimit,
+        };
+      });
+
       filteredColumns.push({
         ...column,
+        tasks: formattedTasks,
         canMove,
       });
     }

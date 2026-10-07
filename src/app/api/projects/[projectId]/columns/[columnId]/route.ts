@@ -43,12 +43,33 @@ export async function PATCH(
     );
   }
 
+  // Validate that time limit is not set on done columns
+  const currentColumn = await prisma.boardColumn.findUnique({
+    where: { id: columnId },
+  });
+
+  if (!currentColumn) {
+    return NextResponse.json(
+      { error: { code: "NOT_FOUND", message: "Column not found" } },
+      { status: 404 }
+    );
+  }
+
+  const isDone = result.data.isDone !== undefined ? result.data.isDone : currentColumn.isDone;
+  if (isDone && result.data.timeLimitHours !== undefined) {
+    return NextResponse.json(
+      { error: { code: "VALIDATION_ERROR", message: "Done columns cannot have time limits" } },
+      { status: 400 }
+    );
+  }
+
   const column = await prisma.boardColumn.update({
     where: { id: columnId },
     data: {
       ...(result.data.name && { name: result.data.name }),
       ...(result.data.color !== undefined && { color: result.data.color }),
       ...(result.data.isDone !== undefined && { isDone: result.data.isDone }),
+      ...(result.data.timeLimitHours !== undefined && { timeLimitHours: result.data.timeLimitHours }),
     },
   });
 

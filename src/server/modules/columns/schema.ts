@@ -9,6 +9,7 @@ export const updateColumnSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   color: z.string().optional(),
   isDone: z.boolean().optional(),
+  timeLimitHours: z.number().positive().optional(),
 });
 
 export const reorderColumnsSchema = z.object({

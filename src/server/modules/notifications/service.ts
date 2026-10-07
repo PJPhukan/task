@@ -11,7 +11,8 @@ export type NotificationType =
   | "comment.edited"
   | "due_date_changed"
   | "task.moved"
-  | "task.sent_back";
+  | "task.sent_back"
+  | "task.over_limit";
 
 export class NotificationService {
   static async recordActivityAndNotify(
@@ -349,5 +350,96 @@ export class NotificationService {
       where: { userId },
       data: { emailEnabled },
     });
+  }
+
+  static async checkTimeLimits() {
+    // Find all open stage entries that are over their column's time limit
+    const stageEntries = await prisma.taskStageEntry.findMany({
+      where: {
+        leftAt: null, // Open stage entry
+        task: {
+          column: {
+            timeLimitHours: { not: null }, // Column has time limit
+          },
+        },
+      },
+      include: {
+        task: {
+          include: {
+            column: true,
+            project: { select: { id: true, members: { include: { user: { select: { id: true, isActive: true, status: true } } } } } },
+          },
+        },
+      },
+    });
+
+    const notifiedEntries: string[] = [];
+
+    for (const entry of stageEntries) {
+      if (!entry.task.column.timeLimitHours) continue;
+
+      const waitingSeconds = (new Date().getTime() - new Date(entry.enteredAt).getTime()) / 1000;
+      const limitSeconds = entry.task.column.timeLimitHours * 3600;
+
+      // Check if over limit and hasn't been notified yet
+      if (waitingSeconds > limitSeconds && !entry.notifiedOverLimit) {
+        // Get MOVE role IDs for this column
+        const columnRules = await ColumnRulesService.getColumnRules(entry.task.columnId);
+        const moveRoleIds = columnRules.moveRoleIds;
+
+        const perms = getPerms();
+        await setupPermissions();
+
+        const recipients = new Set<string>();
+
+        // Add assignee
+        if (entry.task.assigneeId) {
+          recipients.add(entry.task.assigneeId);
+        }
+
+        // Add project members with MOVE roles
+        if (entry.task.project && entry.task.project.members) {
+          for (const member of entry.task.project.members) {
+            if (member.user.id === entry.task.assigneeId) continue; // Don't duplicate
+            if (!member.user.isActive || member.user.status !== "ACTIVE") continue;
+
+            const userRoles = await perms.user(member.user.id).getRoles();
+            const hasRole = moveRoleIds.some((roleId: string) => userRoles.includes(roleId));
+
+            if (hasRole) {
+              recipients.add(member.user.id);
+            }
+          }
+        }
+
+        // Create notifications for each recipient
+        for (const recipientId of recipients) {
+          await this.createNotification(
+            recipientId,
+            "task.over_limit",
+            null, // No actor for automated notification
+            entry.task.projectId,
+            entry.task.id,
+            null,
+            { taskKey: `${entry.task.projectId}-${entry.task.number}`, taskTitle: entry.task.title }
+          );
+        }
+
+        notifiedEntries.push(entry.id);
+      }
+    }
+
+    // Mark entries as notified
+    if (notifiedEntries.length > 0) {
+      // Update each entry individually since Prisma requires explicit field updates
+      for (const entryId of notifiedEntries) {
+        await (prisma as any).taskStageEntry.update({
+          where: { id: entryId },
+          data: { notifiedOverLimit: true },
+        });
+      }
+    }
+
+    return notifiedEntries.length;
   }
 }

@@ -259,18 +259,19 @@ model Task {
 }
 
 model TaskStageEntry {
-  id                String   @id @default(cuid())
-  taskId            String
-  columnId          String
-  enteredAt         DateTime @default(now())
-  enteredById       String?
-  leftAt            DateTime?
-  leftById          String?
-  durationSeconds   Int?
-  assigneeAtEntry   String?
-  isSendBack        Boolean  @default(false)
-  sendBackReason    String?
-  createdAt         DateTime @default(now())
+  id                  String   @id @default(cuid())
+  taskId              String
+  columnId            String
+  enteredAt           DateTime @default(now())
+  enteredById         String?
+  leftAt              DateTime?
+  leftById            String?
+  durationSeconds     Int?
+  assigneeAtEntry     String?
+  isSendBack          Boolean  @default(false)
+  sendBackReason      String?
+  notifiedOverLimit   Boolean  @default(false)
+  createdAt           DateTime @default(now())
 
   task              Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
   column            BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
