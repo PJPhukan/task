@@ -121,7 +121,7 @@ describe('Account status checks guard', () => {
       '/me',
       '/auth',
       '/health',
-      '/invite',
+      '/invites/accept',
       '/dev',
     ];
 

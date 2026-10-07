@@ -55,6 +55,17 @@ API specification and endpoint reference for cm-task-manager backend.
 | POST | /api/join-requests/:userId/approve | user.manage | Approve user: set ACTIVE, assign roles/projects/boards, send email |
 | POST | /api/join-requests/:userId/reject | user.manage | Reject user: set REJECTED, end sessions, send email |
 
+## Invites
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| POST | /api/invites | user.manage | Create invite: email, roleIds, optional projectIds and boardIds; sends invite email |
+| GET | /api/invites | user.manage | List pending invites (not yet accepted or revoked), newest first |
+| DELETE | /api/invites/:inviteId | user.manage | Revoke pending invite |
+| POST | /api/invites/:inviteId/resend | user.manage | Resend invite: generates new token, extends expiry |
+| GET | /api/invites/accept?token=... | - | Validate invite token; returns invited email and inviter name |
+| POST | /api/invites/accept | - | Accept invite: token, name, password; creates ACTIVE verified user with granted roles |
+
 ## Authentication
 
 | Method | Path | Permission | Description |

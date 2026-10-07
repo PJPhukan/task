@@ -46,10 +46,31 @@ export class UserService {
     if (input.email !== undefined) updateData.email = input.email;
     if (input.isActive !== undefined) updateData.isActive = input.isActive;
 
-    const user = await prisma.user.update({
+    // If deactivating, end all sessions in a transaction
+    if (input.isActive === false) {
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: userId },
+          data: updateData,
+        });
+
+        await tx.session.deleteMany({
+          where: { userId },
+        });
+      });
+    } else {
+      await prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+      });
+    }
+
+    const user = await prisma.user.findUnique({
       where: { id: userId },
-      data: updateData,
+      select: { id: true, name: true, email: true, isActive: true },
     });
+
+    if (!user) throw new Error("User not found");
 
     const perms = getPerms();
     await setupPermissions();

@@ -31,6 +31,7 @@ model User {
   sessions          Session[]
   accounts          Account[]
   verifications     Verification[]
+  invitesSent       Invite[]
 
   @@index([email])
 }
@@ -83,6 +84,27 @@ model Verification {
 
   @@unique([identifier, value])
   @@index([userId])
+}
+
+model Invite {
+  id            String    @id @default(cuid())
+  email         String
+  tokenHash     String    @unique
+  roleIds       String[]
+  projectIds    String[]
+  boardIds      String[]
+  expiresAt     DateTime
+  invitedById   String
+  acceptedAt    DateTime?
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  invitedBy     User      @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([invitedById])
+  @@index([expiresAt])
 }
 
 model Project {
