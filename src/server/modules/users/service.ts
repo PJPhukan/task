@@ -144,29 +144,13 @@ export class UserService {
     if (!user) throw new Error("User not found");
     if (!user.emailVerified) throw new Error("Email must be verified");
 
-    // Check if this is the first signed-up user by counting other users
-    // that are not seeded demo users (seeded users have specific emails)
-    const seededEmails = [
-      'admin@example.com',
-      'manager@example.com',
-      'member@example.com',
-      'viewer@example.com',
-      'developer@example.com',
-      'qa@example.com',
-      'deployment@example.com',
-    ];
-
-    const nonSeededUsers = await prisma.user.count({
+    const otherUsers = await prisma.user.count({
       where: {
-        AND: [
-          { NOT: { email: { in: seededEmails } } },
-          { NOT: { id: userId } },
-        ],
+        NOT: { id: userId },
       },
     });
 
-    if (nonSeededUsers > 0) {
-      // Not the first non-seeded user, set status to PENDING
+    if (otherUsers > 0) {
       await prisma.user.update({
         where: { id: userId },
         data: { status: "PENDING" },
@@ -174,7 +158,6 @@ export class UserService {
       return;
     }
 
-    // First non-seeded user: set to ACTIVE and assign Admin role
     await prisma.user.update({
       where: { id: userId },
       data: { status: "ACTIVE" },
@@ -182,8 +165,6 @@ export class UserService {
 
     const perms = getPerms();
     await setupPermissions();
-
-    // Assign admin role
     await perms.user(userId).assignRole("admin");
   }
 

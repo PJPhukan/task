@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET as getRolesRoute, POST as createRoleRoute } from '@/app/api/roles/route';
 import { PATCH as updateRoleRoute, DELETE as deleteRoleRoute } from '@/app/api/roles/[roleId]/route';
 import { GET as getMeRoute } from '@/app/api/me/route';
 import { POST as createUserRoute } from '@/app/api/users/route';
 import { prisma } from '@/server/lib/prisma';
-import { reseedDatabase, cleanupNonSeededUsers } from '@/__tests__/__helpers__/seed';
 
 let adminId: string;
 let viewerId: string;
@@ -277,10 +276,5 @@ describe('Roles API', () => {
     const meData = await meRes.json();
     expect(meData.permissions).toContain('task.create');
     expect(meData.permissions).not.toContain('task.update');
-  });
-
-  afterAll(async () => {
-    await reseedDatabase();
-    await cleanupNonSeededUsers();
   });
 });

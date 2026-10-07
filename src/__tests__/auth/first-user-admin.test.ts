@@ -55,14 +55,23 @@ describe("First User Admin Promotion", () => {
   });
 
   describe("promoteFirstUserToAdmin", () => {
-    it("sets ACTIVE and assigns admin role if first non-seeded user", async () => {
+    it("sets ACTIVE and assigns admin role if only user in database", async () => {
+      await prisma.taskStageEntry.deleteMany({});
+      await prisma.comment.deleteMany({});
+      await prisma.attachment.deleteMany({});
+      await prisma.task.deleteMany({});
+      await prisma.columnRule.deleteMany({});
+      await prisma.board.deleteMany({});
+      await prisma.project.deleteMany({});
+      await prisma.user.deleteMany({});
+
       const timestamp = Date.now();
       const rand = Math.random();
 
       const firstUser = await prisma.user.create({
         data: {
-          name: "First Non-Seeded",
-          email: `first-nonseed-${timestamp}-${rand}@example.com`,
+          name: "First User",
+          email: `first-${timestamp}-${rand}@example.com`,
           status: "PENDING",
           isActive: true,
           emailVerified: true,
@@ -81,14 +90,23 @@ describe("First User Admin Promotion", () => {
       expect(hasAdminRole).toBe(true);
     });
 
-    it("keeps PENDING if not first non-seeded user", async () => {
+    it("keeps PENDING if not the only user in database", async () => {
+      await prisma.taskStageEntry.deleteMany({});
+      await prisma.comment.deleteMany({});
+      await prisma.attachment.deleteMany({});
+      await prisma.task.deleteMany({});
+      await prisma.columnRule.deleteMany({});
+      await prisma.board.deleteMany({});
+      await prisma.project.deleteMany({});
+      await prisma.user.deleteMany({});
+
       const timestamp = Date.now();
       const rand = Math.random();
 
       const firstUser = await prisma.user.create({
         data: {
-          name: "First Non-Seeded 2",
-          email: `first-nonseed2-${timestamp}-${rand}@example.com`,
+          name: "First User",
+          email: `first-${timestamp}-${rand}@example.com`,
           status: "PENDING",
           isActive: true,
           emailVerified: true,
@@ -102,8 +120,8 @@ describe("First User Admin Promotion", () => {
 
       const secondUser = await prisma.user.create({
         data: {
-          name: "Second Non-Seeded",
-          email: `second-nonseed-${timestamp}-${rand}@example.com`,
+          name: "Second User",
+          email: `second-${timestamp}-${rand}@example.com`,
           status: "PENDING",
           isActive: true,
           emailVerified: true,
@@ -121,6 +139,15 @@ describe("First User Admin Promotion", () => {
     });
 
     it("notifies admins when user verifies email", async () => {
+      await prisma.taskStageEntry.deleteMany({});
+      await prisma.comment.deleteMany({});
+      await prisma.attachment.deleteMany({});
+      await prisma.task.deleteMany({});
+      await prisma.columnRule.deleteMany({});
+      await prisma.board.deleteMany({});
+      await prisma.project.deleteMany({});
+      await prisma.user.deleteMany({});
+
       const timestamp = Date.now();
       const rand = Math.random();
 
