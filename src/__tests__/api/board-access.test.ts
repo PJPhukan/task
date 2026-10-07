@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET as getBoardsRoute } from '@/app/api/projects/[projectId]/boards/route';
-import { PUT as updateBoardAccessRoute } from '@/app/api/projects/[projectId]/boards/[boardId]/access/route';
+import { GET as getBoardAccessRoute, PUT as updateBoardAccessRoute } from '@/app/api/projects/[projectId]/boards/[boardId]/access/route';
 import { POST as addProjectMemberRoute } from '@/app/api/projects/[projectId]/members/route';
 import { POST as createRoleRoute } from '@/app/api/roles/route';
 import { POST as createUserRoute } from '@/app/api/users/route';
@@ -189,5 +189,41 @@ describe('Board Access API', () => {
     const data = await boardsResponse.json();
     const hasBoard = data.boards.some((b: any) => b.id === boardId);
     expect(hasBoard).toBe(true);
+  });
+
+  it('GET /api/projects/:projectId/boards/:boardId/access returns roles with displayName', async () => {
+    const timestamp = Date.now();
+    const displayName = `Board Access Role ${timestamp}`;
+
+    // Create a custom role with displayName
+    const roleHeaders = new Headers();
+    roleHeaders.set('x-user-id', adminId);
+    roleHeaders.set('content-type', 'application/json');
+    const roleReq = new NextRequest('http://localhost:3000/api/roles', { method: 'POST', headers: roleHeaders, body: JSON.stringify({ displayName, permissionKeys: ['task.create'] }) });
+    const createRoleRes = await createRoleRoute(roleReq);
+    expect(createRoleRes.status).toBe(201);
+    const createdRole = (await createRoleRes.json()).role;
+    const roleId = createdRole.id;
+
+    // Set board access with the custom role
+    const accessHeaders = new Headers();
+    accessHeaders.set('x-user-id', adminId);
+    accessHeaders.set('content-type', 'application/json');
+    const accessReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`, { method: 'PUT', headers: accessHeaders, body: JSON.stringify({ isOpen: false, allowedUserIds: [adminId], allowedRoleIds: [roleId] }) });
+    await updateBoardAccessRoute(accessReq, { params: Promise.resolve({ projectId, boardId }) });
+
+    // GET the board access and verify displayName is present
+    const getHeaders = new Headers();
+    getHeaders.set('x-user-id', adminId);
+    const getReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`, { method: 'GET', headers: getHeaders });
+    const getRes = await getBoardAccessRoute(getReq, { params: Promise.resolve({ projectId, boardId }) });
+    expect(getRes.status).toBe(200);
+    const data = await getRes.json();
+    expect(data.allowedRoles).toBeDefined();
+    expect(Array.isArray(data.allowedRoles)).toBe(true);
+    expect(data.allowedRoles.length).toBeGreaterThan(0);
+    const roleWithDisplayName = data.allowedRoles.find((r: any) => r.id === roleId);
+    expect(roleWithDisplayName).toBeDefined();
+    expect(roleWithDisplayName.displayName).toBe(displayName);
   });
 });

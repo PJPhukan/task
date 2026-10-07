@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET as getBoardRoute } from '@/app/api/projects/[projectId]/boards/[boardId]/route';
 import { GET as getColumnsRoute } from '@/app/api/projects/[projectId]/boards/[boardId]/columns/route';
-import { PUT as setColumnRulesRoute } from '@/app/api/projects/[projectId]/columns/[columnId]/rules/route';
+import { GET as getColumnRulesRoute, PUT as setColumnRulesRoute } from '@/app/api/projects/[projectId]/columns/[columnId]/rules/route';
 import { prisma } from '@/server/lib/prisma';
 import { getPerms, setupPermissions } from '@/server/lib/permly';
 
@@ -201,5 +201,45 @@ describe('Column Rules API', () => {
     });
     const response = await setColumnRulesRoute(req, { params: Promise.resolve({ projectId, columnId }) });
     expect(response.status).toBe(403);
+  });
+
+  it('GET /api/projects/:projectId/columns/:columnId/rules returns roles with displayName', async () => {
+    // Set rules with developer and manager roles
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const setReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/columns/${columnId}/rules`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        viewRoleIds: ['developer', 'manager'],
+        moveRoleIds: ['developer'],
+      }),
+    });
+    await setColumnRulesRoute(setReq, { params: Promise.resolve({ projectId, columnId }) });
+
+    // GET the rules and verify displayNames are present
+    const getHeaders = new Headers();
+    getHeaders.set('x-user-id', adminId);
+    const getReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/columns/${columnId}/rules`, {
+      method: 'GET',
+      headers: getHeaders,
+    });
+    const response = await getColumnRulesRoute(getReq, { params: Promise.resolve({ projectId, columnId }) });
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(Array.isArray(data.viewRoles)).toBe(true);
+    expect(Array.isArray(data.moveRoles)).toBe(true);
+    expect(data.viewRoles.length).toBeGreaterThanOrEqual(2);
+    expect(data.moveRoles.length).toBeGreaterThanOrEqual(1);
+    // Verify each role has id and displayName
+    data.viewRoles.forEach((role: any) => {
+      expect(role.id).toBeDefined();
+      expect(role.displayName).toBeDefined();
+    });
+    data.moveRoles.forEach((role: any) => {
+      expect(role.id).toBeDefined();
+      expect(role.displayName).toBeDefined();
+    });
   });
 });

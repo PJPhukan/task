@@ -227,6 +227,54 @@ describe("Invites API", () => {
       const res = await listInvitesRoute(req);
       expect(res.status).toBe(403);
     });
+
+    it("returns invites with roles including displayName", async () => {
+      const email = `invite-roles-${Date.now()}@example.com`;
+
+      const headers = new Headers();
+      headers.set("x-user-id", adminUserId);
+      headers.set("content-type", "application/json");
+
+      const createReq = new NextRequest("http://localhost:3000/api/invites", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          email,
+          roleIds: ["member", "developer"],
+          projectIds: [],
+          boardIds: [],
+        }),
+      });
+
+      const createRes = await createInviteRoute(createReq);
+      expect(createRes.status).toBe(201);
+      const createData = await createRes.json();
+      expect(createData.invite.roles).toBeDefined();
+      expect(Array.isArray(createData.invite.roles)).toBe(true);
+      expect(createData.invite.roles.length).toBe(2);
+      createData.invite.roles.forEach((role: any) => {
+        expect(role.id).toBeDefined();
+        expect(role.displayName).toBeDefined();
+      });
+
+      // Also verify in list response
+      const listReq = new NextRequest("http://localhost:3000/api/invites", {
+        method: "GET",
+        headers,
+      });
+
+      const listRes = await listInvitesRoute(listReq);
+      expect(listRes.status).toBe(200);
+      const listData = await listRes.json();
+      const createdInvite = listData.invites.find((inv: any) => inv.email === email);
+      expect(createdInvite).toBeDefined();
+      expect(createdInvite.roles).toBeDefined();
+      expect(Array.isArray(createdInvite.roles)).toBe(true);
+      createdInvite.roles.forEach((role: any) => {
+        expect(role.id).toBeDefined();
+        expect(role.displayName).toBeDefined();
+      });
+    });
   });
 
   describe("GET /api/invites/accept?token=...", () => {

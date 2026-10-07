@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "crypto";
 import { prisma } from "@/server/lib/prisma";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { getMailer } from "@/server/lib/mailer";
+import { RoleService } from "@/server/modules/roles/service";
 import { CreateInviteInput } from "./schema";
 import { hashPassword } from "@better-auth/utils/password";
 
@@ -54,12 +55,15 @@ export class InviteService {
     // Send email
     await this.sendInviteEmail(input.email, token, invite.invitedBy.name);
 
+    const roles = await RoleService.enrichRolesWithDisplayNames(invite.roleIds);
+
     return {
       id: invite.id,
       email: invite.email,
       createdAt: invite.createdAt,
       expiresAt: invite.expiresAt,
       invitedBy: invite.invitedBy.name,
+      roles,
     };
   }
 
@@ -74,15 +78,25 @@ export class InviteService {
         email: true,
         createdAt: true,
         expiresAt: true,
+        roleIds: true,
         invitedBy: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    return invites.map((inv) => ({
-      ...inv,
-      invitedBy: inv.invitedBy.name,
-    }));
+    const enrichedInvites = [];
+    for (const inv of invites) {
+      const roles = await RoleService.enrichRolesWithDisplayNames(inv.roleIds);
+      enrichedInvites.push({
+        id: inv.id,
+        email: inv.email,
+        createdAt: inv.createdAt,
+        expiresAt: inv.expiresAt,
+        invitedBy: inv.invitedBy.name,
+        roles,
+      });
+    }
+    return enrichedInvites;
   }
 
   static async revokeInvite(inviteId: string) {
