@@ -104,7 +104,8 @@ export async function exportToExcel(
     }
   }
 
-  return await workbook.xlsx.writeBuffer() as Buffer;
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
 }
 
 export async function exportToPdf(
