@@ -318,8 +318,8 @@ export class TaskService {
 
     // Check if this is a backward move
     const isBackwardMove = targetColumn.position < sourceColumn.position;
-    if (isBackwardMove && !input.sendBackReason) {
-      const error = { code: "VALIDATION_ERROR", message: "Reason required for moving task backward", details: ["sendBackReason"] };
+    if (isBackwardMove && !input.reason) {
+      const error = { code: "VALIDATION_ERROR", message: "Reason required for moving task backward", details: ["reason"] };
       throw new Error(JSON.stringify(error));
     }
 
@@ -358,7 +358,7 @@ export class TaskService {
             enteredById: userId,
             assigneeAtEntry: task.assigneeId,
             isSendBack: isBackwardMove,
-            sendBackReason: isBackwardMove ? input.sendBackReason : null,
+            sendBackReason: isBackwardMove ? input.reason : null,
           },
         });
       }
@@ -436,7 +436,7 @@ export class TaskService {
         columnIsDone: targetColumn.isDone || false,
         moveRoleIds: columnRules.moveRoleIds,
         isSendBack: isBackwardMove,
-        sendBackReason: isBackwardMove ? input.sendBackReason : undefined,
+        sendBackReason: isBackwardMove ? input.reason : undefined,
       });
     }
 

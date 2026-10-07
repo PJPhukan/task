@@ -406,7 +406,7 @@ describe('Tasks API', () => {
       body: JSON.stringify({
         columnId, // Position 0
         index: 0,
-        sendBackReason: 'Needs rework due to bugs',
+        reason: 'Needs rework due to bugs',
       }),
     });
     const response = await moveTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
