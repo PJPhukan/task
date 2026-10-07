@@ -26,6 +26,16 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     autoSignIn: false,
+    sendResetPassword: async (params: ResetPasswordParams) => {
+      const mailer = getMailer();
+      const { html, text } = createResetPasswordTemplate(params.url);
+      await mailer.send({
+        to: params.user.email,
+        subject: "Reset your password",
+        html,
+        text,
+      });
+    },
   },
   emailVerification: {
     sendVerificationEmail: async (params: EmailVerificationParams) => {
@@ -38,16 +48,6 @@ export const auth = betterAuth({
         text,
       });
     },
-  },
-  sendResetPassword: async (params: ResetPasswordParams) => {
-    const mailer = getMailer();
-    const { html, text } = createResetPasswordTemplate(params.url);
-    await mailer.send({
-      to: params.user.email,
-      subject: "Reset your password",
-      html,
-      text,
-    });
   },
   plugins: [],
   rateLimit: {

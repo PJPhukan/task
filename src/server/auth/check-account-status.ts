@@ -1,13 +1,13 @@
 import "server-only";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "./current-user";
 
 export type AccountStatusResult =
   | { authorized: true; user: any }
   | { authorized: false; response: Response };
 
-export async function checkAccountStatus(userId?: string): Promise<AccountStatusResult> {
-  const user = await getCurrentUser(userId);
+export async function checkAccountStatus(userId?: string, req?: NextRequest): Promise<AccountStatusResult> {
+  const user = await getCurrentUser(userId, req);
 
   if (!user) {
     return {

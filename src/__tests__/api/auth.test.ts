@@ -221,4 +221,159 @@ describe('Seeded User Sign-In', () => {
     const signInRes = await authPost(signInReq);
     expect(signInRes.status).not.toBe(200);
   });
+
+  it('PENDING user can call GET /api/me with limited info', async () => {
+    const email = `pending-test-${Date.now()}@example.com`;
+
+    // Create a user with PENDING status and verified email
+    const user = await prisma.user.create({
+      data: {
+        name: 'Pending Test User',
+        email,
+        emailVerified: true,
+        status: 'PENDING',
+        isActive: true,
+      },
+    });
+
+    // Call GET /api/me with x-user-id header (dev mode) - should return 200 with limited info
+    const meReq = new NextRequest('http://localhost:3000/api/me', {
+      method: 'GET',
+      headers: {
+        'x-user-id': user.id,
+      },
+    });
+
+    const meRes = await getMeRoute(meReq);
+    expect(meRes.status).toBe(200);
+
+    const meData = await meRes.json();
+    expect(meData.user).toBeDefined();
+    expect(meData.user.id).toBe(user.id);
+    expect(meData.user.email).toBe(email);
+    expect(meData.user.status).toBe('PENDING');
+    expect(meData.user.name).toBeUndefined();
+    expect(meData.roles).toBeUndefined();
+  });
+
+  it('PENDING user gets 403 ACCOUNT_PENDING on project route', async () => {
+    const email = `pending-project-${Date.now()}@example.com`;
+
+    // Create a PENDING user
+    const user = await prisma.user.create({
+      data: {
+        name: 'Pending User',
+        email,
+        emailVerified: true,
+        status: 'PENDING',
+        isActive: true,
+      },
+    });
+
+    // Try to access /api/projects - should get 403 ACCOUNT_PENDING
+    const { GET: getProjects } = await import('@/app/api/projects/route');
+    const projectsReq = new NextRequest('http://localhost:3000/api/projects', {
+      method: 'GET',
+      headers: {
+        'x-user-id': user.id,
+      },
+    });
+
+    const projectsRes = await getProjects(projectsReq);
+    expect(projectsRes.status).toBe(403);
+
+    const projectsData = await projectsRes.json();
+    expect(projectsData.error.code).toBe('ACCOUNT_PENDING');
+  });
+
+  it('Password reset works end-to-end with mailer link and seeded admin', async () => {
+    const email = 'admin@example.com';
+    const password = 'development123';
+    const newPassword = 'NewPassword456!';
+    const mailer = getMailer();
+
+    // Clear previous emails
+    mailer.getSentEmails();
+
+    // Request password reset for seeded admin
+    const forgotReq = new NextRequest('http://localhost:3000/api/auth/request-password-reset', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': 'http://localhost:3000',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    const forgotRes = await authPost(forgotReq);
+    expect(forgotRes.status).toBe(200);
+
+    // Get reset token from email
+    const resetEmails = mailer.getSentEmails();
+    const resetEmail = resetEmails.find(e => e.to === email);
+    expect(resetEmail).toBeDefined();
+
+    // Token is in the URL path: /reset-password/TOKEN?callbackURL=
+    const resetTokenMatch = resetEmail!.text.match(/reset-password\/([^?&\s]+)/);
+    expect(resetTokenMatch).toBeDefined();
+    const resetToken = resetTokenMatch![1];
+
+    // Reset password
+    const resetReq = new NextRequest('http://localhost:3000/api/auth/reset-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': 'http://localhost:3000',
+      },
+      body: JSON.stringify({ token: resetToken, newPassword }),
+    });
+
+    const resetRes = await authPost(resetReq);
+    expect(resetRes.status).toBe(200);
+
+    // Try to sign in with old password - should fail
+    const oldSignInReq = new NextRequest('http://localhost:3000/api/auth/sign-in/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': 'http://localhost:3000',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const oldSignInRes = await authPost(oldSignInReq);
+    expect(oldSignInRes.status).not.toBe(200);
+
+    // Sign in with new password - should succeed
+    const newSignInReq = new NextRequest('http://localhost:3000/api/auth/sign-in/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': 'http://localhost:3000',
+      },
+      body: JSON.stringify({ email, password: newPassword }),
+    });
+
+    const newSignInRes = await authPost(newSignInReq);
+    expect(newSignInRes.status).toBe(200);
+  });
+
+  it('request with invalid x-user-id returns 401', async () => {
+    // In dev mode, x-user-id is used to identify the user
+    // If the user ID is invalid/non-existent, request should return 401
+    const fakeUserId = 'invalid-user-id-' + Date.now();
+
+    const meReq = new NextRequest('http://localhost:3000/api/me', {
+      method: 'GET',
+      headers: {
+        'x-user-id': fakeUserId,
+      },
+    });
+
+    const meRes = await getMeRoute(meReq);
+    expect(meRes.status).toBe(401);
+
+    const meData = await meRes.json();
+    expect(meData.error.code).toBe('UNAUTHORIZED');
+  });
 });
