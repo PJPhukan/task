@@ -1,4 +1,10 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { NextRequest } from 'next/server';
+import { PUT as setBoardAccessRoute, GET as getBoardsRoute } from '@/app/api/projects/[projectId]/boards/route';
+import { PUT as updateBoardAccessRoute } from '@/app/api/projects/[projectId]/boards/[boardId]/access/route';
+import { POST as addProjectMemberRoute } from '@/app/api/projects/[projectId]/members/route';
+import { POST as createRoleRoute } from '@/app/api/roles/route';
+import { POST as createUserRoute } from '@/app/api/users/route';
 import { prisma } from '@/server/lib/prisma';
 
 function generateProjectKey(length = 4): string {
@@ -43,18 +49,11 @@ beforeAll(async () => {
 
 describe('Board Access API', () => {
   it('PUT /api/projects/:projectId/boards/:boardId/access sets board to restricted', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`,
-      {
-        method: 'PUT',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          isOpen: false,
-          allowedUserIds: [adminId],
-          allowedRoleIds: [],
-        }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`, { method: 'PUT', headers, body: JSON.stringify({ isOpen: false, allowedUserIds: [adminId], allowedRoleIds: [] }) });
+    const response = await updateBoardAccessRoute(req, { params: { projectId, boardId } });
     expect(response.status).toBe(200);
   });
 
@@ -65,12 +64,10 @@ describe('Board Access API', () => {
     });
 
     // Board list should not include the restricted board for viewer
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards`,
-      {
-        headers: { 'x-user-id': viewerId },
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards`, { method: 'GET', headers });
+    const response = await getBoardsRoute(req, { params: { projectId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     const hasRestrictedBoard = data.boards.some((b: any) => b.id === boardId);
@@ -78,12 +75,10 @@ describe('Board Access API', () => {
   });
 
   it('Restricted board is visible to allowed user', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards`,
-      {
-        headers: { 'x-user-id': adminId },
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards`, { method: 'GET', headers });
+    const response = await getBoardsRoute(req, { params: { projectId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     const hasBoard = data.boards.some((b: any) => b.id === boardId);
@@ -91,27 +86,18 @@ describe('Board Access API', () => {
   });
 
   it('PUT /api/projects/:projectId/boards/:boardId/access sets board to open', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`,
-      {
-        method: 'PUT',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          isOpen: true,
-          allowedUserIds: [],
-          allowedRoleIds: [],
-        }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`, { method: 'PUT', headers, body: JSON.stringify({ isOpen: true, allowedUserIds: [], allowedRoleIds: [] }) });
+    const response = await updateBoardAccessRoute(req, { params: { projectId, boardId } });
     expect(response.status).toBe(200);
 
     // Now viewer should see it
-    const listResponse = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards`,
-      {
-        headers: { 'x-user-id': viewerId },
-      }
-    );
+    const listHeaders = new Headers();
+    listHeaders.set('x-user-id', viewerId);
+    const listReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards`, { method: 'GET', headers: listHeaders });
+    const listResponse = await getBoardsRoute(listReq, { params: { projectId } });
     expect(listResponse.status).toBe(200);
     const data = await listResponse.json();
     const hasBoard = data.boards.some((b: any) => b.id === boardId);
@@ -119,18 +105,11 @@ describe('Board Access API', () => {
   });
 
   it('User without board.update cannot change board access', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`,
-      {
-        method: 'PUT',
-        headers: { 'x-user-id': viewerId, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          isOpen: false,
-          allowedUserIds: [],
-          allowedRoleIds: [],
-        }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`, { method: 'PUT', headers, body: JSON.stringify({ isOpen: false, allowedUserIds: [], allowedRoleIds: [] }) });
+    const response = await updateBoardAccessRoute(req, { params: { projectId, boardId } });
     expect(response.status).toBe(403);
   });
 
@@ -141,40 +120,25 @@ describe('Board Access API', () => {
     });
 
     // Restrict the board
-    await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`,
-      {
-        method: 'PUT',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          isOpen: false,
-          allowedUserIds: [adminId],
-          allowedRoleIds: [],
-        }),
-      }
-    );
+    const restrictHeaders = new Headers();
+    restrictHeaders.set('x-user-id', adminId);
+    restrictHeaders.set('content-type', 'application/json');
+    const restrictReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`, { method: 'PUT', headers: restrictHeaders, body: JSON.stringify({ isOpen: false, allowedUserIds: [adminId], allowedRoleIds: [] }) });
+    await updateBoardAccessRoute(restrictReq, { params: { projectId, boardId } });
 
     // Add user to project with board access
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/members`,
-      {
-        method: 'POST',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          userId: newUser.id,
-          boardIds: [boardId],
-        }),
-      }
-    );
+    const addHeaders = new Headers();
+    addHeaders.set('x-user-id', adminId);
+    addHeaders.set('content-type', 'application/json');
+    const addReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/members`, { method: 'POST', headers: addHeaders, body: JSON.stringify({ userId: newUser.id, boardIds: [boardId] }) });
+    const response = await addProjectMemberRoute(addReq, { params: { projectId } });
     expect(response.status).toBe(201);
 
     // Now user should have access to the board
-    const boardsResponse = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards`,
-      {
-        headers: { 'x-user-id': newUser.id },
-      }
-    );
+    const boardsHeaders = new Headers();
+    boardsHeaders.set('x-user-id', newUser.id);
+    const boardsReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards`, { method: 'GET', headers: boardsHeaders });
+    const boardsResponse = await getBoardsRoute(boardsReq, { params: { projectId } });
     expect(boardsResponse.status).toBe(200);
     const data = await boardsResponse.json();
     const hasBoard = data.boards.some((b: any) => b.id === boardId);
@@ -186,57 +150,41 @@ describe('Board Access API', () => {
     const customRoleName = `board-access-role-${timestamp}`;
 
     // Create a custom role
-    const createRoleRes = await fetch('http://localhost:3000/api/roles', {
-      method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        name: customRoleName,
-        permissionKeys: ['task.create'],
-      }),
-    });
+    const roleHeaders = new Headers();
+    roleHeaders.set('x-user-id', adminId);
+    roleHeaders.set('content-type', 'application/json');
+    const roleReq = new NextRequest('http://localhost:3000/api/roles', { method: 'POST', headers: roleHeaders, body: JSON.stringify({ name: customRoleName, permissionKeys: ['task.create'] }) });
+    const createRoleRes = await createRoleRoute(roleReq);
     expect(createRoleRes.status).toBe(201);
 
     // Create a new user with the custom role
-    const createUserRes = await fetch('http://localhost:3000/api/users', {
-      method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        name: `Board User ${timestamp}`,
-        email: `board-user-${timestamp}@example.com`,
-        roleIds: [customRoleName],
-      }),
-    });
+    const userHeaders = new Headers();
+    userHeaders.set('x-user-id', adminId);
+    userHeaders.set('content-type', 'application/json');
+    const userReq = new NextRequest('http://localhost:3000/api/users', { method: 'POST', headers: userHeaders, body: JSON.stringify({ name: `Board User ${timestamp}`, email: `board-user-${timestamp}@example.com`, roleIds: [customRoleName] }) });
+    const createUserRes = await createUserRoute(userReq);
     expect(createUserRes.status).toBe(201);
     const newUser = (await createUserRes.json()).user;
 
     // Add user to project
-    await fetch(`http://localhost:3000/api/projects/${projectId}/members`, {
-      method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-      body: JSON.stringify({ userId: newUser.id }),
-    });
+    const addMemberHeaders = new Headers();
+    addMemberHeaders.set('x-user-id', adminId);
+    addMemberHeaders.set('content-type', 'application/json');
+    const addMemberReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/members`, { method: 'POST', headers: addMemberHeaders, body: JSON.stringify({ userId: newUser.id }) });
+    await addProjectMemberRoute(addMemberReq, { params: { projectId } });
 
     // Restrict the board and add the custom role to allowed list
-    await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`,
-      {
-        method: 'PUT',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          isOpen: false,
-          allowedUserIds: [],
-          allowedRoleIds: [customRoleName],
-        }),
-      }
-    );
+    const restrictHeaders = new Headers();
+    restrictHeaders.set('x-user-id', adminId);
+    restrictHeaders.set('content-type', 'application/json');
+    const restrictReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}/access`, { method: 'PUT', headers: restrictHeaders, body: JSON.stringify({ isOpen: false, allowedUserIds: [], allowedRoleIds: [customRoleName] }) });
+    await updateBoardAccessRoute(restrictReq, { params: { projectId, boardId } });
 
     // User with the custom role should see the board
-    const boardsResponse = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards`,
-      {
-        headers: { 'x-user-id': newUser.id },
-      }
-    );
+    const boardsHeaders = new Headers();
+    boardsHeaders.set('x-user-id', newUser.id);
+    const boardsReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards`, { method: 'GET', headers: boardsHeaders });
+    const boardsResponse = await getBoardsRoute(boardsReq, { params: { projectId } });
     expect(boardsResponse.status).toBe(200);
     const data = await boardsResponse.json();
     const hasBoard = data.boards.some((b: any) => b.id === boardId);
