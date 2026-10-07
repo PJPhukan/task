@@ -53,21 +53,15 @@ model Session {
 model Account {
   id              String    @id @default(cuid())
   userId          String
-  type            String?
-  provider        String?
-  providerAccountId String?
-  accountId       String?
-  providerId      String?
+  providerId      String
+  accountId       String
   password        String?
   refreshToken    String?
   accessToken     String?
-  expiresAt       Int?
-  accessTokenExpiresAt Int?
-  refreshTokenExpiresAt Int?
-  tokenType       String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
   scope           String?
   idToken         String?
-  sessionState    String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

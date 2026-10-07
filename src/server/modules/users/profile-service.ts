@@ -43,21 +43,34 @@ export class ProfileService {
     const userRoles = await perms.user(userId).getRoles();
     const boardsData: any[] = [];
 
-    for (const project of projects) {
-      const projectBoards = await prisma.board.findMany({
-        where: { projectId: project.id },
-        select: { id: true, name: true, projectId: true },
-      });
+    // Fetch all boards for all projects at once
+    const allBoards = await prisma.board.findMany({
+      where: { projectId: { in: projects.map(p => p.id) } },
+      select: { id: true, name: true, projectId: true, isOpen: true },
+    });
 
-      for (const board of projectBoards) {
-        const canAccess = await BoardAccessService.canUserAccessBoard(userId, board.id, userRoles);
-        if (canAccess) {
-          boardsData.push({
-            id: board.id,
-            name: board.name,
-            projectId: board.projectId,
-          });
-        }
+    // Batch fetch all board access for this user at once
+    const boardAccesses = await (prisma as any).boardAccess.findMany({
+      where: {
+        boardId: { in: allBoards.map(b => b.id) },
+        OR: [
+          { userId },
+          { roleId: { in: userRoles } },
+        ],
+      },
+    });
+
+    const accessibleBoardIds = new Set(boardAccesses.map((a: any) => a.boardId));
+
+    // Filter boards by access
+    for (const board of allBoards) {
+      const canAccess = (board as any).isOpen || accessibleBoardIds.has(board.id);
+      if (canAccess) {
+        boardsData.push({
+          id: board.id,
+          name: board.name,
+          projectId: board.projectId,
+        });
       }
     }
 

@@ -117,13 +117,12 @@ async function main() {
       },
     });
 
-    // Create new account with password
+    // Create new account with password using Better Auth's schema
     await prisma.account.create({
       data: {
         userId: user.id,
-        type: 'credentials',
-        provider: 'credential',
-        providerAccountId: user.email,
+        providerId: 'credential',
+        accountId: user.email,
         password: hashedPassword,
       },
     });

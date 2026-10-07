@@ -21,12 +21,11 @@ describe('Seeded User Sign-In', () => {
     const account = await prisma.account.findFirst({
       where: {
         userId: user!.id,
-        provider: 'credential',
+        providerId: 'credential',
       },
     });
     expect(account).toBeDefined();
     expect(account?.password).toBeTruthy();
-    expect(account?.type).toBe('credentials');
   });
 
   it('Seeded Admin user can be retrieved via GET /api/me with x-user-id header', async () => {
