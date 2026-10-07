@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { NextRequest } from 'next/server';
+import { POST as createTaskRoute, GET as getTasksRoute } from '@/app/api/projects/[projectId]/tasks/route';
+import { GET as getTaskRoute, PATCH as updateTaskRoute, DELETE as deleteTaskRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/route';
+import { PATCH as moveTaskRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/move/route';
 import { prisma } from '@/server/lib/prisma';
 
 function generateProjectKey(length = 4): string {
@@ -58,37 +62,48 @@ beforeAll(async () => {
 
 describe('Tasks API', () => {
   it('POST /api/projects/:projectId/tasks creates task with incrementing number', async () => {
-    const res1 = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const headers1 = new Headers();
+    headers1.set('x-user-id', adminId);
+    headers1.set('content-type', 'application/json');
+    const req1 = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: headers1,
       body: JSON.stringify({
         boardId,
         columnId,
         title: 'First Task',
       }),
     });
+    const res1 = await createTaskRoute(req1, { params: { projectId } });
     expect(res1.status).toBe(201);
     const data1 = await res1.json();
     const number1 = data1.task.number;
 
-    const res2 = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const headers2 = new Headers();
+    headers2.set('x-user-id', adminId);
+    headers2.set('content-type', 'application/json');
+    const req2 = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: headers2,
       body: JSON.stringify({
         boardId,
         columnId,
         title: 'Second Task',
       }),
     });
+    const res2 = await createTaskRoute(req2, { params: { projectId } });
     expect(res2.status).toBe(201);
     const data2 = await res2.json();
     expect(data2.task.number).toBe(number1 + 1);
   });
 
   it('POST /api/projects/:projectId/tasks rejects dueDate before startDate', async () => {
-    const response = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         boardId,
         columnId,
@@ -97,6 +112,7 @@ describe('Tasks API', () => {
         dueDate: '2025-01-01',
       }),
     });
+    const response = await createTaskRoute(req, { params: { projectId } });
     expect(response.status).toBe(400);
   });
 
@@ -104,9 +120,12 @@ describe('Tasks API', () => {
     const nonMember = await prisma.user.create({
       data: { name: 'Non Member', email: `nm${Date.now()}@ex.com`, isActive: true },
     });
-    const response = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         boardId,
         columnId,
@@ -114,21 +133,26 @@ describe('Tasks API', () => {
         assigneeId: nonMember.id,
       }),
     });
+    const response = await createTaskRoute(req, { params: { projectId } });
     expect(response.status).toBe(400);
   });
 
   it('GET /api/projects/:projectId/tasks/:taskId returns task', async () => {
-    const createRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const createHeaders = new Headers();
+    createHeaders.set('x-user-id', adminId);
+    createHeaders.set('content-type', 'application/json');
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: createHeaders,
       body: JSON.stringify({ boardId, columnId, title: 'Test Task' }),
     });
+    const createRes = await createTaskRoute(createReq, { params: { projectId } });
     const task = (await createRes.json()).task;
 
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}`,
-      { headers: { 'x-user-id': adminId } }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}`, { method: 'GET', headers });
+    const response = await getTaskRoute(req, { params: { projectId, taskId: task.id } });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.task.id).toBe(task.id);
@@ -136,90 +160,109 @@ describe('Tasks API', () => {
   });
 
   it('PATCH /api/projects/:projectId/tasks/:taskId updates task', async () => {
-    const createRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const createHeaders = new Headers();
+    createHeaders.set('x-user-id', adminId);
+    createHeaders.set('content-type', 'application/json');
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: createHeaders,
       body: JSON.stringify({ boardId, columnId, title: 'Original' }),
     });
+    const createRes = await createTaskRoute(createReq, { params: { projectId } });
     const task = (await createRes.json()).task;
 
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}`,
-      {
-        method: 'PATCH',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({ title: 'Updated' }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ title: 'Updated' }),
+    });
+    const response = await updateTaskRoute(req, { params: { projectId, taskId: task.id } });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.task.title).toBe('Updated');
   });
 
   it('DELETE /api/projects/:projectId/tasks/:taskId with task.delete deletes any task', async () => {
-    const createRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const createHeaders = new Headers();
+    createHeaders.set('x-user-id', memberId);
+    createHeaders.set('content-type', 'application/json');
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': memberId, 'content-type': 'application/json' },
+      headers: createHeaders,
       body: JSON.stringify({ boardId, columnId, title: 'Member Task' }),
     });
+    const createRes = await createTaskRoute(createReq, { params: { projectId } });
     const task = (await createRes.json()).task;
 
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}`,
-      {
-        method: 'DELETE',
-        headers: { 'x-user-id': adminId },
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}`, { method: 'DELETE', headers });
+    const response = await deleteTaskRoute(req, { params: { projectId, taskId: task.id } });
     expect(response.status).toBe(200);
   });
 
   it('DELETE with task.delete.own allows deleting own task but not others', async () => {
-    const createRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const createHeaders1 = new Headers();
+    createHeaders1.set('x-user-id', memberId);
+    createHeaders1.set('content-type', 'application/json');
+    const createReq1 = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': memberId, 'content-type': 'application/json' },
+      headers: createHeaders1,
       body: JSON.stringify({ boardId, columnId, title: 'Own Task' }),
     });
+    const createRes = await createTaskRoute(createReq1, { params: { projectId } });
     const ownTask = (await createRes.json()).task;
 
-    const adminTaskRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const createHeaders2 = new Headers();
+    createHeaders2.set('x-user-id', adminId);
+    createHeaders2.set('content-type', 'application/json');
+    const createReq2 = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: createHeaders2,
       body: JSON.stringify({ boardId, columnId, title: 'Admin Task' }),
     });
+    const adminTaskRes = await createTaskRoute(createReq2, { params: { projectId } });
     const adminTask = (await adminTaskRes.json()).task;
 
     // Member can delete own task
-    const deleteOwnRes = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${ownTask.id}`,
-      { method: 'DELETE', headers: { 'x-user-id': memberId } }
-    );
+    const deleteOwnHeaders = new Headers();
+    deleteOwnHeaders.set('x-user-id', memberId);
+    const deleteOwnReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${ownTask.id}`, { method: 'DELETE', headers: deleteOwnHeaders });
+    const deleteOwnRes = await deleteTaskRoute(deleteOwnReq, { params: { projectId, taskId: ownTask.id } });
     expect([200, 403]).toContain(deleteOwnRes.status);
 
     // Member cannot delete other's task
-    const deleteOtherRes = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${adminTask.id}`,
-      { method: 'DELETE', headers: { 'x-user-id': memberId } }
-    );
+    const deleteOtherHeaders = new Headers();
+    deleteOtherHeaders.set('x-user-id', memberId);
+    const deleteOtherReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${adminTask.id}`, { method: 'DELETE', headers: deleteOtherHeaders });
+    const deleteOtherRes = await deleteTaskRoute(deleteOtherReq, { params: { projectId, taskId: adminTask.id } });
     expect(deleteOtherRes.status).toBe(403);
   });
 
   it('PATCH /api/projects/:projectId/tasks/:taskId/move to Done sets completedAt', async () => {
-    const createRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const createHeaders = new Headers();
+    createHeaders.set('x-user-id', adminId);
+    createHeaders.set('content-type', 'application/json');
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: createHeaders,
       body: JSON.stringify({ boardId, columnId, title: 'To Complete' }),
     });
+    const createRes = await createTaskRoute(createReq, { params: { projectId } });
     const task = (await createRes.json()).task;
 
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`,
-      {
-        method: 'PATCH',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({ columnId: doneColumnId, index: 0 }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ columnId: doneColumnId, index: 0 }),
+    });
+    const response = await moveTaskRoute(req, { params: { projectId, taskId: task.id } });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.task.completedAt).toBeTruthy();
@@ -239,11 +282,15 @@ describe('Tasks API', () => {
       },
     });
 
-    const createRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const createHeaders = new Headers();
+    createHeaders.set('x-user-id', adminId);
+    createHeaders.set('content-type', 'application/json');
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: createHeaders,
       body: JSON.stringify({ boardId, columnId: restrictedColumn.id, title: 'Restricted Move' }),
     });
+    const createRes = await createTaskRoute(createReq, { params: { projectId } });
     const task = (await createRes.json()).task;
 
     // Admin cannot move FROM restrictedColumn (not developer role)
@@ -251,14 +298,15 @@ describe('Tasks API', () => {
       data: { boardId, name: 'Target', position: 3 },
     });
 
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`,
-      {
-        method: 'PATCH',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({ columnId: targetColumn.id, index: 0 }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ columnId: targetColumn.id, index: 0 }),
+    });
+    const response = await moveTaskRoute(req, { params: { projectId, taskId: task.id } });
     expect(response.status).toBe(403);
   });
 
@@ -276,18 +324,22 @@ describe('Tasks API', () => {
       },
     });
 
-    const createRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const createHeaders = new Headers();
+    createHeaders.set('x-user-id', adminId);
+    createHeaders.set('content-type', 'application/json');
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: createHeaders,
       body: JSON.stringify({ boardId, columnId: hiddenCol.id, title: 'Hidden Task' }),
     });
+    const createRes = await createTaskRoute(createReq, { params: { projectId } });
     const task = (await createRes.json()).task;
 
     // Member cannot view (no developer role)
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}`,
-      { headers: { 'x-user-id': memberId } }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', memberId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}`, { method: 'GET', headers });
+    const response = await getTaskRoute(req, { params: { projectId, taskId: task.id } });
     expect(response.status).toBe(404);
   });
 });
