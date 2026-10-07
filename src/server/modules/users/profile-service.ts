@@ -1,7 +1,6 @@
 import "server-only";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
-import { BoardAccessService } from "@/server/modules/boards/access-service";
 
 export class ProfileService {
   static async getUserProfile(userId: string) {
