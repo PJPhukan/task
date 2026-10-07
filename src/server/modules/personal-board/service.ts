@@ -4,31 +4,30 @@ import { prisma } from "@/server/lib/prisma";
 export class PersonalBoardService {
   static async getOrCreatePersonalBoard(userId: string) {
     // Check if personal project exists
-    let project = await prisma.project.findFirst({
+    const existingProject = await prisma.project.findFirst({
       where: {
         ownerId: userId,
         isPersonal: true,
       },
-      include: {
-        boards: {
-          include: {
-            columns: {
-              orderBy: { position: "asc" },
-            },
-          },
-        },
-      },
     });
 
-    if (project) {
+    if (existingProject) {
       // Return existing personal board
-      const board = project.boards[0];
+      const boards = await prisma.board.findMany({
+        where: { projectId: existingProject.id },
+        include: {
+          columns: {
+            orderBy: { position: "asc" },
+          },
+        },
+      });
+      const board = boards[0];
       return {
         project: {
-          id: project.id,
-          name: project.name,
-          key: project.key,
-          isPersonal: project.isPersonal,
+          id: existingProject.id,
+          name: existingProject.name,
+          key: existingProject.key,
+          isPersonal: existingProject.isPersonal,
         },
         board: {
           id: board.id,
@@ -41,7 +40,7 @@ export class PersonalBoardService {
     // Create new personal project and board
     const uniqueKey = `ME${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
 
-    project = await prisma.project.create({
+    const project = await prisma.project.create({
       data: {
         name: "Personal",
         key: uniqueKey,

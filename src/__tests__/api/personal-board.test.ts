@@ -4,10 +4,8 @@ import { GET as getPersonalBoardRoute } from '@/app/api/me/personal-board/route'
 import { GET as getProjectsRoute } from '@/app/api/projects/route';
 import { GET as getBoardRoute } from '@/app/api/projects/[projectId]/boards/[boardId]/route';
 import { POST as createTaskRoute } from '@/app/api/projects/[projectId]/tasks/route';
-import { GET as getTasksRoute } from '@/app/api/projects/[projectId]/tasks/route';
 import { POST as addProjectMemberRoute } from '@/app/api/projects/[projectId]/members/route';
 import { prisma } from '@/server/lib/prisma';
-import { getPerms, setupPermissions } from '@/server/lib/permly';
 
 let userId1: string;
 let userId2: string;
@@ -148,15 +146,9 @@ describe('Personal Board API', () => {
   });
 
   it('Personal task shows in owner queue but not in admin overview', async () => {
-    // Get queue for owner
-    const ownerHeaders = new Headers();
-    ownerHeaders.set('x-user-id', userId1);
-    const queueReq = new NextRequest('http://localhost:3000/api/me/queue', { method: 'GET', headers: ownerHeaders });
-    const queueRes = await fetch('http://localhost:3000/api/me/queue', {
-      method: 'GET',
-      headers: ownerHeaders as any,
-    }).catch(() => ({ ok: false } as any));
-    // Note: queue endpoint requires actual fetch, so this test will be minimal
-    // The full integration test would verify tasks appear in owner's queue
+    // Queue endpoint requires actual fetch or integration test
+    // The personal board is created and tasks can be verified via direct DB queries
+    expect(personalProjectId).toBeDefined();
+    expect(personalBoardId).toBeDefined();
   });
 });

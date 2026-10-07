@@ -92,23 +92,37 @@ export class CalendarService {
       include: {
         project: { select: { name: true } },
         board: { select: { name: true } },
-        column: { select: { name: true, isDone: true } },
+        column: { select: { name: true, isDone: true, timeLimitHours: true } },
         assignee: { select: { id: true, name: true } },
+        stageHistory: {
+          where: { leftAt: null },
+          take: 1,
+          select: { enteredAt: true },
+        },
       },
     });
 
-    return tasks.map((task) => ({
-      key: `${task.project.name.split(" ").map((w) => w[0]).join("")}-${task.number}`,
-      title: task.title,
-      startDate: task.startDate ? task.startDate.toISOString().split("T")[0] : null,
-      dueDate: task.dueDate ? task.dueDate.toISOString().split("T")[0] : null,
-      priority: task.priority,
-      project: task.project.name,
-      board: task.board.name,
-      column: task.column.name,
-      assignee: task.assignee,
-      isDone: task.column.isDone,
-      overLimit: task.overLimit,
-    }));
+    return tasks.map((task) => {
+      let overLimit = false;
+      if (task.column.timeLimitHours && task.stageHistory.length > 0) {
+        const enteredAt = task.stageHistory[0].enteredAt;
+        const limitMs = task.column.timeLimitHours * 3600 * 1000;
+        overLimit = Date.now() - enteredAt.getTime() > limitMs;
+      }
+
+      return {
+        key: `${task.project.name.split(" ").map((w) => w[0]).join("")}-${task.number}`,
+        title: task.title,
+        startDate: task.startDate ? task.startDate.toISOString().split("T")[0] : null,
+        dueDate: task.dueDate ? task.dueDate.toISOString().split("T")[0] : null,
+        priority: task.priority,
+        project: task.project.name,
+        board: task.board.name,
+        column: task.column.name,
+        assignee: task.assignee,
+        isDone: task.column.isDone,
+        overLimit,
+      };
+    });
   }
 }
