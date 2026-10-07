@@ -30,7 +30,7 @@ export class ReportService {
         },
       },
       include: {
-        column: { include: { board: true } },
+        column: true,
         stageHistory: { include: { column: true } },
       },
     });

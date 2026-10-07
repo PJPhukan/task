@@ -78,7 +78,7 @@ export async function PATCH(
     const task = await TaskService.updateTask(projectId, taskId, validation.data as any, user.id);
 
     // Handle mention notifications if description was updated with mentions
-    if (validation.data.description !== undefined) {
+    if ((validation.data as any).description !== undefined) {
       const { newMentionUserIds, hasAllMention } = task;
       if (newMentionUserIds?.length || hasAllMention) {
         await createMentionNotifications(projectId, taskId, undefined, user.id, newMentionUserIds || [], hasAllMention || false);

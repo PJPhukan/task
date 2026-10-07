@@ -414,6 +414,7 @@ model Notification {
   taskId       String?
   commentId    String?
   payload      Json     // { taskKey, taskTitle, ... }
+  metadata     Json?    // Additional notification metadata
   readAt       DateTime?
   emailStatus  String   @default("PENDING") // PENDING, SENT, FAILED, SKIPPED
   createdAt    DateTime @default(now())

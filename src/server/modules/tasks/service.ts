@@ -473,6 +473,7 @@ export class TaskService {
             actorId: userId,
             projectId,
             taskId,
+            payload: { taskId, reason: input.reason },
             metadata: { reason: input.reason },
             emailStatus: "PENDING",
           },

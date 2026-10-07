@@ -20,7 +20,11 @@ export async function sendPendingNotificationEmails(projectId: string) {
       projectId,
       emailStatus: "PENDING",
     },
-    include: {
+    select: {
+      id: true,
+      type: true,
+      metadata: true,
+      recipientId: true,
       recipient: { select: { email: true } },
       actor: { select: { name: true } },
       task: { select: { number: true, title: true, projectId: true, boardId: true, columnId: true } },
