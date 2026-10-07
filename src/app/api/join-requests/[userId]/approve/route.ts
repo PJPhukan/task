@@ -8,8 +8,9 @@ import { approveJoinRequestSchema } from "@/server/modules/join-requests/schema"
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
+  const { userId: targetUserId } = await params;
   const userId = req.headers.get("x-user-id") || undefined;
   const userResult = await getCurrentUserWithStatus(userId, req);
 
@@ -39,7 +40,7 @@ export async function POST(
   }
 
   try {
-    await JoinRequestService.approveUser(params.userId, validation.data as any);
+    await JoinRequestService.approveUser(targetUserId, validation.data as any);
     return NextResponse.json({ message: "User approved" });
   } catch (error: any) {
     return NextResponse.json(

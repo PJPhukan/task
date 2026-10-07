@@ -155,8 +155,10 @@ export class UserService {
 
     const nonSeededUsers = await prisma.user.count({
       where: {
-        NOT: { email: { in: seededEmails } },
-        NOT: { id: userId },
+        AND: [
+          { NOT: { email: { in: seededEmails } } },
+          { NOT: { id: userId } },
+        ],
       },
     });
 

@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserWithStatus } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { JoinRequestService } from "@/server/modules/join-requests/service";
-import { validateRequest } from "@/server/http/route";
 
 export async function GET(req: NextRequest) {
   const userId = req.headers.get("x-user-id") || undefined;

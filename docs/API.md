@@ -47,6 +47,14 @@ API specification and endpoint reference for cm-task-manager backend.
 | GET | /api/me | - | Get current user with roles and permissions (status for non-ACTIVE users) |
 | PATCH | /api/me | - | Update own name |
 
+## Join Requests
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/join-requests | user.manage | List PENDING users who verified email, oldest first |
+| POST | /api/join-requests/:userId/approve | user.manage | Approve user: set ACTIVE, assign roles/projects/boards, send email |
+| POST | /api/join-requests/:userId/reject | user.manage | Reject user: set REJECTED, end sessions, send email |
+
 ## Authentication
 
 | Method | Path | Permission | Description |

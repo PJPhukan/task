@@ -69,19 +69,15 @@ export class JoinRequestService {
       // Grant board access
       if (input.boardIds && input.boardIds.length > 0) {
         for (const boardId of input.boardIds) {
-          const board = await tx.board.findUnique({
-            where: { id: boardId },
-            include: { access: true },
+          const existingAccess = await tx.boardAccess.findFirst({
+            where: { boardId, userId },
           });
 
-          if (board && board.access) {
-            // Add user to board access
-            await tx.boardAccess.update({
-              where: { id: board.access.id },
+          if (!existingAccess) {
+            await tx.boardAccess.create({
               data: {
-                userIds: {
-                  push: userId,
-                },
+                boardId,
+                userId,
               },
             });
           }
