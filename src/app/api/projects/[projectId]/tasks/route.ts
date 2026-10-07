@@ -7,6 +7,8 @@ import { TaskService } from "@/server/modules/tasks/service";
 import { TaskListService } from "@/server/modules/tasks/list-service";
 import { createTaskSchema } from "@/server/modules/tasks/schema";
 import { validateRequest } from "@/server/http/route";
+import { createMentionNotifications } from "@/server/modules/mentions/notifications";
+import { sendNotificationEmailsAsync } from "@/server/modules/notifications/email-sender";
 
 export async function GET(
   req: NextRequest,
@@ -114,8 +116,29 @@ export async function POST(
 
   try {
     const task = await TaskService.createTask(projectId, validation.data as any, user.id);
-    return NextResponse.json({ task }, { status: 201 });
+
+    // Handle mention notifications if description has mentions
+    if (task.description) {
+      const { newMentionUserIds, hasAllMention } = task;
+      if (newMentionUserIds?.length || hasAllMention) {
+        await createMentionNotifications(projectId, task.id, undefined, user.id, newMentionUserIds || [], hasAllMention || false);
+        await sendNotificationEmailsAsync(projectId);
+      }
+    }
+
+    // Remove mention metadata from response
+    const { newMentionUserIds, hasAllMention, ...taskResponse } = task;
+    return NextResponse.json({ task: taskResponse }, { status: 201 });
   } catch (error: any) {
+    try {
+      const parsedError = JSON.parse(error.message);
+      if (parsedError.code === "VALIDATION_ERROR" || parsedError.code === "FORBIDDEN") {
+        return NextResponse.json(
+          { error: parsedError },
+          { status: parsedError.code === "FORBIDDEN" ? 403 : 400 }
+        );
+      }
+    } catch {}
     return NextResponse.json(
       { error: { code: "CREATION_ERROR", message: error.message || "Failed to create task" } },
       { status: 400 }

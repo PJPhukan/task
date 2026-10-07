@@ -5,6 +5,8 @@ import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
 import { CommentService } from "@/server/modules/comments/service";
 import { updateCommentSchema } from "@/server/modules/comments/schema";
+import { createMentionNotifications } from "@/server/modules/mentions/notifications";
+import { sendNotificationEmailsAsync } from "@/server/modules/notifications/email-sender";
 
 async function patchHandler(req: NextRequest, context: any) {
   try {
@@ -46,9 +48,26 @@ async function patchHandler(req: NextRequest, context: any) {
       );
     }
 
-    const updated = await CommentService.updateComment(projectId, taskId, commentId, result.data, user.id);
+    const response = await CommentService.updateComment(projectId, taskId, commentId, result.data, user.id);
+    const { newMentionUserIds, hasAllMention, ...updated } = response;
+
+    // Notify newly mentioned users
+    if (newMentionUserIds?.length || hasAllMention) {
+      await createMentionNotifications(projectId, taskId, commentId, user.id, newMentionUserIds || [], hasAllMention || false);
+      await sendNotificationEmailsAsync(projectId);
+    }
+
     return NextResponse.json({ comment: updated });
-  } catch (error) {
+  } catch (error: any) {
+    try {
+      const parsedError = JSON.parse(error.message);
+      if (parsedError.code === "VALIDATION_ERROR" || parsedError.code === "FORBIDDEN") {
+        return NextResponse.json(
+          { error: parsedError },
+          { status: parsedError.code === "FORBIDDEN" ? 403 : 400 }
+        );
+      }
+    } catch {}
     console.error("PATCH /comments error:", error);
     if (error instanceof Error) console.error(error.stack);
     return NextResponse.json(

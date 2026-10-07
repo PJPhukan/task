@@ -7,6 +7,8 @@ import { CommentService } from "@/server/modules/comments/service";
 import { createCommentSchema } from "@/server/modules/comments/schema";
 import { createRouteHandler } from "@/server/http/route";
 import { ColumnRulesService } from "@/server/modules/columns/rules-service";
+import { createMentionNotifications } from "@/server/modules/mentions/notifications";
+import { sendNotificationEmailsAsync } from "@/server/modules/notifications/email-sender";
 
 const getHandler = createRouteHandler(async (
   req: NextRequest,
@@ -121,7 +123,14 @@ const postHandler = createRouteHandler(async (
   }
 
   try {
-    const comment = await CommentService.createComment(projectId, taskId, result.data, user.id);
+    const response = await CommentService.createComment(projectId, taskId, result.data, user.id);
+    const { newMentionUserIds, hasAllMention, ...comment } = response;
+
+    if (newMentionUserIds?.length || hasAllMention) {
+      await createMentionNotifications(projectId, taskId, comment.id, user.id, newMentionUserIds || [], hasAllMention || false);
+      await sendNotificationEmailsAsync(projectId);
+    }
+
     return NextResponse.json({ comment }, { status: 201 });
   } catch (error: any) {
     if (error.message === "Parent comment not found" || error.message === "Parent comment must belong to the same task") {

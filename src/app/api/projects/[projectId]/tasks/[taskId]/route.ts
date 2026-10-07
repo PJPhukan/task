@@ -5,6 +5,8 @@ import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { TaskService } from "@/server/modules/tasks/service";
 import { updateTaskSchema } from "@/server/modules/tasks/schema";
 import { validateRequest } from "@/server/http/route";
+import { createMentionNotifications } from "@/server/modules/mentions/notifications";
+import { sendNotificationEmailsAsync } from "@/server/modules/notifications/email-sender";
 
 export async function GET(
   req: NextRequest,
@@ -74,8 +76,29 @@ export async function PATCH(
 
   try {
     const task = await TaskService.updateTask(projectId, taskId, validation.data as any, user.id);
-    return NextResponse.json({ task });
+
+    // Handle mention notifications if description was updated with mentions
+    if (validation.data.description !== undefined) {
+      const { newMentionUserIds, hasAllMention } = task;
+      if (newMentionUserIds?.length || hasAllMention) {
+        await createMentionNotifications(projectId, taskId, undefined, user.id, newMentionUserIds || [], hasAllMention || false);
+        await sendNotificationEmailsAsync(projectId);
+      }
+    }
+
+    // Remove mention metadata from response
+    const { newMentionUserIds, hasAllMention, ...taskResponse } = task;
+    return NextResponse.json({ task: taskResponse });
   } catch (error: any) {
+    try {
+      const parsedError = JSON.parse(error.message);
+      if (parsedError.code === "VALIDATION_ERROR" || parsedError.code === "FORBIDDEN") {
+        return NextResponse.json(
+          { error: parsedError },
+          { status: parsedError.code === "FORBIDDEN" ? 403 : 400 }
+        );
+      }
+    } catch {}
     return NextResponse.json(
       { error: { code: "UPDATE_ERROR", message: error.message || "Failed to update task" } },
       { status: 400 }

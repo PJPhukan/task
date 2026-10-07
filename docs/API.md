@@ -118,7 +118,7 @@ API specification and endpoint reference for cm-task-manager backend.
 | POST | /api/projects/:projectId/tasks | task.create | Create task with boardId, columnId, title, etc. |
 | GET | /api/projects/:projectId/tasks | - | List tasks with filters (boardId, columnId, assigneeId, reporterId, priority, labelId, dueFrom, dueTo, overdue, completed, search) and pagination |
 | GET | /api/projects/:projectId/tasks/:taskId | - | Get task (404 if column not visible to user) |
-| PATCH | /api/projects/:projectId/tasks/:taskId | task.update | Update task fields (title, description, priority, dates, assignee) |
+| PATCH | /api/projects/:projectId/tasks/:taskId | task.update | Update task fields (title, description with mentions, priority, dates, assignee) |
 | DELETE | /api/projects/:projectId/tasks/:taskId | task.delete or task.delete.own | Delete task (delete any or only own reported tasks) |
 | PATCH | /api/projects/:projectId/tasks/:taskId/move | task.move | Move task to different column with reordering |
 | PUT | /api/projects/:projectId/tasks/:taskId/labels | task.update | Replace task's label list |
