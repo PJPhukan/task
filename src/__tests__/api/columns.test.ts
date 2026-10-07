@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { NextRequest } from 'next/server';
+import { POST as createColumnRoute, PATCH as reorderColumnsRoute } from '@/app/api/projects/[projectId]/boards/[boardId]/columns/route';
+import { PATCH as updateColumnRoute, DELETE as deleteColumnRoute } from '@/app/api/projects/[projectId]/columns/[columnId]/route';
 import { prisma } from '@/server/lib/prisma';
 
 function generateProjectKey(length = 4): string {
@@ -52,14 +55,15 @@ beforeAll(async () => {
 
 describe('Columns API', () => {
   it('Admin can add column', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}/columns`,
-      {
-        method: 'POST',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({ name: 'Testing', color: '#FF0000' }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}/columns`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name: 'Testing', color: '#FF0000' }),
+    });
+    const response = await createColumnRoute(req, { params: { projectId, boardId } });
     expect(response.status).toBe(201);
     const data = await response.json();
     expect(data.column).toBeDefined();
@@ -67,40 +71,43 @@ describe('Columns API', () => {
   });
 
   it('Viewer cannot add column', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}/columns`,
-      {
-        method: 'POST',
-        headers: { 'x-user-id': viewerId, 'content-type': 'application/json' },
-        body: JSON.stringify({ name: 'Test' }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}/columns`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name: 'Test' }),
+    });
+    const response = await createColumnRoute(req, { params: { projectId, boardId } });
     expect(response.status).toBe(403);
   });
 
   it('Admin can update column', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/columns/${columnId}`,
-      {
-        method: 'PATCH',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({ name: 'Updated To Do', isDone: false }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/columns/${columnId}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ name: 'Updated To Do', isDone: false }),
+    });
+    const response = await updateColumnRoute(req, { params: { projectId, columnId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.column.name).toBe('Updated To Do');
   });
 
   it('Viewer cannot update column', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/columns/${columnId}`,
-      {
-        method: 'PATCH',
-        headers: { 'x-user-id': viewerId, 'content-type': 'application/json' },
-        body: JSON.stringify({ name: 'Updated' }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/columns/${columnId}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ name: 'Updated' }),
+    });
+    const response = await updateColumnRoute(req, { params: { projectId, columnId } });
     expect(response.status).toBe(403);
   });
 
@@ -110,16 +117,17 @@ describe('Columns API', () => {
       orderBy: { position: 'asc' },
     });
 
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}/columns`,
-      {
-        method: 'PATCH',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          columns: columns.map((col, idx) => ({ id: col.id, position: columns.length - 1 - idx })),
-        }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}/columns`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({
+        columns: columns.map((col, idx) => ({ id: col.id, position: columns.length - 1 - idx })),
+      }),
+    });
+    const response = await reorderColumnsRoute(req, { params: { projectId, boardId } });
     expect(response.status).toBe(200);
   });
 
@@ -137,14 +145,15 @@ describe('Columns API', () => {
       },
     });
 
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/columns/${col!.id}`,
-      {
-        method: 'DELETE',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({}),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/columns/${col!.id}`, {
+      method: 'DELETE',
+      headers,
+      body: JSON.stringify({}),
+    });
+    const response = await deleteColumnRoute(req, { params: { projectId, columnId: col!.id } });
     expect(response.status).toBe(409);
   });
 
@@ -153,14 +162,15 @@ describe('Columns API', () => {
     const sourceCol = columns[0];
     const targetCol = columns[1];
 
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/columns/${sourceCol.id}`,
-      {
-        method: 'DELETE',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({ targetColumnId: targetCol.id }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/columns/${sourceCol.id}`, {
+      method: 'DELETE',
+      headers,
+      body: JSON.stringify({ targetColumnId: targetCol.id }),
+    });
+    const response = await deleteColumnRoute(req, { params: { projectId, columnId: sourceCol.id } });
     expect(response.status).toBe(200);
 
     const movedTasks = await prisma.task.findMany({
@@ -173,14 +183,15 @@ describe('Columns API', () => {
     const columns = await prisma.boardColumn.findMany({ where: { boardId } });
     const emptyCol = columns[columns.length - 1];
 
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/columns/${emptyCol.id}`,
-      {
-        method: 'DELETE',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({}),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/columns/${emptyCol.id}`, {
+      method: 'DELETE',
+      headers,
+      body: JSON.stringify({}),
+    });
+    const response = await deleteColumnRoute(req, { params: { projectId, columnId: emptyCol.id } });
     expect(response.status).toBe(200);
   });
 
@@ -189,14 +200,15 @@ describe('Columns API', () => {
       data: { boardId, name: 'Temp', position: 99, isDone: false },
     });
 
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/columns/${col.id}`,
-      {
-        method: 'DELETE',
-        headers: { 'x-user-id': viewerId, 'content-type': 'application/json' },
-        body: JSON.stringify({}),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/columns/${col.id}`, {
+      method: 'DELETE',
+      headers,
+      body: JSON.stringify({}),
+    });
+    const response = await deleteColumnRoute(req, { params: { projectId, columnId: col.id } });
     expect(response.status).toBe(403);
   });
 });
