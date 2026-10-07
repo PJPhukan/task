@@ -94,6 +94,7 @@ export class TaskService {
 
     return {
       ...task,
+      bounceCount: task.bounceCount ?? 0,
       key: `${updatedProject.key}-${task.number}`,
       labels: [],
       canMove: false,
@@ -449,6 +450,10 @@ export class TaskService {
       },
     });
 
+    if (!taskWithRelations) {
+      throw new Error("Task not found after move");
+    }
+
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       select: { key: true },
@@ -456,12 +461,13 @@ export class TaskService {
 
     return {
       ...taskWithRelations,
-      key: `${project?.key}-${taskWithRelations?.number}`,
-      labels: taskWithRelations?.labels.map((tl) => ({
+      bounceCount: taskWithRelations.bounceCount ?? 0,
+      key: `${project?.key}-${taskWithRelations.number}`,
+      labels: taskWithRelations.labels.map((tl) => ({
         id: tl.label.id,
         name: tl.label.name,
         color: tl.label.color,
-      })) || [],
+      })),
       canMove: false,
     };
   }
