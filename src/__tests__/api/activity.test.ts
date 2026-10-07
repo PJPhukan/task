@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { NextRequest } from "next/server";
 import { GET as getProjectTaskActivityRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/activity/route";
 import { GET as getProjectActivityRoute } from "@/app/api/projects/[projectId]/activity/route";
-import { POST as createCommentRoute, PATCH as updateCommentRoute, DELETE as deleteCommentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/route";
+import { PATCH as updateCommentRoute, DELETE as deleteCommentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/route";
 import { POST as createCommentListRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/route";
 import { prisma } from "@/server/lib/prisma";
 
@@ -74,7 +74,7 @@ describe("Activity Feed API", () => {
     const headers = new Headers();
     headers.set("x-user-id", memberId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/activity`, { method: "GET", headers });
-    const res = await getProjectTaskActivityRoute(req, { params: { projectId, taskId } });
+    const res = await getProjectTaskActivityRoute(req, { params: Promise.resolve({ projectId, taskId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data.activities)).toBe(true);
@@ -85,7 +85,7 @@ describe("Activity Feed API", () => {
     const headers = new Headers();
     headers.set("x-user-id", memberId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/activity?page=1`, { method: "GET", headers });
-    const res = await getProjectActivityRoute(req, { params: { projectId } });
+    const res = await getProjectActivityRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data.activities)).toBe(true);
@@ -96,7 +96,7 @@ describe("Activity Feed API", () => {
     const headers = new Headers();
     headers.set("x-user-id", memberId);
     const req = new NextRequest(`http://localhost:3000/api/projects/nonexistent/activity`, { method: "GET", headers });
-    const res = await getProjectActivityRoute(req, { params: { projectId: "nonexistent" } });
+    const res = await getProjectActivityRoute(req, { params: Promise.resolve({ projectId: "nonexistent" }) });
     expect(res.status).toBe(404);
   });
 
@@ -112,7 +112,7 @@ describe("Activity Feed API", () => {
     const headers = new Headers();
     headers.set("x-user-id", nonMember.id);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/activity`, { method: "GET", headers });
-    const res = await getProjectActivityRoute(req, { params: { projectId } });
+    const res = await getProjectActivityRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(403);
   });
 
@@ -139,7 +139,7 @@ describe("Activity Feed API", () => {
     const headers = new Headers();
     headers.set("x-user-id", memberId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/activity?limit=100`, { method: "GET", headers });
-    const res = await getProjectActivityRoute(req, { params: { projectId } });
+    const res = await getProjectActivityRoute(req, { params: Promise.resolve({ projectId }) });
     const data = await res.json();
 
     // Verify restricted task activities don't appear
@@ -155,7 +155,7 @@ describe("Activity Feed API", () => {
     headers.set("x-user-id", memberId);
     headers.set("content-type", "application/json");
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, { method: "POST", headers, body: JSON.stringify({ body: commentBody }) });
-    const res = await createCommentListRoute(req, { params: { projectId, taskId } });
+    const res = await createCommentListRoute(req, { params: Promise.resolve({ projectId, taskId }) });
     expect(res.status).toBe(201);
 
     // Check activity was recorded
@@ -174,7 +174,7 @@ describe("Activity Feed API", () => {
     createHeaders.set("x-user-id", memberId);
     createHeaders.set("content-type", "application/json");
     const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, { method: "POST", headers: createHeaders, body: JSON.stringify({ body: "Original comment" }) });
-    const createRes = await createCommentListRoute(createReq, { params: { projectId, taskId } });
+    const createRes = await createCommentListRoute(createReq, { params: Promise.resolve({ projectId, taskId }) });
     const comment = await createRes.json();
 
     // Edit it
@@ -182,7 +182,7 @@ describe("Activity Feed API", () => {
     editHeaders.set("x-user-id", memberId);
     editHeaders.set("content-type", "application/json");
     const editReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}`, { method: "PATCH", headers: editHeaders, body: JSON.stringify({ body: "Edited comment" }) });
-    const editRes = await updateCommentRoute(editReq, { params: { projectId, taskId, commentId: comment.comment.id } });
+    const editRes = await updateCommentRoute(editReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
     expect(editRes.status).toBe(200);
 
     // Check activity was recorded
@@ -200,13 +200,13 @@ describe("Activity Feed API", () => {
     createHeaders.set("x-user-id", memberId);
     createHeaders.set("content-type", "application/json");
     const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, { method: "POST", headers: createHeaders, body: JSON.stringify({ body: "Comment to delete" }) });
-    const createRes = await createCommentListRoute(createReq, { params: { projectId, taskId } });
+    const createRes = await createCommentListRoute(createReq, { params: Promise.resolve({ projectId, taskId }) });
     const comment = await createRes.json();
 
     const deleteHeaders = new Headers();
     deleteHeaders.set("x-user-id", memberId);
     const deleteReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}`, { method: "DELETE", headers: deleteHeaders });
-    const deleteRes = await deleteCommentRoute(deleteReq, { params: { projectId, taskId, commentId: comment.comment.id } });
+    const deleteRes = await deleteCommentRoute(deleteReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
     expect(deleteRes.status).toBe(200);
 
     // Check activity was recorded

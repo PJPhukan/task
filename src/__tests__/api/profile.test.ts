@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET as getProfileRoute } from '@/app/api/users/[userId]/profile/route';
-import { GET as getMeRoute, PATCH as updateMeRoute } from '@/app/api/me/route';
+import { PATCH as updateMeRoute } from '@/app/api/me/route';
 import { prisma } from '@/server/lib/prisma';
 
 let adminId: string;
@@ -28,7 +28,7 @@ describe('Profile API', () => {
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/users/${adminId}/profile`, { method: 'GET', headers });
-    const response = await getProfileRoute(req, { params: { userId: adminId } });
+    const response = await getProfileRoute(req, { params: Promise.resolve({ userId: adminId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.profile).toBeDefined();
@@ -57,7 +57,7 @@ describe('Profile API', () => {
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/users/${userId}/profile`, { method: 'GET', headers });
-    const response = await getProfileRoute(req, { params: { userId } });
+    const response = await getProfileRoute(req, { params: Promise.resolve({ userId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.profile.projects)).toBe(true);
@@ -69,14 +69,14 @@ describe('Profile API', () => {
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/users/non-existent-id/profile`, { method: 'GET', headers });
-    const response = await getProfileRoute(req, { params: { userId: 'non-existent-id' } });
+    const response = await getProfileRoute(req, { params: Promise.resolve({ userId: 'non-existent-id' }) });
     expect(response.status).toBe(404);
   });
 
   it('GET /api/users/:userId/profile requires authentication', async () => {
     const headers = new Headers();
     const req = new NextRequest(`http://localhost:3000/api/users/${adminId}/profile`, { method: 'GET', headers });
-    const response = await getProfileRoute(req, { params: { userId: adminId } });
+    const response = await getProfileRoute(req, { params: Promise.resolve({ userId: adminId }) });
     expect(response.status).toBe(401);
   });
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { NextRequest } from 'next/server';
-import { POST as createTaskRoute, GET as getTasksRoute } from '@/app/api/projects/[projectId]/tasks/route';
+import { POST as createTaskRoute } from '@/app/api/projects/[projectId]/tasks/route';
 import { GET as getTaskRoute, PATCH as updateTaskRoute, DELETE as deleteTaskRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/route';
 import { PATCH as moveTaskRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/move/route';
 import { prisma } from '@/server/lib/prisma';
@@ -74,7 +74,7 @@ describe('Tasks API', () => {
         title: 'First Task',
       }),
     });
-    const res1 = await createTaskRoute(req1, { params: { projectId } });
+    const res1 = await createTaskRoute(req1, { params: Promise.resolve({ projectId }) });
     expect(res1.status).toBe(201);
     const data1 = await res1.json();
     const number1 = data1.task.number;
@@ -91,7 +91,7 @@ describe('Tasks API', () => {
         title: 'Second Task',
       }),
     });
-    const res2 = await createTaskRoute(req2, { params: { projectId } });
+    const res2 = await createTaskRoute(req2, { params: Promise.resolve({ projectId }) });
     expect(res2.status).toBe(201);
     const data2 = await res2.json();
     expect(data2.task.number).toBe(number1 + 1);
@@ -112,7 +112,7 @@ describe('Tasks API', () => {
         dueDate: '2025-01-01',
       }),
     });
-    const response = await createTaskRoute(req, { params: { projectId } });
+    const response = await createTaskRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(400);
   });
 
@@ -133,7 +133,7 @@ describe('Tasks API', () => {
         assigneeId: nonMember.id,
       }),
     });
-    const response = await createTaskRoute(req, { params: { projectId } });
+    const response = await createTaskRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(400);
   });
 
@@ -146,13 +146,13 @@ describe('Tasks API', () => {
       headers: createHeaders,
       body: JSON.stringify({ boardId, columnId, title: 'Test Task' }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     const task = (await createRes.json()).task;
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}`, { method: 'GET', headers });
-    const response = await getTaskRoute(req, { params: { projectId, taskId: task.id } });
+    const response = await getTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.task.id).toBe(task.id);
@@ -168,7 +168,7 @@ describe('Tasks API', () => {
       headers: createHeaders,
       body: JSON.stringify({ boardId, columnId, title: 'Original' }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     const task = (await createRes.json()).task;
 
     const headers = new Headers();
@@ -179,7 +179,7 @@ describe('Tasks API', () => {
       headers,
       body: JSON.stringify({ title: 'Updated' }),
     });
-    const response = await updateTaskRoute(req, { params: { projectId, taskId: task.id } });
+    const response = await updateTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.task.title).toBe('Updated');
@@ -194,13 +194,13 @@ describe('Tasks API', () => {
       headers: createHeaders,
       body: JSON.stringify({ boardId, columnId, title: 'Member Task' }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     const task = (await createRes.json()).task;
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}`, { method: 'DELETE', headers });
-    const response = await deleteTaskRoute(req, { params: { projectId, taskId: task.id } });
+    const response = await deleteTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
     expect(response.status).toBe(200);
   });
 
@@ -213,7 +213,7 @@ describe('Tasks API', () => {
       headers: createHeaders1,
       body: JSON.stringify({ boardId, columnId, title: 'Own Task' }),
     });
-    const createRes = await createTaskRoute(createReq1, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq1, { params: Promise.resolve({ projectId }) });
     const ownTask = (await createRes.json()).task;
 
     const createHeaders2 = new Headers();
@@ -224,21 +224,21 @@ describe('Tasks API', () => {
       headers: createHeaders2,
       body: JSON.stringify({ boardId, columnId, title: 'Admin Task' }),
     });
-    const adminTaskRes = await createTaskRoute(createReq2, { params: { projectId } });
+    const adminTaskRes = await createTaskRoute(createReq2, { params: Promise.resolve({ projectId }) });
     const adminTask = (await adminTaskRes.json()).task;
 
     // Member can delete own task
     const deleteOwnHeaders = new Headers();
     deleteOwnHeaders.set('x-user-id', memberId);
     const deleteOwnReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${ownTask.id}`, { method: 'DELETE', headers: deleteOwnHeaders });
-    const deleteOwnRes = await deleteTaskRoute(deleteOwnReq, { params: { projectId, taskId: ownTask.id } });
+    const deleteOwnRes = await deleteTaskRoute(deleteOwnReq, { params: Promise.resolve({ projectId, taskId: ownTask.id }) });
     expect([200, 403]).toContain(deleteOwnRes.status);
 
     // Member cannot delete other's task
     const deleteOtherHeaders = new Headers();
     deleteOtherHeaders.set('x-user-id', memberId);
     const deleteOtherReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${adminTask.id}`, { method: 'DELETE', headers: deleteOtherHeaders });
-    const deleteOtherRes = await deleteTaskRoute(deleteOtherReq, { params: { projectId, taskId: adminTask.id } });
+    const deleteOtherRes = await deleteTaskRoute(deleteOtherReq, { params: Promise.resolve({ projectId, taskId: adminTask.id }) });
     expect(deleteOtherRes.status).toBe(403);
   });
 
@@ -251,7 +251,7 @@ describe('Tasks API', () => {
       headers: createHeaders,
       body: JSON.stringify({ boardId, columnId, title: 'To Complete' }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     const task = (await createRes.json()).task;
 
     const headers = new Headers();
@@ -262,7 +262,7 @@ describe('Tasks API', () => {
       headers,
       body: JSON.stringify({ columnId: doneColumnId, index: 0 }),
     });
-    const response = await moveTaskRoute(req, { params: { projectId, taskId: task.id } });
+    const response = await moveTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.task.completedAt).toBeTruthy();
@@ -290,7 +290,7 @@ describe('Tasks API', () => {
       headers: createHeaders,
       body: JSON.stringify({ boardId, columnId: restrictedColumn.id, title: 'Restricted Move' }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     const task = (await createRes.json()).task;
 
     // Admin cannot move FROM restrictedColumn (not developer role)
@@ -306,7 +306,7 @@ describe('Tasks API', () => {
       headers,
       body: JSON.stringify({ columnId: targetColumn.id, index: 0 }),
     });
-    const response = await moveTaskRoute(req, { params: { projectId, taskId: task.id } });
+    const response = await moveTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
     expect(response.status).toBe(403);
   });
 
@@ -332,14 +332,14 @@ describe('Tasks API', () => {
       headers: createHeaders,
       body: JSON.stringify({ boardId, columnId: hiddenCol.id, title: 'Hidden Task' }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     const task = (await createRes.json()).task;
 
     // Member cannot view (no developer role)
     const headers = new Headers();
     headers.set('x-user-id', memberId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}`, { method: 'GET', headers });
-    const response = await getTaskRoute(req, { params: { projectId, taskId: task.id } });
+    const response = await getTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
     expect(response.status).toBe(404);
   });
 });

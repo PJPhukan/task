@@ -68,7 +68,7 @@ describe("Attachments API", () => {
     const headers = new Headers();
     headers.set("x-user-id", adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`, { method: "GET", headers });
-    const res = await getAttachmentsRoute(req, { params: { projectId, taskId } });
+    const res = await getAttachmentsRoute(req, { params: Promise.resolve({ projectId, taskId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data.attachments)).toBe(true);
@@ -98,7 +98,7 @@ describe("Attachments API", () => {
     headers.set("x-user-id", adminId);
     headers.set("content-type", "application/json");
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`, { method: "POST", headers, body: JSON.stringify({ publicId: "nonexistent", originalName: "test.jpg" }) });
-    const res = await createAttachmentRoute(req, { params: { projectId, taskId } });
+    const res = await createAttachmentRoute(req, { params: Promise.resolve({ projectId, taskId }) });
     expect(res.status).toBe(400);
   });
 
@@ -115,7 +115,7 @@ describe("Attachments API", () => {
     headers.set("x-user-id", adminId);
     headers.set("content-type", "application/json");
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`, { method: "POST", headers, body: JSON.stringify({ publicId: largeFilePublicId, originalName: "large-file.jpg" }) });
-    const res = await createAttachmentRoute(req, { params: { projectId, taskId } });
+    const res = await createAttachmentRoute(req, { params: Promise.resolve({ projectId, taskId }) });
     expect(res.status).toBe(400);
   });
 
@@ -132,7 +132,7 @@ describe("Attachments API", () => {
     headers.set("x-user-id", adminId);
     headers.set("content-type", "application/json");
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`, { method: "POST", headers, body: JSON.stringify({ publicId: wrongFolderPublicId, originalName: "file.jpg" }) });
-    const res = await createAttachmentRoute(req, { params: { projectId, taskId } });
+    const res = await createAttachmentRoute(req, { params: Promise.resolve({ projectId, taskId }) });
     expect(res.status).toBe(400);
   });
 

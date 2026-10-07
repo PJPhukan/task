@@ -64,14 +64,14 @@ describe('Stage History API', () => {
         title: 'Stage Test Task',
       }),
     });
-    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
+    const taskRes = await createTaskRoute(taskReq, { params: Promise.resolve({ projectId }) });
     expect(taskRes.status).toBe(201);
     const task = (await taskRes.json()).task;
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`, { method: 'GET', headers });
-    const res = await getStagesRoute(req, { params: { projectId, taskId: task.id } });
+    const res = await getStagesRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data.stages)).toBe(true);
@@ -91,13 +91,13 @@ describe('Stage History API', () => {
         title: 'Stage Info Task',
       }),
     });
-    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
+    const taskRes = await createTaskRoute(taskReq, { params: Promise.resolve({ projectId }) });
     const task = (await taskRes.json()).task;
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`, { method: 'GET', headers });
-    const res = await getStagesRoute(req, { params: { projectId, taskId: task.id } });
+    const res = await getStagesRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
     const data = await res.json();
     const firstStage = data.stages[0];
 
@@ -123,7 +123,7 @@ describe('Stage History API', () => {
         title: 'Order Test Task',
       }),
     });
-    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
+    const taskRes = await createTaskRoute(taskReq, { params: Promise.resolve({ projectId }) });
     const task = (await taskRes.json()).task;
 
     // Move to next column
@@ -135,12 +135,12 @@ describe('Stage History API', () => {
       headers: moveHeaders,
       body: JSON.stringify({ columnId: columnId2, index: 0 }),
     });
-    await moveTaskRoute(moveReq, { params: { projectId, taskId: task.id } });
+    await moveTaskRoute(moveReq, { params: Promise.resolve({ projectId, taskId: task.id }) });
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`, { method: 'GET', headers });
-    const res = await getStagesRoute(req, { params: { projectId, taskId: task.id } });
+    const res = await getStagesRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
     const data = await res.json();
 
     // Check stages are in chronological order
@@ -164,13 +164,13 @@ describe('Stage History API', () => {
         title: 'Elapsed Time Task',
       }),
     });
-    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
+    const taskRes = await createTaskRoute(taskReq, { params: Promise.resolve({ projectId }) });
     const task = (await taskRes.json()).task;
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`, { method: 'GET', headers });
-    const res = await getStagesRoute(req, { params: { projectId, taskId: task.id } });
+    const res = await getStagesRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
     const data = await res.json();
     const currentStage = data.stages[data.stages.length - 1];
 
@@ -191,7 +191,7 @@ describe('Stage History API', () => {
         title: 'Closed Stage Task',
       }),
     });
-    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
+    const taskRes = await createTaskRoute(taskReq, { params: Promise.resolve({ projectId }) });
     const task = (await taskRes.json()).task;
 
     // Move to next column to close the first stage
@@ -203,12 +203,12 @@ describe('Stage History API', () => {
       headers: moveHeaders,
       body: JSON.stringify({ columnId: columnId2, index: 0 }),
     });
-    await moveTaskRoute(moveReq, { params: { projectId, taskId: task.id } });
+    await moveTaskRoute(moveReq, { params: Promise.resolve({ projectId, taskId: task.id }) });
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`, { method: 'GET', headers });
-    const res = await getStagesRoute(req, { params: { projectId, taskId: task.id } });
+    const res = await getStagesRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
     const data = await res.json();
     const firstStage = data.stages[0];
 

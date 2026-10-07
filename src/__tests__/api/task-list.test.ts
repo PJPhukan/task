@@ -76,7 +76,7 @@ describe('Task List API', () => {
       headers: headers1,
       body: JSON.stringify({ boardId, columnId: toDoColumnId, title: 'Task 1' }),
     });
-    await createTaskRoute(req1, { params: { projectId } });
+    await createTaskRoute(req1, { params: Promise.resolve({ projectId }) });
 
     const headers2 = new Headers();
     headers2.set('x-user-id', adminId);
@@ -86,12 +86,12 @@ describe('Task List API', () => {
       headers: headers2,
       body: JSON.stringify({ boardId, columnId: toDoColumnId, title: 'Task 2' }),
     });
-    await createTaskRoute(req2, { params: { projectId } });
+    await createTaskRoute(req2, { params: Promise.resolve({ projectId }) });
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, { method: 'GET', headers });
-    const res = await getTasksRoute(req, { params: { projectId } });
+    const res = await getTasksRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.tasks.length).toBeGreaterThanOrEqual(2);
@@ -114,13 +114,13 @@ describe('Task List API', () => {
         assigneeId: memberId,
       }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     expect(createRes.status).toBe(201);
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks?assigneeId=${memberId}`, { method: 'GET', headers });
-    const res = await getTasksRoute(req, { params: { projectId } });
+    const res = await getTasksRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.tasks.every((t: any) => t.assigneeId === memberId)).toBe(true);
@@ -140,13 +140,13 @@ describe('Task List API', () => {
         priority: 'HIGH',
       }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     expect(createRes.status).toBe(201);
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks?priority=HIGH`, { method: 'GET', headers });
-    const res = await getTasksRoute(req, { params: { projectId } });
+    const res = await getTasksRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.tasks.length).toBeGreaterThan(0);
@@ -165,7 +165,7 @@ describe('Task List API', () => {
         title: 'Labeled Task',
       }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     expect(createRes.status).toBe(201);
     const task = (await createRes.json()).task;
 
@@ -178,12 +178,12 @@ describe('Task List API', () => {
       headers: labelHeaders,
       body: JSON.stringify({ labelIds: [labelId1] }),
     });
-    await setTaskLabelsRoute(labelReq, { params: { projectId, taskId: task.id } });
+    await setTaskLabelsRoute(labelReq, { params: Promise.resolve({ projectId, taskId: task.id }) });
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks?labelId=${labelId1}`, { method: 'GET', headers });
-    const res = await getTasksRoute(req, { params: { projectId } });
+    const res = await getTasksRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.tasks.some((t: any) => t.id === task.id)).toBe(true);
@@ -207,14 +207,14 @@ describe('Task List API', () => {
         dueDate: dateStr,
       }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     expect(createRes.status).toBe(201);
     const task = (await createRes.json()).task;
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks?overdue=true`, { method: 'GET', headers });
-    const res = await getTasksRoute(req, { params: { projectId } });
+    const res = await getTasksRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.tasks.some((t: any) => t.id === task.id)).toBe(true);
@@ -238,14 +238,14 @@ describe('Task List API', () => {
         dueDate: dateStr,
       }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     expect(createRes.status).toBe(201);
     const task = (await createRes.json()).task;
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks?overdue=true`, { method: 'GET', headers });
-    const res = await getTasksRoute(req, { params: { projectId } });
+    const res = await getTasksRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.tasks.some((t: any) => t.id === task.id)).toBe(false);
@@ -264,7 +264,7 @@ describe('Task List API', () => {
         title: 'Completed Task',
       }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     expect(createRes.status).toBe(201);
     const task = (await createRes.json()).task;
 
@@ -277,12 +277,12 @@ describe('Task List API', () => {
       headers: moveHeaders,
       body: JSON.stringify({ columnId: doneColumnId, index: 0 }),
     });
-    await moveTaskRoute(moveReq, { params: { projectId, taskId: task.id } });
+    await moveTaskRoute(moveReq, { params: Promise.resolve({ projectId, taskId: task.id }) });
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks?completed=true`, { method: 'GET', headers });
-    const res = await getTasksRoute(req, { params: { projectId } });
+    const res = await getTasksRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.tasks.some((t: any) => t.id === task.id)).toBe(true);
@@ -301,13 +301,13 @@ describe('Task List API', () => {
         title: 'SearchableTask',
       }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     expect(createRes.status).toBe(201);
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks?search=searchable`, { method: 'GET', headers });
-    const res = await getTasksRoute(req, { params: { projectId } });
+    const res = await getTasksRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.tasks.some((t: any) => t.title.includes('Searchable'))).toBe(true);
@@ -326,14 +326,14 @@ describe('Task List API', () => {
         title: 'Key Search Task',
       }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     expect(createRes.status).toBe(201);
     const task = (await createRes.json()).task;
 
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks?search=${task.key}`, { method: 'GET', headers });
-    const res = await getTasksRoute(req, { params: { projectId } });
+    const res = await getTasksRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.tasks.some((t: any) => t.id === task.id)).toBe(true);
@@ -354,13 +354,13 @@ describe('Task List API', () => {
           title: `Pagination Task ${i}`,
         }),
       });
-      await createTaskRoute(req, { params: { projectId } });
+      await createTaskRoute(req, { params: Promise.resolve({ projectId }) });
     }
 
     const page1Headers = new Headers();
     page1Headers.set('x-user-id', adminId);
     const page1Req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks?page=1&pageSize=10`, { method: 'GET', headers: page1Headers });
-    const page1 = await getTasksRoute(page1Req, { params: { projectId } });
+    const page1 = await getTasksRoute(page1Req, { params: Promise.resolve({ projectId }) });
     const data1 = await page1.json();
     expect(data1.tasks.length).toBeLessThanOrEqual(10);
     expect(data1.page).toBe(1);
@@ -368,7 +368,7 @@ describe('Task List API', () => {
     const page2Headers = new Headers();
     page2Headers.set('x-user-id', adminId);
     const page2Req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks?page=2&pageSize=10`, { method: 'GET', headers: page2Headers });
-    const page2 = await getTasksRoute(page2Req, { params: { projectId } });
+    const page2 = await getTasksRoute(page2Req, { params: Promise.resolve({ projectId }) });
     const data2 = await page2.json();
     expect(data2.page).toBe(2);
   });
@@ -398,7 +398,7 @@ describe('Task List API', () => {
         title: 'Hidden Task',
       }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     expect(createRes.status).toBe(201);
     const task = (await createRes.json()).task;
 
@@ -406,7 +406,7 @@ describe('Task List API', () => {
     const headers = new Headers();
     headers.set('x-user-id', memberId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, { method: 'GET', headers });
-    const res = await getTasksRoute(req, { params: { projectId } });
+    const res = await getTasksRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.tasks.some((t: any) => t.id === task.id)).toBe(false);
@@ -426,7 +426,7 @@ describe('Task List API', () => {
         assigneeId: memberId,
       }),
     });
-    const createRes = await createTaskRoute(createReq, { params: { projectId } });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
     expect(createRes.status).toBe(201);
 
     const headers = new Headers();

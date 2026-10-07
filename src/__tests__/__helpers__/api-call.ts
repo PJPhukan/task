@@ -9,7 +9,7 @@ export interface ApiCallOptions {
 
 export async function callApi(
   path: string,
-  handler: (req: NextRequest) => Promise<Response>,
+  handler: (_req: NextRequest) => Promise<Response>,
   options: ApiCallOptions = {}
 ): Promise<Response> {
   const { method = "GET", headers = {}, body, userId } = options;

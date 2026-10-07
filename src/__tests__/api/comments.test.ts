@@ -76,7 +76,7 @@ describe("Comments API", () => {
       headers,
       body: JSON.stringify({ body: "This is a test comment" }),
     });
-    const res = await createCommentRoute(req, { params: { projectId, taskId } });
+    const res = await createCommentRoute(req, { params: Promise.resolve({ projectId, taskId }) });
     expect(res.status).toBe(201);
     const data = await res.json();
     expect(data.comment.body).toBe("This is a test comment");
@@ -88,7 +88,7 @@ describe("Comments API", () => {
     const headers = new Headers();
     headers.set("x-user-id", memberId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, { method: "GET", headers });
-    const res = await getCommentsRoute(req, { params: { projectId, taskId } });
+    const res = await getCommentsRoute(req, { params: Promise.resolve({ projectId, taskId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data.comments)).toBe(true);
@@ -104,7 +104,7 @@ describe("Comments API", () => {
       headers: createHeaders,
       body: JSON.stringify({ body: "Original comment" }),
     });
-    const commentRes = await createCommentRoute(createReq, { params: { projectId, taskId } });
+    const commentRes = await createCommentRoute(createReq, { params: Promise.resolve({ projectId, taskId }) });
     const comment = await commentRes.json();
 
     // Try to edit as different user
@@ -116,7 +116,7 @@ describe("Comments API", () => {
       headers: invalidHeaders,
       body: JSON.stringify({ body: "Edited by someone else" }),
     });
-    const invalidRes = await updateCommentRoute(invalidReq, { params: { projectId, taskId, commentId: comment.comment.id } });
+    const invalidRes = await updateCommentRoute(invalidReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
     expect(invalidRes.status).toBe(403);
 
     // Edit as author
@@ -128,7 +128,7 @@ describe("Comments API", () => {
       headers: validHeaders,
       body: JSON.stringify({ body: "Edited comment" }),
     });
-    const validRes = await updateCommentRoute(validReq, { params: { projectId, taskId, commentId: comment.comment.id } });
+    const validRes = await updateCommentRoute(validReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
     expect(validRes.status).toBe(200);
     const updated = await validRes.json();
     expect(updated.comment.body).toBe("Edited comment");
@@ -144,7 +144,7 @@ describe("Comments API", () => {
       headers: createHeaders,
       body: JSON.stringify({ body: "Comment to delete" }),
     });
-    const commentRes = await createCommentRoute(createReq, { params: { projectId, taskId } });
+    const commentRes = await createCommentRoute(createReq, { params: Promise.resolve({ projectId, taskId }) });
     const comment = await commentRes.json();
 
     const deleteHeaders = new Headers();
@@ -153,7 +153,7 @@ describe("Comments API", () => {
       method: "DELETE",
       headers: deleteHeaders,
     });
-    const res = await deleteCommentRoute(deleteReq, { params: { projectId, taskId, commentId: comment.comment.id } });
+    const res = await deleteCommentRoute(deleteReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
     expect(res.status).toBe(200);
 
     const checkRes = await prisma.comment.findUnique({
@@ -166,7 +166,7 @@ describe("Comments API", () => {
     const headers = new Headers();
     headers.set("x-user-id", memberId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/nonexistent/comments`, { method: "GET", headers });
-    const res = await getCommentsRoute(req, { params: { projectId, taskId: "nonexistent" } });
+    const res = await getCommentsRoute(req, { params: Promise.resolve({ projectId, taskId: "nonexistent" }) });
     expect(res.status).toBe(404);
   });
 
@@ -180,7 +180,7 @@ describe("Comments API", () => {
       headers: createHeaders,
       body: JSON.stringify({ body: "Comment to delete by admin" }),
     });
-    const commentRes = await createCommentRoute(createReq, { params: { projectId, taskId } });
+    const commentRes = await createCommentRoute(createReq, { params: Promise.resolve({ projectId, taskId }) });
     const comment = await commentRes.json();
 
     // Admin deletes member's comment
@@ -190,7 +190,7 @@ describe("Comments API", () => {
       method: "DELETE",
       headers: deleteHeaders,
     });
-    const deleteRes = await deleteCommentRoute(deleteReq, { params: { projectId, taskId, commentId: comment.comment.id } });
+    const deleteRes = await deleteCommentRoute(deleteReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
     expect(deleteRes.status).toBe(200);
 
     const checkRes = await prisma.comment.findUnique({
@@ -209,7 +209,7 @@ describe("Comments API", () => {
       headers: createHeaders,
       body: JSON.stringify({ body: "Admin comment" }),
     });
-    const commentRes = await createCommentRoute(createReq, { params: { projectId, taskId } });
+    const commentRes = await createCommentRoute(createReq, { params: Promise.resolve({ projectId, taskId }) });
     const comment = await commentRes.json();
 
     // Member tries to delete admin's comment
@@ -219,7 +219,7 @@ describe("Comments API", () => {
       method: "DELETE",
       headers: deleteHeaders,
     });
-    const deleteRes = await deleteCommentRoute(deleteReq, { params: { projectId, taskId, commentId: comment.comment.id } });
+    const deleteRes = await deleteCommentRoute(deleteReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
     expect(deleteRes.status).toBe(403);
 
     const checkRes = await prisma.comment.findUnique({
@@ -238,7 +238,7 @@ describe("Comments API", () => {
       headers: createHeaders,
       body: JSON.stringify({ body: "Member comment" }),
     });
-    const createRes = await createCommentRoute(createReq, { params: { projectId, taskId } });
+    const createRes = await createCommentRoute(createReq, { params: Promise.resolve({ projectId, taskId }) });
     expect(createRes.status).toBe(201);
     const comment = await createRes.json();
 
@@ -251,7 +251,7 @@ describe("Comments API", () => {
       headers: editHeaders,
       body: JSON.stringify({ body: "Edited member comment" }),
     });
-    const editRes = await updateCommentRoute(editReq, { params: { projectId, taskId, commentId: comment.comment.id } });
+    const editRes = await updateCommentRoute(editReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
     expect(editRes.status).toBe(200);
 
     // Delete own comment
@@ -261,7 +261,7 @@ describe("Comments API", () => {
       method: "DELETE",
       headers: deleteHeaders,
     });
-    const deleteRes = await deleteCommentRoute(deleteReq, { params: { projectId, taskId, commentId: comment.comment.id } });
+    const deleteRes = await deleteCommentRoute(deleteReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
     expect(deleteRes.status).toBe(200);
   });
 

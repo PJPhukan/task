@@ -43,7 +43,7 @@ describe('Members API', () => {
     const headers = new Headers();
     headers.set('x-user-id', memberId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/members`, { method: 'GET', headers });
-    const response = await getMembersRoute(req, { params: { projectId } });
+    const response = await getMembersRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.members)).toBe(true);
@@ -53,7 +53,7 @@ describe('Members API', () => {
     const headers = new Headers();
     headers.set('x-user-id', viewerId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/members`, { method: 'GET', headers });
-    const response = await getMembersRoute(req, { params: { projectId } });
+    const response = await getMembersRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(403);
   });
 
@@ -66,7 +66,7 @@ describe('Members API', () => {
       headers,
       body: JSON.stringify({ userId: viewerId }),
     });
-    const response = await addMemberRoute(req, { params: { projectId } });
+    const response = await addMemberRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(201);
   });
 
@@ -79,7 +79,7 @@ describe('Members API', () => {
       headers,
       body: JSON.stringify({ userId: newUserId, role: 'member' }),
     });
-    const response = await addMemberRoute(req, { params: { projectId } });
+    const response = await addMemberRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(403);
   });
 
@@ -87,7 +87,7 @@ describe('Members API', () => {
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/members/${viewerId}`, { method: 'DELETE', headers });
-    const response = await removeMemberRoute(req, { params: { projectId, userId: viewerId } });
+    const response = await removeMemberRoute(req, { params: Promise.resolve({ projectId, userId: viewerId }) });
     expect(response.status).toBe(200);
   });
 

@@ -67,7 +67,7 @@ describe('Roles API', () => {
         permissionKeys: ['task.create', 'task.update', 'task.move', 'task.delete', 'comment.create', 'attachment.upload'],
       }),
     });
-    const response = await updateRoleRoute(updateReq, { params: { roleId: 'member' } });
+    const response = await updateRoleRoute(updateReq, { params: Promise.resolve({ roleId: 'member' }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.role.permissionKeys).toContain('task.delete');
@@ -83,7 +83,7 @@ describe('Roles API', () => {
         permissionKeys: ['task.create', 'task.update', 'task.move', 'task.delete.own', 'comment.create', 'attachment.upload'],
       }),
     });
-    const restoreRes = await updateRoleRoute(restoreReq, { params: { roleId: 'member' } });
+    const restoreRes = await updateRoleRoute(restoreReq, { params: Promise.resolve({ roleId: 'member' }) });
     expect(restoreRes.status).toBe(200);
   });
 
@@ -98,7 +98,7 @@ describe('Roles API', () => {
         permissionKeys: ['task.create'],
       }),
     });
-    const response = await updateRoleRoute(req, { params: { roleId: 'member' } });
+    const response = await updateRoleRoute(req, { params: Promise.resolve({ roleId: 'member' }) });
     expect(response.status).toBe(403);
   });
 
@@ -111,7 +111,7 @@ describe('Roles API', () => {
       headers,
       body: JSON.stringify({}),
     });
-    const response = await deleteRoleRoute(req, { params: { roleId: 'admin' } });
+    const response = await deleteRoleRoute(req, { params: Promise.resolve({ roleId: 'admin' }) });
     // Should fail with either 400 or 409 depending on implementation
     expect([400, 409]).toContain(response.status);
   });

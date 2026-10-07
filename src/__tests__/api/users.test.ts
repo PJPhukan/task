@@ -150,7 +150,7 @@ describe('Users API', () => {
         name: 'Updated Name',
       }),
     });
-    const response = await updateUserRoute(req, { params: { userId } });
+    const response = await updateUserRoute(req, { params: Promise.resolve({ userId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.user.name).toBe('Updated Name');
@@ -187,7 +187,7 @@ describe('Users API', () => {
         roleIds: ['manager', 'viewer'],
       }),
     });
-    const response = await setUserRolesRoute(req, { params: { userId } });
+    const response = await setUserRolesRoute(req, { params: Promise.resolve({ userId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.user.roles).toContain('manager');
@@ -207,7 +207,7 @@ describe('Users API', () => {
         isActive: false,
       }),
     });
-    const response = await updateUserRoute(req, { params: { userId: adminId } });
+    const response = await updateUserRoute(req, { params: Promise.resolve({ userId: adminId }) });
     // Should fail because admin is the last with role.manage
     expect(response.status).toBe(400);
   }, 10000);

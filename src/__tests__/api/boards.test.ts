@@ -39,7 +39,7 @@ describe('Boards API', () => {
     const headers = new Headers();
     headers.set('x-user-id', memberId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards`, { method: 'GET', headers });
-    const response = await getBoardsRoute(req, { params: { projectId } });
+    const response = await getBoardsRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.boards)).toBe(true);
@@ -54,7 +54,7 @@ describe('Boards API', () => {
       headers,
       body: JSON.stringify({ name: 'Sprint 1', description: 'First sprint' }),
     });
-    const response = await createBoardRoute(req, { params: { projectId } });
+    const response = await createBoardRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(201);
     const data = await response.json();
     expect(data.board).toBeDefined();
@@ -75,7 +75,7 @@ describe('Boards API', () => {
       headers,
       body: JSON.stringify({ name: 'Test Board' }),
     });
-    const response = await createBoardRoute(req, { params: { projectId } });
+    const response = await createBoardRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(403);
   });
 
@@ -83,7 +83,7 @@ describe('Boards API', () => {
     const headers = new Headers();
     headers.set('x-user-id', memberId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}`, { method: 'GET', headers });
-    const response = await getBoardRoute(req, { params: { projectId, boardId } });
+    const response = await getBoardRoute(req, { params: Promise.resolve({ projectId, boardId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.board).toBeDefined();
@@ -95,7 +95,7 @@ describe('Boards API', () => {
     const headers = new Headers();
     headers.set('x-user-id', 'invalid-user');
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}`, { method: 'GET', headers });
-    const response = await getBoardRoute(req, { params: { projectId, boardId } });
+    const response = await getBoardRoute(req, { params: Promise.resolve({ projectId, boardId }) });
     expect(response.status).toBe(401);
   });
 
@@ -108,7 +108,7 @@ describe('Boards API', () => {
       headers,
       body: JSON.stringify({ name: 'Sprint 1 Updated', description: 'Updated description' }),
     });
-    const response = await updateBoardRoute(req, { params: { projectId, boardId } });
+    const response = await updateBoardRoute(req, { params: Promise.resolve({ projectId, boardId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.board.name).toBe('Sprint 1 Updated');
@@ -124,7 +124,7 @@ describe('Boards API', () => {
       headers,
       body: JSON.stringify({ name: 'Updated' }),
     });
-    const response = await updateBoardRoute(req, { params: { projectId, boardId } });
+    const response = await updateBoardRoute(req, { params: Promise.resolve({ projectId, boardId }) });
     expect(response.status).toBe(403);
   });
 
@@ -132,7 +132,7 @@ describe('Boards API', () => {
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}`, { method: 'DELETE', headers });
-    const response = await deleteBoardRoute(req, { params: { projectId, boardId } });
+    const response = await deleteBoardRoute(req, { params: Promise.resolve({ projectId, boardId }) });
     expect(response.status).toBe(200);
   });
 
@@ -146,13 +146,13 @@ describe('Boards API', () => {
       headers: createHeaders,
       body: JSON.stringify({ name: 'Board for delete test' }),
     });
-    const createRes = await createBoardRoute(createReq, { params: { projectId } });
+    const createRes = await createBoardRoute(createReq, { params: Promise.resolve({ projectId }) });
     const { board } = await createRes.json();
 
     const deleteHeaders = new Headers();
     deleteHeaders.set('x-user-id', viewerId);
     const deleteReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${board.id}`, { method: 'DELETE', headers: deleteHeaders });
-    const response = await deleteBoardRoute(deleteReq, { params: { projectId, boardId: board.id } });
+    const response = await deleteBoardRoute(deleteReq, { params: Promise.resolve({ projectId, boardId: board.id }) });
     expect(response.status).toBe(403);
   });
 });

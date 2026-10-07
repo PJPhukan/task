@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET as getProjectsRoute, POST as createProjectRoute } from '@/app/api/projects/route';
 import { GET as getProjectRoute, PATCH as updateProjectRoute, DELETE as deleteProjectRoute } from '@/app/api/projects/[projectId]/route';
-import { callApi } from '@/__tests__/__helpers__/api-call';
 import { prisma } from '@/server/lib/prisma';
 
 function generateProjectKey(length = 4): string {
@@ -60,7 +59,7 @@ describe('Projects API', () => {
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}`, { method: 'GET', headers });
-    const response = await getProjectRoute(req, { params: { projectId } });
+    const response = await getProjectRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(200);
   });
 
@@ -68,7 +67,7 @@ describe('Projects API', () => {
     const headers = new Headers();
     headers.set('x-user-id', nonMemberId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}`, { method: 'GET', headers });
-    const response = await getProjectRoute(req, { params: { projectId } });
+    const response = await getProjectRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(403);
   });
 
@@ -81,7 +80,7 @@ describe('Projects API', () => {
       headers,
       body: JSON.stringify({ name: 'Updated Project' }),
     });
-    const response = await updateProjectRoute(req, { params: { projectId } });
+    const response = await updateProjectRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.project.name).toBe('Updated Project');
@@ -96,7 +95,7 @@ describe('Projects API', () => {
       headers,
       body: JSON.stringify({ name: 'Should Fail' }),
     });
-    const response = await updateProjectRoute(req, { params: { projectId } });
+    const response = await updateProjectRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(403);
   });
 
@@ -107,7 +106,7 @@ describe('Projects API', () => {
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${newProject.id}`, { method: 'DELETE', headers });
-    const response = await deleteProjectRoute(req, { params: { projectId: newProject.id } });
+    const response = await deleteProjectRoute(req, { params: Promise.resolve({ projectId: newProject.id }) });
     expect(response.status).toBe(200);
   });
 
@@ -139,7 +138,7 @@ describe('Projects API', () => {
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}`, { method: 'DELETE', headers });
-    const response = await deleteProjectRoute(req, { params: { projectId } });
+    const response = await deleteProjectRoute(req, { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(200);
 
     // Verify project is archived, not deleted

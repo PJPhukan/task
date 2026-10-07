@@ -63,7 +63,7 @@ describe('Columns API', () => {
       headers,
       body: JSON.stringify({ name: 'Testing', color: '#FF0000' }),
     });
-    const response = await createColumnRoute(req, { params: { projectId, boardId } });
+    const response = await createColumnRoute(req, { params: Promise.resolve({ projectId, boardId }) });
     expect(response.status).toBe(201);
     const data = await response.json();
     expect(data.column).toBeDefined();
@@ -79,7 +79,7 @@ describe('Columns API', () => {
       headers,
       body: JSON.stringify({ name: 'Test' }),
     });
-    const response = await createColumnRoute(req, { params: { projectId, boardId } });
+    const response = await createColumnRoute(req, { params: Promise.resolve({ projectId, boardId }) });
     expect(response.status).toBe(403);
   });
 
@@ -92,7 +92,7 @@ describe('Columns API', () => {
       headers,
       body: JSON.stringify({ name: 'Updated To Do', isDone: false }),
     });
-    const response = await updateColumnRoute(req, { params: { projectId, columnId } });
+    const response = await updateColumnRoute(req, { params: Promise.resolve({ projectId, columnId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.column.name).toBe('Updated To Do');
@@ -107,7 +107,7 @@ describe('Columns API', () => {
       headers,
       body: JSON.stringify({ name: 'Updated' }),
     });
-    const response = await updateColumnRoute(req, { params: { projectId, columnId } });
+    const response = await updateColumnRoute(req, { params: Promise.resolve({ projectId, columnId }) });
     expect(response.status).toBe(403);
   });
 
@@ -127,7 +127,7 @@ describe('Columns API', () => {
         columns: columns.map((col, idx) => ({ id: col.id, position: columns.length - 1 - idx })),
       }),
     });
-    const response = await reorderColumnsRoute(req, { params: { projectId, boardId } });
+    const response = await reorderColumnsRoute(req, { params: Promise.resolve({ projectId, boardId }) });
     expect(response.status).toBe(200);
   });
 
@@ -153,7 +153,7 @@ describe('Columns API', () => {
       headers,
       body: JSON.stringify({}),
     });
-    const response = await deleteColumnRoute(req, { params: { projectId, columnId: col!.id } });
+    const response = await deleteColumnRoute(req, { params: Promise.resolve({ projectId, columnId: col!.id }) });
     expect(response.status).toBe(409);
   });
 
@@ -170,7 +170,7 @@ describe('Columns API', () => {
       headers,
       body: JSON.stringify({ targetColumnId: targetCol.id }),
     });
-    const response = await deleteColumnRoute(req, { params: { projectId, columnId: sourceCol.id } });
+    const response = await deleteColumnRoute(req, { params: Promise.resolve({ projectId, columnId: sourceCol.id }) });
     expect(response.status).toBe(200);
 
     const movedTasks = await prisma.task.findMany({
@@ -191,7 +191,7 @@ describe('Columns API', () => {
       headers,
       body: JSON.stringify({}),
     });
-    const response = await deleteColumnRoute(req, { params: { projectId, columnId: emptyCol.id } });
+    const response = await deleteColumnRoute(req, { params: Promise.resolve({ projectId, columnId: emptyCol.id }) });
     expect(response.status).toBe(200);
   });
 
@@ -208,7 +208,7 @@ describe('Columns API', () => {
       headers,
       body: JSON.stringify({}),
     });
-    const response = await deleteColumnRoute(req, { params: { projectId, columnId: col.id } });
+    const response = await deleteColumnRoute(req, { params: Promise.resolve({ projectId, columnId: col.id }) });
     expect(response.status).toBe(403);
   });
 });

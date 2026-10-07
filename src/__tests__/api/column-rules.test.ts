@@ -73,7 +73,7 @@ describe('Column Rules API', () => {
         moveRoleIds: ['developer'],
       }),
     });
-    const response = await setColumnRulesRoute(req, { params: { projectId, columnId } });
+    const response = await setColumnRulesRoute(req, { params: Promise.resolve({ projectId, columnId }) });
     expect(response.status).toBe(200);
   });
 
@@ -81,7 +81,7 @@ describe('Column Rules API', () => {
     const headers = new Headers();
     headers.set('x-user-id', developerId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}`, { method: 'GET', headers });
-    const response = await getBoardRoute(req, { params: { projectId, boardId } });
+    const response = await getBoardRoute(req, { params: Promise.resolve({ projectId, boardId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     const testColumn = data.board.columns.find((c: any) => c.id === columnId);
@@ -108,7 +108,7 @@ describe('Column Rules API', () => {
     const headers = new Headers();
     headers.set('x-user-id', viewer.id);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}`, { method: 'GET', headers });
-    const response = await getBoardRoute(req, { params: { projectId, boardId } });
+    const response = await getBoardRoute(req, { params: Promise.resolve({ projectId, boardId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     const testColumn = data.board.columns.find((c: any) => c.id === columnId);
@@ -133,7 +133,7 @@ describe('Column Rules API', () => {
     const headers = new Headers();
     headers.set('x-user-id', manager.id);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}`, { method: 'GET', headers });
-    const response = await getBoardRoute(req, { params: { projectId, boardId } });
+    const response = await getBoardRoute(req, { params: Promise.resolve({ projectId, boardId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     const testColumn = data.board.columns.find((c: any) => c.id === columnId);
@@ -145,7 +145,7 @@ describe('Column Rules API', () => {
     const headers = new Headers();
     headers.set('x-user-id', developerId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}/columns`, { method: 'GET', headers });
-    const response = await getColumnsRoute(req, { params: { projectId, boardId } });
+    const response = await getColumnsRoute(req, { params: Promise.resolve({ projectId, boardId }) });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.columns)).toBe(true);
@@ -198,7 +198,7 @@ describe('Column Rules API', () => {
         moveRoleIds: [],
       }),
     });
-    const response = await setColumnRulesRoute(req, { params: { projectId, columnId } });
+    const response = await setColumnRulesRoute(req, { params: Promise.resolve({ projectId, columnId }) });
     expect(response.status).toBe(403);
   });
 });

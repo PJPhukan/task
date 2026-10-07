@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server';
 import { GET as getLabelsRoute, POST as createLabelRoute } from '@/app/api/projects/[projectId]/labels/route';
 import { PATCH as updateLabelRoute, DELETE as deleteLabelRoute } from '@/app/api/projects/[projectId]/labels/[labelId]/route';
 import { PUT as setTaskLabelsRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/labels/route';
-import { POST as createTaskRoute, GET as getTasksRoute } from '@/app/api/projects/[projectId]/tasks/route';
+import { POST as createTaskRoute } from '@/app/api/projects/[projectId]/tasks/route';
 import { GET as getTaskRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/route';
 import { prisma } from '@/server/lib/prisma';
 
@@ -59,7 +59,7 @@ describe('Labels API', () => {
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/labels`, { method: 'GET', headers });
-    const res = await getLabelsRoute(req, { params: { projectId } });
+    const res = await getLabelsRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data.labels)).toBe(true);
@@ -74,7 +74,7 @@ describe('Labels API', () => {
       headers,
       body: JSON.stringify({ name: 'Bug', color: '#FF6B6B' }),
     });
-    const res = await createLabelRoute(req, { params: { projectId } });
+    const res = await createLabelRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(201);
     const data = await res.json();
     expect(data.label.name).toBe('Bug');
@@ -90,7 +90,7 @@ describe('Labels API', () => {
       headers: headers1,
       body: JSON.stringify({ name: 'Unique', color: '#FF6B6B' }),
     });
-    await createLabelRoute(req1, { params: { projectId } });
+    await createLabelRoute(req1, { params: Promise.resolve({ projectId }) });
 
     const headers2 = new Headers();
     headers2.set('x-user-id', adminId);
@@ -100,7 +100,7 @@ describe('Labels API', () => {
       headers: headers2,
       body: JSON.stringify({ name: 'Unique', color: '#4ECDC4' }),
     });
-    const res = await createLabelRoute(req2, { params: { projectId } });
+    const res = await createLabelRoute(req2, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(400);
   });
 
@@ -113,7 +113,7 @@ describe('Labels API', () => {
       headers,
       body: JSON.stringify({ name: 'Feature', color: '#4ECDC4' }),
     });
-    const res = await createLabelRoute(req, { params: { projectId } });
+    const res = await createLabelRoute(req, { params: Promise.resolve({ projectId }) });
     expect(res.status).toBe(403);
   });
 
@@ -126,7 +126,7 @@ describe('Labels API', () => {
       headers: createHeaders,
       body: JSON.stringify({ name: 'Update Test', color: '#FF6B6B' }),
     });
-    const createRes = await createLabelRoute(createReq, { params: { projectId } });
+    const createRes = await createLabelRoute(createReq, { params: Promise.resolve({ projectId }) });
     const label = (await createRes.json()).label;
 
     const updateHeaders = new Headers();
@@ -137,7 +137,7 @@ describe('Labels API', () => {
       headers: updateHeaders,
       body: JSON.stringify({ name: 'Updated Label', color: '#4ECDC4' }),
     });
-    const res = await updateLabelRoute(updateReq, { params: { projectId, labelId: label.id } });
+    const res = await updateLabelRoute(updateReq, { params: Promise.resolve({ projectId, labelId: label.id }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.label.name).toBe('Updated Label');
@@ -153,7 +153,7 @@ describe('Labels API', () => {
       headers: createHeaders,
       body: JSON.stringify({ name: 'Delete Test', color: '#FF6B6B' }),
     });
-    const createRes = await createLabelRoute(createReq, { params: { projectId } });
+    const createRes = await createLabelRoute(createReq, { params: Promise.resolve({ projectId }) });
     const label = (await createRes.json()).label;
 
     const deleteHeaders = new Headers();
@@ -162,14 +162,14 @@ describe('Labels API', () => {
       method: 'DELETE',
       headers: deleteHeaders,
     });
-    const res = await deleteLabelRoute(deleteReq, { params: { projectId, labelId: label.id } });
+    const res = await deleteLabelRoute(deleteReq, { params: Promise.resolve({ projectId, labelId: label.id }) });
     expect(res.status).toBe(200);
 
     // Verify deleted
     const getHeaders = new Headers();
     getHeaders.set('x-user-id', adminId);
     const getReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/labels`, { method: 'GET', headers: getHeaders });
-    const getRes = await getLabelsRoute(getReq, { params: { projectId } });
+    const getRes = await getLabelsRoute(getReq, { params: Promise.resolve({ projectId }) });
     const data = await getRes.json();
     expect(data.labels.some((l: any) => l.id === label.id)).toBe(false);
   });
@@ -194,7 +194,7 @@ describe('Labels API', () => {
         title: 'Label Task',
       }),
     });
-    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
+    const taskRes = await createTaskRoute(taskReq, { params: Promise.resolve({ projectId }) });
     const task = (await taskRes.json()).task;
 
     // Set labels
@@ -206,7 +206,7 @@ describe('Labels API', () => {
       headers: labelsHeaders,
       body: JSON.stringify({ labelIds: [label1.id, label2.id] }),
     });
-    const res = await setTaskLabelsRoute(labelsReq, { params: { projectId, taskId: task.id } });
+    const res = await setTaskLabelsRoute(labelsReq, { params: Promise.resolve({ projectId, taskId: task.id }) });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.task.labels.length).toBe(2);
@@ -229,7 +229,7 @@ describe('Labels API', () => {
         title: 'Activity Task',
       }),
     });
-    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
+    const taskRes = await createTaskRoute(taskReq, { params: Promise.resolve({ projectId }) });
     const task = (await taskRes.json()).task;
 
     // Add label
@@ -241,7 +241,7 @@ describe('Labels API', () => {
       headers: labelsHeaders,
       body: JSON.stringify({ labelIds: [label1.id] }),
     });
-    await setTaskLabelsRoute(labelsReq, { params: { projectId, taskId: task.id } });
+    await setTaskLabelsRoute(labelsReq, { params: Promise.resolve({ projectId, taskId: task.id }) });
 
     // Check activity was recorded
     const activities = await prisma.activityLog.findMany({
@@ -267,7 +267,7 @@ describe('Labels API', () => {
         title: 'Response Task',
       }),
     });
-    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
+    const taskRes = await createTaskRoute(taskReq, { params: Promise.resolve({ projectId }) });
     const task = (await taskRes.json()).task;
 
     // Set label
@@ -279,13 +279,13 @@ describe('Labels API', () => {
       headers: labelsHeaders,
       body: JSON.stringify({ labelIds: [label.id] }),
     });
-    await setTaskLabelsRoute(labelsReq, { params: { projectId, taskId: task.id } });
+    await setTaskLabelsRoute(labelsReq, { params: Promise.resolve({ projectId, taskId: task.id }) });
 
     // Get task
     const getHeaders = new Headers();
     getHeaders.set('x-user-id', adminId);
     const getReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}`, { method: 'GET', headers: getHeaders });
-    const getRes = await getTaskRoute(getReq, { params: { projectId, taskId: task.id } });
+    const getRes = await getTaskRoute(getReq, { params: Promise.resolve({ projectId, taskId: task.id }) });
     const data = await getRes.json();
     expect(data.task.labels.some((l: any) => l.id === label.id)).toBe(true);
   });
