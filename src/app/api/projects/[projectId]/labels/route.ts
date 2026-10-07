@@ -19,8 +19,6 @@ export async function GET(
     return userResult.response;
   }
 
-  const user = userResult.user;
-
   // Verify project exists
   const project = await prisma.project.findUnique({
     where: { id: projectId },

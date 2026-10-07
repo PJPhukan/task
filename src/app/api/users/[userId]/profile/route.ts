@@ -15,8 +15,6 @@ export async function GET(
     return userResult.response;
   }
 
-  const user = userResult.user;
-
   try {
     const profile = await ProfileService.getUserProfile(userId);
     return NextResponse.json({ profile });

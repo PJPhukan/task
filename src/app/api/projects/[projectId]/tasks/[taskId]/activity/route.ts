@@ -16,8 +16,6 @@ export async function GET(
     return userResult.response;
   }
 
-  const user = userResult.user;
-
     const { projectId, taskId } = await params;
 
     const task = await prisma.task.findFirst({

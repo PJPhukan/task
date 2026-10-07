@@ -165,10 +165,10 @@ describe('Account status checks guard', () => {
       }
     }
 
-    expect(missingStatusCheck).toEqual(
-      [],
-      `The following routes missing account status check: ${missingStatusCheck.join(', ')}`
-    );
+    if (missingStatusCheck.length > 0) {
+      throw new Error(`The following routes missing account status check: ${missingStatusCheck.join(', ')}`);
+    }
+    expect(missingStatusCheck).toEqual([]);
   });
 });
 
