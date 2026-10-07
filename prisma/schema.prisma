@@ -175,7 +175,7 @@ model BoardAccess {
   createdAt DateTime @default(now())
 
   board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([boardId, userId])
   @@index([boardId])
