@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { NextRequest } from "next/server";
 import { GET as getCommentsRoute, POST as createCommentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/route";
 import { PATCH as updateCommentRoute, DELETE as deleteCommentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/route";
+import { POST as likeCommentRoute, DELETE as unlikeCommentRoute, GET as getLikesRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/like/route";
 import { prisma } from "@/server/lib/prisma";
 import { reseedDatabase, cleanupNonSeededUsers } from "@/__tests__/__helpers__/seed";
 
@@ -486,6 +487,243 @@ describe("Comments API", () => {
     const deletedReply = await prisma.comment.findUnique({ where: { id: reply.comment.id } });
     expect(deletedParent).toBeNull();
     expect(deletedReply).toBeNull();
+  });
+
+  it("POST /like twice leaves one like", async () => {
+    // Create comment
+    const createHeaders = new Headers();
+    createHeaders.set("x-user-id", memberId);
+    createHeaders.set("content-type", "application/json");
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: createHeaders,
+      body: JSON.stringify({ body: "Comment for likes" }),
+    });
+    const createRes = await createCommentRoute(createReq, { params: Promise.resolve({ projectId, taskId }) });
+    const comment = await createRes.json();
+
+    // Like comment first time
+    const like1Headers = new Headers();
+    like1Headers.set("x-user-id", adminId);
+    const like1Req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}/like`, {
+      method: "POST",
+      headers: like1Headers,
+    });
+    const like1Res = await likeCommentRoute(like1Req, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
+    expect(like1Res.status).toBe(200);
+
+    // Like comment second time (idempotent)
+    const like2Headers = new Headers();
+    like2Headers.set("x-user-id", adminId);
+    const like2Req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}/like`, {
+      method: "POST",
+      headers: like2Headers,
+    });
+    const like2Res = await likeCommentRoute(like2Req, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
+    expect(like2Res.status).toBe(200);
+
+    // Verify only one like exists
+    const likeCount = await prisma.commentLike.count({ where: { commentId: comment.comment.id } });
+    expect(likeCount).toBe(1);
+  });
+
+  it("likeCount and likedByMe are correct for two users", async () => {
+    // Create comment
+    const createHeaders = new Headers();
+    createHeaders.set("x-user-id", memberId);
+    createHeaders.set("content-type", "application/json");
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: createHeaders,
+      body: JSON.stringify({ body: "Comment for like counting" }),
+    });
+    const createRes = await createCommentRoute(createReq, { params: Promise.resolve({ projectId, taskId }) });
+    const comment = await createRes.json();
+
+    // User 1 likes
+    const like1Headers = new Headers();
+    like1Headers.set("x-user-id", adminId);
+    const like1Req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}/like`, {
+      method: "POST",
+      headers: like1Headers,
+    });
+    await likeCommentRoute(like1Req, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
+
+    // User 2 likes
+    const like2Headers = new Headers();
+    like2Headers.set("x-user-id", viewerId);
+    const like2Req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}/like`, {
+      method: "POST",
+      headers: like2Headers,
+    });
+    await likeCommentRoute(like2Req, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
+
+    // Get comments as user 1 (should see likedByMe: true)
+    const getHeaders1 = new Headers();
+    getHeaders1.set("x-user-id", adminId);
+    const getReq1 = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "GET",
+      headers: getHeaders1,
+    });
+    const getRes1 = await getCommentsRoute(getReq1, { params: Promise.resolve({ projectId, taskId }) });
+    const data1 = await getRes1.json();
+    const fetchedComment1 = data1.comments.find((c: any) => c.id === comment.comment.id);
+    expect(fetchedComment1.likeCount).toBe(2);
+    expect(fetchedComment1.likedByMe).toBe(true);
+
+    // Get comments as user 2 (should see likedByMe: true)
+    const getHeaders2 = new Headers();
+    getHeaders2.set("x-user-id", viewerId);
+    const getReq2 = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "GET",
+      headers: getHeaders2,
+    });
+    const getRes2 = await getCommentsRoute(getReq2, { params: Promise.resolve({ projectId, taskId }) });
+    const data2 = await getRes2.json();
+    const fetchedComment2 = data2.comments.find((c: any) => c.id === comment.comment.id);
+    expect(fetchedComment2.likeCount).toBe(2);
+    expect(fetchedComment2.likedByMe).toBe(true);
+
+    // Get comments as user 3 who didn't like (should see likedByMe: false)
+    const getHeaders3 = new Headers();
+    getHeaders3.set("x-user-id", memberId);
+    const getReq3 = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "GET",
+      headers: getHeaders3,
+    });
+    const getRes3 = await getCommentsRoute(getReq3, { params: Promise.resolve({ projectId, taskId }) });
+    const data3 = await getRes3.json();
+    const fetchedComment3 = data3.comments.find((c: any) => c.id === comment.comment.id);
+    expect(fetchedComment3.likeCount).toBe(2);
+    expect(fetchedComment3.likedByMe).toBe(false);
+  });
+
+  it("author is notified of like with no email, and not again after unlike/like", async () => {
+    // Create comment
+    const createHeaders = new Headers();
+    createHeaders.set("x-user-id", memberId);
+    createHeaders.set("content-type", "application/json");
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: createHeaders,
+      body: JSON.stringify({ body: "Comment for notifications" }),
+    });
+    const createRes = await createCommentRoute(createReq, { params: Promise.resolve({ projectId, taskId }) });
+    const comment = await createRes.json();
+
+    // User likes
+    const likeHeaders = new Headers();
+    likeHeaders.set("x-user-id", adminId);
+    const likeReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}/like`, {
+      method: "POST",
+      headers: likeHeaders,
+    });
+    await likeCommentRoute(likeReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
+
+    // Check notification exists with emailStatus SKIPPED
+    const notifs = await prisma.notification.findMany({
+      where: {
+        recipientId: memberId,
+        type: "comment.liked",
+        commentId: comment.comment.id,
+      },
+    });
+    expect(notifs.length).toBe(1);
+    expect(notifs[0].emailStatus).toBe("SKIPPED");
+
+    // Unlike
+    const unlikeHeaders = new Headers();
+    unlikeHeaders.set("x-user-id", adminId);
+    const unlikeReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}/like`, {
+      method: "DELETE",
+      headers: unlikeHeaders,
+    });
+    await unlikeCommentRoute(unlikeReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
+
+    // Like again
+    const like2Headers = new Headers();
+    like2Headers.set("x-user-id", adminId);
+    const like2Req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}/like`, {
+      method: "POST",
+      headers: like2Headers,
+    });
+    await likeCommentRoute(like2Req, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
+
+    // Check notification count (should still be 1, not duplicated)
+    const notifs2 = await prisma.notification.findMany({
+      where: {
+        recipientId: memberId,
+        type: "comment.liked",
+        commentId: comment.comment.id,
+      },
+    });
+    expect(notifs2.length).toBe(1);
+  });
+
+  it("liking your own comment creates no notification", async () => {
+    // Create comment
+    const createHeaders = new Headers();
+    createHeaders.set("x-user-id", memberId);
+    createHeaders.set("content-type", "application/json");
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: createHeaders,
+      body: JSON.stringify({ body: "Self-like comment" }),
+    });
+    const createRes = await createCommentRoute(createReq, { params: Promise.resolve({ projectId, taskId }) });
+    const comment = await createRes.json();
+
+    // Author likes own comment
+    const likeHeaders = new Headers();
+    likeHeaders.set("x-user-id", memberId);
+    const likeReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}/like`, {
+      method: "POST",
+      headers: likeHeaders,
+    });
+    await likeCommentRoute(likeReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
+
+    // Check no notification created
+    const notifs = await prisma.notification.findMany({
+      where: {
+        recipientId: memberId,
+        type: "comment.liked",
+        commentId: comment.comment.id,
+      },
+    });
+    expect(notifs.length).toBe(0);
+  });
+
+  it("user cannot like deleted comment", async () => {
+    // Create comment
+    const createHeaders = new Headers();
+    createHeaders.set("x-user-id", memberId);
+    createHeaders.set("content-type", "application/json");
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments`, {
+      method: "POST",
+      headers: createHeaders,
+      body: JSON.stringify({ body: "Deletable comment" }),
+    });
+    const createRes = await createCommentRoute(createReq, { params: Promise.resolve({ projectId, taskId }) });
+    const comment = await createRes.json();
+
+    // Delete comment
+    const deleteHeaders = new Headers();
+    deleteHeaders.set("x-user-id", memberId);
+    const deleteReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}`, {
+      method: "DELETE",
+      headers: deleteHeaders,
+    });
+    await deleteCommentRoute(deleteReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
+
+    // Try to like
+    const likeHeaders = new Headers();
+    likeHeaders.set("x-user-id", adminId);
+    const likeReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/comments/${comment.comment.id}/like`, {
+      method: "POST",
+      headers: likeHeaders,
+    });
+    const likeRes = await likeCommentRoute(likeReq, { params: Promise.resolve({ projectId, taskId, commentId: comment.comment.id }) });
+    expect(likeRes.status).toBe(404);
   });
 
   afterAll(async () => {

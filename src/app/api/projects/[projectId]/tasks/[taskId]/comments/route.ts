@@ -48,7 +48,7 @@ const getHandler = createRouteHandler(async (
   }
 
   const page = parseInt(req.nextUrl.searchParams.get("page") || "1");
-  const result = await CommentService.getComments(projectId, taskId, page);
+  const result = await CommentService.getComments(projectId, taskId, page, 20, user.id);
 
   return NextResponse.json({
     comments: result.comments,

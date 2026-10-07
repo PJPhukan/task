@@ -64,7 +64,7 @@ export class CommentService {
     return comment;
   }
 
-  static async getComments(projectId: string, taskId: string, page: number = 1, pageSize: number = 20) {
+  static async getComments(projectId: string, taskId: string, page: number = 1, pageSize: number = 20, userId?: string) {
     const skip = (page - 1) * pageSize;
 
     const topLevelComments = await prisma.comment.findMany({
@@ -82,6 +82,9 @@ export class CommentService {
             },
           },
         },
+        likes: {
+          select: { userId: true },
+        },
       },
       orderBy: { createdAt: "asc" },
       skip,
@@ -90,9 +93,30 @@ export class CommentService {
 
     const total = await prisma.comment.count({ where: { taskId, parentId: null } });
 
-    const formattedComments = topLevelComments.map((c) => ({
-      ...c,
-      deleted: c.isDeleted ? true : undefined,
+    const formattedComments = await Promise.all(topLevelComments.map(async (c) => {
+      const likeCount = c.likes.length;
+      const likedByMe = userId ? c.likes.some((l) => l.userId === userId) : false;
+
+      const formattedReplies = await Promise.all(
+        c.replies.map(async (reply) => {
+          const replyLikeCount = (await prisma.commentLike.count({ where: { commentId: reply.id } }));
+          const replyLikedByMe = userId ? !!(await prisma.commentLike.findUnique({ where: { commentId_userId: { commentId: reply.id, userId } } })) : false;
+          return {
+            ...reply,
+            likeCount: replyLikeCount,
+            likedByMe: replyLikedByMe,
+          };
+        })
+      );
+
+      return {
+        ...c,
+        likes: undefined,
+        likeCount,
+        likedByMe,
+        deleted: c.isDeleted ? true : undefined,
+        replies: formattedReplies,
+      };
     }));
 
     return {

@@ -143,10 +143,13 @@ API specification and endpoint reference for cm-task-manager backend.
 
 | Method | Path | Permission | Description |
 |--------|------|-----------|-------------|
-| GET | /api/projects/:projectId/tasks/:taskId/comments | - | List comments (oldest first, paginated), with author |
-| POST | /api/projects/:projectId/tasks/:taskId/comments | comment.create | Create comment |
+| GET | /api/projects/:projectId/tasks/:taskId/comments | - | List comments (oldest first, paginated), each with replies nested and likeCount/likedByMe |
+| POST | /api/projects/:projectId/tasks/:taskId/comments | comment.create | Create comment (optional parentId for replies, one level deep) |
 | PATCH | /api/projects/:projectId/tasks/:taskId/comments/:commentId | - | Update comment (only author) |
-| DELETE | /api/projects/:projectId/tasks/:taskId/comments/:commentId | - | Delete comment (author or comment.delete.any) |
+| DELETE | /api/projects/:projectId/tasks/:taskId/comments/:commentId | - | Delete comment (author or comment.delete.any; soft-deletes if has replies) |
+| POST | /api/projects/:projectId/tasks/:taskId/comments/:commentId/like | - | Like comment (idempotent) |
+| DELETE | /api/projects/:projectId/tasks/:taskId/comments/:commentId/like | - | Unlike comment (idempotent) |
+| GET | /api/projects/:projectId/tasks/:taskId/comments/:commentId/likes | - | Get list of users who liked comment (name, avatar) |
 
 ## Attachments
 
