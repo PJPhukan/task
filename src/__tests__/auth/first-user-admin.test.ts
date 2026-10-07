@@ -4,7 +4,7 @@ import { UserService } from "@/server/modules/users/service";
 import { JoinRequestService } from "@/server/modules/join-requests/service";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { getMailer } from "@/server/lib/mailer";
-import { reseedDatabase, cleanupNonSeededUsers } from "@/__tests__/__helpers__/seed";
+import { cleanupNonSeededUsers } from "@/__tests__/__helpers__/seed";
 
 const seededEmails = [
   'admin@example.com',

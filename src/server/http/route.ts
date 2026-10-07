@@ -32,17 +32,17 @@ export function validateRequest<T>(
 
 export type RouteHandler = (_req: NextRequest, _context: any) => Promise<NextResponse>;
 
-export type AuthenticatedRouteHandler = (req: NextRequest, context: any, user: any) => Promise<NextResponse>;
+export type AuthenticatedRouteHandler = (_req: NextRequest, _context: any, _user: any) => Promise<NextResponse>;
 
 export function withAuth(handler: AuthenticatedRouteHandler): RouteHandler {
-  return async (req: NextRequest, context: any): Promise<NextResponse> => {
+  return async (_req: NextRequest, _context: any): Promise<NextResponse> => {
     try {
-      const userId = req.headers.get("x-user-id") || undefined;
-      const userResult = await getCurrentUserWithStatus(userId, req);
+      const userId = _req.headers.get("x-user-id") || undefined;
+      const userResult = await getCurrentUserWithStatus(userId, _req);
       if (!userResult.ok) {
         return userResult.response as NextResponse;
       }
-      return await handler(req, context, userResult.user);
+      return await handler(_req, _context, userResult.user);
     } catch (error) {
       console.error("Unhandled route error:", error);
       if (error instanceof Error) {
@@ -57,9 +57,9 @@ export function withAuth(handler: AuthenticatedRouteHandler): RouteHandler {
 }
 
 export function createRouteHandler(handler: RouteHandler): RouteHandler {
-  return async (req: NextRequest, context: any) => {
+  return async (_req: NextRequest, _context: any) => {
     try {
-      return await handler(req, context);
+      return await handler(_req, _context);
     } catch (error) {
       console.error("Unhandled route error:", error);
       if (error instanceof Error) {

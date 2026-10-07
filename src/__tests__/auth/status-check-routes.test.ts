@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { GET as getProjects } from "@/app/api/projects/route";
 import { GET as getUsers } from "@/app/api/users/route";

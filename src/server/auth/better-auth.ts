@@ -3,8 +3,6 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "@better-auth/prisma-adapter";
 import prisma from "@/server/lib/prisma";
 import { getMailer, createVerifyEmailTemplate, createResetPasswordTemplate } from "@/server/lib/mailer";
-import { UserService } from "@/server/modules/users/service";
-import { JoinRequestService } from "@/server/modules/join-requests/service";
 
 interface EmailVerificationParams {
   user: { email: string };

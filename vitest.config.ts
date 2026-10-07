@@ -13,9 +13,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     setupFiles: ['./vitest.setup.ts'],
-    threads: 1,
     singleThread: true,
-  },
+  } as any,
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
