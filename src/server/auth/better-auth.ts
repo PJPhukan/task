@@ -24,7 +24,8 @@ export const auth = betterAuth({
   trustedOrigins: [process.env.APP_URL || "http://localhost:3000"],
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false,
+    requireEmailVerification: true,
+    autoSignIn: false,
   },
   emailVerification: {
     sendVerificationEmail: async (params: EmailVerificationParams) => {

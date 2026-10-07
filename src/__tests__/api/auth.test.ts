@@ -3,7 +3,9 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/server/lib/prisma';
 import { GET as getMeRoute } from '@/app/api/me/route';
 import { POST as authPost } from '@/app/api/auth/[...all]/route';
+import { GET as authGet } from '@/app/api/auth/[...all]/route';
 import { auth } from '@/server/auth/better-auth';
+import { getMailer } from '@/server/lib/mailer';
 
 describe('Seeded User Sign-In', () => {
   it('Seeded Admin user exists with stored password hash', async () => {
@@ -94,9 +96,10 @@ describe('Seeded User Sign-In', () => {
     expect(meData.user.name).toBe('Admin User');
   });
 
-  it('User can sign up and then sign in with correct password', async () => {
+  it('User can sign up, verify email, and then sign in with correct password', async () => {
     const email = `test-signin-${Date.now()}@example.com`;
     const password = 'TestPassword123!';
+    const mailer = getMailer();
 
     // First, sign up to create user through Better Auth
     const signUpReq = new NextRequest('http://localhost:3000/api/auth/sign-up/email', {
@@ -111,7 +114,25 @@ describe('Seeded User Sign-In', () => {
     const signUpRes = await authPost(signUpReq);
     expect(signUpRes.status).toBe(200);
 
-    // Now sign in with the created credentials
+    // Get verification email
+    const sentEmails = mailer.getSentEmails();
+    expect(sentEmails.length).toBeGreaterThan(0);
+    const verificationEmail = sentEmails.find(e => e.to === email);
+    expect(verificationEmail).toBeDefined();
+
+    // Extract verification token from email
+    const tokenMatch = verificationEmail!.text.match(/token=([^&]+)/);
+    expect(tokenMatch).toBeDefined();
+    const token = tokenMatch![1];
+
+    // Verify email by calling the verify endpoint
+    const verifyReq = new NextRequest(`http://localhost:3000/api/auth/verify-email?token=${token}&callbackURL=/`, {
+      method: 'GET',
+    });
+    const verifyRes = await authGet(verifyReq);
+    expect(verifyRes.status).toBe(302); // Redirect after verification
+
+    // Now sign in with the created credentials (should work after verification)
     const signInReq = new NextRequest('http://localhost:3000/api/auth/sign-in/email', {
       method: 'POST',
       headers: {
@@ -161,6 +182,7 @@ describe('Seeded User Sign-In', () => {
     const email = `fail-login-${Date.now()}@example.com`;
     const password = 'TestPassword123!';
     const wrongPassword = 'WrongPassword123!';
+    const mailer = getMailer();
 
     // Sign up first
     const signUpReq = new NextRequest('http://localhost:3000/api/auth/sign-up/email', {
@@ -175,7 +197,18 @@ describe('Seeded User Sign-In', () => {
     const signUpRes = await authPost(signUpReq);
     expect(signUpRes.status).toBe(200);
 
-    // Try to sign in with wrong password
+    // Verify email first
+    const sentEmails = mailer.getSentEmails();
+    const verificationEmail = sentEmails.find(e => e.to === email);
+    const tokenMatch = verificationEmail!.text.match(/token=([^&]+)/);
+    const token = tokenMatch![1];
+
+    const verifyReq = new NextRequest(`http://localhost:3000/api/auth/verify-email?token=${token}&callbackURL=/`, {
+      method: 'GET',
+    });
+    await authGet(verifyReq);
+
+    // Try to sign in with wrong password (should fail even after verification)
     const signInReq = new NextRequest('http://localhost:3000/api/auth/sign-in/email', {
       method: 'POST',
       headers: {
