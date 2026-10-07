@@ -189,15 +189,16 @@ export class TaskService {
 
     // Record activities
     if (Object.keys(oldValues).length > 0) {
+      const dueDateChanged = input.dueDate !== undefined && oldValues.dueDate !== updateData.dueDate;
       await ActivityService.recordActivity(projectId, "task.updated", userId, taskId, {
         changes: oldValues,
+        dueDateChanged,
       });
     }
 
     if (input.assigneeId !== undefined && input.assigneeId !== task.assigneeId) {
       await ActivityService.recordActivity(projectId, "task.assigned", userId, taskId, {
-        oldAssigneeId: task.assigneeId,
-        newAssigneeId: input.assigneeId,
+        prevAssigneeId: task.assigneeId,
       });
     }
 
@@ -376,9 +377,17 @@ export class TaskService {
 
     // Record activity only if moved to different column
     if (task.columnId !== input.columnId) {
+      const targetColumn = await prisma.boardColumn.findUnique({
+        where: { id: input.columnId },
+      });
+
+      const columnRules = await ColumnRulesService.getColumnRules(input.columnId);
+
       await ActivityService.recordActivity(projectId, "task.moved", userId, taskId, {
         fromColumnId: task.columnId,
         toColumnId: input.columnId,
+        columnIsDone: targetColumn?.isDone || false,
+        moveRoleIds: columnRules.moveRoleIds,
       });
     }
 

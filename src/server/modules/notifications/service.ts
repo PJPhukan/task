@@ -95,6 +95,19 @@ export class NotificationService {
           }
         }
         notificationType = "comment.added";
+        // Pass commentId to notifications
+        for (const recipientId of recipients) {
+          await this.createNotification(
+            recipientId,
+            notificationType,
+            actorId,
+            projectId,
+            taskId,
+            metadata?.commentId || null,
+            { taskKey: task.number, taskTitle: task.title, commentId: metadata?.commentId }
+          );
+        }
+        return;
         break;
 
       case "comment.updated":
@@ -112,6 +125,20 @@ export class NotificationService {
         }
         notificationType = "comment.edited";
         emailOnly = true; // In-app only
+        // Pass commentId to notifications with SKIPPED email status
+        for (const recipientId of recipients) {
+          await this.createNotification(
+            recipientId,
+            notificationType,
+            actorId,
+            projectId,
+            taskId,
+            metadata?.commentId || null,
+            { taskKey: task.number, taskTitle: task.title, commentId: metadata?.commentId },
+            "SKIPPED"
+          );
+        }
+        return;
         break;
 
       case "task.updated":
