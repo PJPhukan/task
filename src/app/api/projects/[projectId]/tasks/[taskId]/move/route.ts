@@ -51,6 +51,17 @@ export async function PATCH(
         { status: 403 }
       );
     }
+    try {
+      const parsedError = JSON.parse(error.message);
+      if (parsedError.code === "VALIDATION_ERROR") {
+        return NextResponse.json(
+          { error: parsedError },
+          { status: 400 }
+        );
+      }
+    } catch {
+      /* ignore parsing errors */
+    }
     return NextResponse.json(
       { error: { code: "MOVE_ERROR", message: error.message || "Failed to move task" } },
       { status: 400 }

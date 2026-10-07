@@ -342,4 +342,114 @@ describe('Tasks API', () => {
     const response = await getTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
     expect(response.status).toBe(404);
   });
+
+  it('Backward move without reason returns 400', async () => {
+    // Create columns: To Do (pos 0), In Progress (pos 2), Done (pos 1)
+    // Then move from In Progress to To Do (backward), which should require reason
+    const inProgressColumn = await prisma.boardColumn.create({
+      data: { boardId, name: 'In Progress Backward', position: 2 },
+    });
+
+    const createHeaders = new Headers();
+    createHeaders.set('x-user-id', adminId);
+    createHeaders.set('content-type', 'application/json');
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+      method: 'POST',
+      headers: createHeaders,
+      body: JSON.stringify({ boardId, columnId: inProgressColumn.id, title: 'Task to Move Back' }),
+    });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
+    const task = (await createRes.json()).task;
+
+    // Try to move backward (from pos 1 to pos 0) without reason
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ columnId, index: 0 }), // columnId is pos 0
+    });
+    const response = await moveTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
+    expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('Backward move with reason succeeds, raises bounceCount and stores reason', async () => {
+    // Create an In Progress column if not already created
+    const inProgressColumn = await prisma.boardColumn.findFirst({
+      where: { boardId, name: 'In Progress Backward' },
+    }) || await prisma.boardColumn.create({
+      data: { boardId, name: 'In Progress Backward 2', position: 3 },
+    });
+
+    const createHeaders = new Headers();
+    createHeaders.set('x-user-id', adminId);
+    createHeaders.set('content-type', 'application/json');
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+      method: 'POST',
+      headers: createHeaders,
+      body: JSON.stringify({ boardId, columnId: inProgressColumn.id, title: 'Task with Bounce' }),
+    });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
+    const task = (await createRes.json()).task;
+    expect(task.bounceCount).toBe(0);
+
+    // Move backward with reason
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({
+        columnId, // Position 0
+        index: 0,
+        sendBackReason: 'Needs rework due to bugs',
+      }),
+    });
+    const response = await moveTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.task.bounceCount).toBe(1);
+
+    // Verify stage entry has send back info
+    const stageEntry = await prisma.taskStageEntry.findFirst({
+      where: { taskId: task.id, columnId },
+    });
+    expect(stageEntry?.isSendBack).toBe(true);
+    expect(stageEntry?.sendBackReason).toBe('Needs rework due to bugs');
+  });
+
+  it('Forward move needs no reason and does not change bounceCount', async () => {
+    const createHeaders = new Headers();
+    createHeaders.set('x-user-id', adminId);
+    createHeaders.set('content-type', 'application/json');
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+      method: 'POST',
+      headers: createHeaders,
+      body: JSON.stringify({ boardId, columnId, title: 'Forward Move Task' }),
+    });
+    const createRes = await createTaskRoute(createReq, { params: Promise.resolve({ projectId }) });
+    const task = (await createRes.json()).task;
+    expect(task.bounceCount).toBe(0);
+
+    // Move to Done column (position 1), which is forward from To Do (position 0)
+    const nextColumn = doneColumnId;
+
+    // Move forward without reason
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ columnId: nextColumn, index: 0 }),
+    });
+    const response = await moveTaskRoute(req, { params: Promise.resolve({ projectId, taskId: task.id }) });
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.task.bounceCount).toBe(0); // Should not change for forward move
+  });
 });

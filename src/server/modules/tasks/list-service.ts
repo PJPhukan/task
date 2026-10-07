@@ -243,6 +243,7 @@ export class TaskListService {
       reporterId: task.reporterId,
       reporter: task.reporter,
       completedAt: task.completedAt,
+      bounceCount: task.bounceCount,
       labels: task.labels.map((tl: any) => ({
         id: tl.label.id,
         name: tl.label.name,
