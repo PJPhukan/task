@@ -1,4 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { NextRequest } from 'next/server';
+import { GET as getRolesRoute, POST as createRoleRoute } from '@/app/api/roles/route';
+import { PATCH as updateRoleRoute, DELETE as deleteRoleRoute } from '@/app/api/roles/[roleId]/route';
+import { GET as getMeRoute } from '@/app/api/me/route';
+import { POST as createUserRoute } from '@/app/api/users/route';
 import { prisma } from '@/server/lib/prisma';
 
 let adminId: string;
@@ -14,9 +19,10 @@ beforeAll(async () => {
 
 describe('Roles API', () => {
   it('GET /api/roles returns list of built-in roles', async () => {
-    const response = await fetch('http://localhost:3000/api/roles', {
-      headers: { 'x-user-id': adminId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest('http://localhost:3000/api/roles', { method: 'GET', headers });
+    const response = await getRolesRoute(req);
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.roles)).toBe(true);
@@ -30,14 +36,17 @@ describe('Roles API', () => {
   });
 
   it('Non-signed-in user cannot access roles', async () => {
-    const response = await fetch('http://localhost:3000/api/roles');
+    const headers = new Headers();
+    const req = new NextRequest('http://localhost:3000/api/roles', { method: 'GET', headers });
+    const response = await getRolesRoute(req);
     expect(response.status).toBe(401);
   });
 
   it('Admin role has all administrative permissions', async () => {
-    const response = await fetch('http://localhost:3000/api/roles', {
-      headers: { 'x-user-id': adminId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest('http://localhost:3000/api/roles', { method: 'GET', headers });
+    const response = await getRolesRoute(req);
     expect(response.status).toBe(200);
     const data = await response.json();
     const adminRole = data.roles.find((r: any) => r.id === 'admin');
@@ -48,59 +57,79 @@ describe('Roles API', () => {
 
   it('PATCH /api/roles/:roleId can update role permissions', async () => {
     // Update member role to have task.delete
-    const response = await fetch('http://localhost:3000/api/roles/member', {
+    const updateHeaders = new Headers();
+    updateHeaders.set('x-user-id', adminId);
+    updateHeaders.set('content-type', 'application/json');
+    const updateReq = new NextRequest('http://localhost:3000/api/roles/member', {
       method: 'PATCH',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: updateHeaders,
       body: JSON.stringify({
         permissionKeys: ['task.create', 'task.update', 'task.move', 'task.delete', 'comment.create', 'attachment.upload'],
       }),
     });
+    const response = await updateRoleRoute(updateReq, { params: { roleId: 'member' } });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.role.permissionKeys).toContain('task.delete');
 
     // Restore member role to its original permissions for test isolation
-    const restoreRes = await fetch('http://localhost:3000/api/roles/member', {
+    const restoreHeaders = new Headers();
+    restoreHeaders.set('x-user-id', adminId);
+    restoreHeaders.set('content-type', 'application/json');
+    const restoreReq = new NextRequest('http://localhost:3000/api/roles/member', {
       method: 'PATCH',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: restoreHeaders,
       body: JSON.stringify({
         permissionKeys: ['task.create', 'task.update', 'task.move', 'task.delete.own', 'comment.create', 'attachment.upload'],
       }),
     });
+    const restoreRes = await updateRoleRoute(restoreReq, { params: { roleId: 'member' } });
     expect(restoreRes.status).toBe(200);
   });
 
   it('Cannot update role without role.manage permission', async () => {
-    const response = await fetch('http://localhost:3000/api/roles/member', {
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/roles/member', {
       method: 'PATCH',
-      headers: { 'x-user-id': viewerId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         permissionKeys: ['task.create'],
       }),
     });
+    const response = await updateRoleRoute(req, { params: { roleId: 'member' } });
     expect(response.status).toBe(403);
   });
 
   it('Admin role deletion is protected', async () => {
-    const response = await fetch('http://localhost:3000/api/roles/admin', {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/roles/admin', {
       method: 'DELETE',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({}),
     });
+    const response = await deleteRoleRoute(req, { params: { roleId: 'admin' } });
     // Should fail with either 400 or 409 depending on implementation
     expect([400, 409]).toContain(response.status);
   });
 
   it('POST /api/roles creates custom role with permissions', async () => {
     const timestamp = Date.now();
-    const response = await fetch('http://localhost:3000/api/roles', {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/roles', {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         name: `custom-role-${timestamp}`,
         permissionKeys: ['task.create', 'task.update'],
       }),
     });
+    const response = await createRoleRoute(req);
     if (response.status !== 201) {
       const errorData = await response.json();
       console.error('POST /api/roles error:', errorData);
@@ -115,14 +144,18 @@ describe('Roles API', () => {
 
   it('POST /api/roles with single permission creates role with only that access', async () => {
     const timestamp = Date.now();
-    const response = await fetch('http://localhost:3000/api/roles', {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/roles', {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         name: `single-perm-${timestamp}`,
         permissionKeys: ['comment.create'],
       }),
     });
+    const response = await createRoleRoute(req);
     expect(response.status).toBe(201);
     const data = await response.json();
     expect(data.role.permissionKeys).toEqual(['comment.create']);
@@ -131,14 +164,18 @@ describe('Roles API', () => {
 
   it('POST /api/roles rejects invalid permission keys', async () => {
     const timestamp = Date.now();
-    const response = await fetch('http://localhost:3000/api/roles', {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/roles', {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         name: `Invalid Perm Role ${timestamp}`,
         permissionKeys: ['invalid.permission', 'task.create'],
       }),
     });
+    const response = await createRoleRoute(req);
     expect(response.status).toBe(400);
     const data = await response.json();
     expect(data.error).toBeDefined();
@@ -146,27 +183,35 @@ describe('Roles API', () => {
 
   it('POST /api/roles rejects duplicate permission keys', async () => {
     const timestamp = Date.now();
-    const response = await fetch('http://localhost:3000/api/roles', {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/roles', {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         name: `Duplicate Perm Role ${timestamp}`,
         permissionKeys: ['task.create', 'task.create'],
       }),
     });
+    const response = await createRoleRoute(req);
     expect(response.status).toBe(400);
   });
 
   it('User without role.manage cannot create roles', async () => {
     const timestamp = Date.now();
-    const response = await fetch('http://localhost:3000/api/roles', {
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/roles', {
       method: 'POST',
-      headers: { 'x-user-id': viewerId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         name: `Unauthorized Role ${timestamp}`,
         permissionKeys: ['task.create'],
       }),
     });
+    const response = await createRoleRoute(req);
     expect(response.status).toBe(403);
   });
 
@@ -175,33 +220,42 @@ describe('Roles API', () => {
     const customRoleName = `custom-task-creator-${timestamp}`;
 
     // Create a custom role with only task.create
-    const createRoleRes = await fetch('http://localhost:3000/api/roles', {
+    const createRoleHeaders = new Headers();
+    createRoleHeaders.set('x-user-id', adminId);
+    createRoleHeaders.set('content-type', 'application/json');
+    const createRoleReq = new NextRequest('http://localhost:3000/api/roles', {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: createRoleHeaders,
       body: JSON.stringify({
         name: customRoleName,
         permissionKeys: ['task.create'],
       }),
     });
+    const createRoleRes = await createRoleRoute(createRoleReq);
     expect(createRoleRes.status).toBe(201);
 
     // Create a new user
-    const createUserRes = await fetch('http://localhost:3000/api/users', {
+    const createUserHeaders = new Headers();
+    createUserHeaders.set('x-user-id', adminId);
+    createUserHeaders.set('content-type', 'application/json');
+    const createUserReq = new NextRequest('http://localhost:3000/api/users', {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: createUserHeaders,
       body: JSON.stringify({
         name: `Test User ${timestamp}`,
         email: `test-${timestamp}@example.com`,
         roleIds: [customRoleName],
       }),
     });
+    const createUserRes = await createUserRoute(createUserReq);
     expect(createUserRes.status).toBe(201);
     const newUser = (await createUserRes.json()).user;
 
     // Verify user can create tasks (has task.create permission)
-    const meRes = await fetch('http://localhost:3000/api/me', {
-      headers: { 'x-user-id': newUser.id },
-    });
+    const meHeaders = new Headers();
+    meHeaders.set('x-user-id', newUser.id);
+    const meReq = new NextRequest('http://localhost:3000/api/me', { method: 'GET', headers: meHeaders });
+    const meRes = await getMeRoute(meReq);
     expect(meRes.status).toBe(200);
     const meData = await meRes.json();
     expect(meData.permissions).toContain('task.create');
