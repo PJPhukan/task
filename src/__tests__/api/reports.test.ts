@@ -607,6 +607,130 @@ describe('Reports API', () => {
     expect(jsonData.report.completedPerWeek).toBeDefined();
   });
 
+  it('GET /api/reports/me includes sent_back_count and over_limit_count', async () => {
+    const headers = new Headers();
+    headers.set('x-user-id', memberId);
+    const req = new NextRequest(
+      `http://localhost:3000/api/reports/me?from=2026-10-01&to=2026-10-31`,
+      { method: 'GET', headers }
+    );
+    const response = await getMeReport(req);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+
+    // Check that assigned object includes sent_back_count and over_limit_count
+    expect(data.report.assigned).toBeDefined();
+    expect(typeof data.report.assigned.sent_back_count).toBe('number');
+    expect(typeof data.report.assigned.over_limit_count).toBe('number');
+    expect(data.report.assigned.sent_back_count).toBeGreaterThanOrEqual(0);
+    expect(data.report.assigned.over_limit_count).toBeGreaterThanOrEqual(0);
+  });
+
+  it('GET /api/reports/users/:userId includes sent_back_count and over_limit_count', async () => {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(
+      `http://localhost:3000/api/reports/users/${memberId}?from=2026-10-01&to=2026-10-31`,
+      { method: 'GET', headers }
+    );
+    const response = await getUserReport(req, { params: Promise.resolve({ userId: memberId }) });
+    expect(response.status).toBe(200);
+    const data = await response.json();
+
+    // Check that assigned object includes sent_back_count and over_limit_count
+    expect(data.report.assigned).toBeDefined();
+    expect(typeof data.report.assigned.sent_back_count).toBe('number');
+    expect(typeof data.report.assigned.over_limit_count).toBe('number');
+  });
+
+  it('sent_back_count counts tasks with bounceCount > 0', async () => {
+    // Create a task with bounceCount > 0 (simulate send-back)
+    const task = await prisma.task.create({
+      data: {
+        projectId,
+        boardId,
+        columnId: doneColumnId,
+        number: 999,
+        title: 'Bounced task',
+        reporterId: adminId,
+        assigneeId: memberId,
+        bounceCount: 2,
+        position: 0,
+      },
+    });
+
+    const headers = new Headers();
+    headers.set('x-user-id', memberId);
+    const req = new NextRequest(
+      `http://localhost:3000/api/reports/me?from=2026-01-01&to=2026-12-31`,
+      { method: 'GET', headers }
+    );
+    const response = await getMeReport(req);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+
+    expect(data.report.assigned.sent_back_count).toBeGreaterThan(0);
+
+    // Clean up
+    await prisma.task.delete({ where: { id: task.id } });
+  });
+
+  it('over_limit_count counts tasks over their column time limit', async () => {
+    // Set up a column with time limit
+    const toDoColumn = await prisma.boardColumn.findFirst({
+      where: { boardId, name: 'To Do' },
+    });
+
+    if (toDoColumn) {
+      await prisma.boardColumn.update({
+        where: { id: toDoColumn.id },
+        data: { timeLimitHours: 1 },
+      });
+
+      // Create a task that's over the limit
+      const twoHoursAgo = new Date(new Date().getTime() - 2 * 60 * 60 * 1000);
+      const overLimitTask = await prisma.task.create({
+        data: {
+          projectId,
+          boardId,
+          columnId: toDoColumn.id,
+          number: 1000,
+          title: 'Over limit task',
+          reporterId: adminId,
+          assigneeId: memberId,
+          position: 0,
+        },
+      });
+
+      // Create stage entry with past timestamp
+      await prisma.taskStageEntry.create({
+        data: {
+          taskId: overLimitTask.id,
+          columnId: toDoColumn.id,
+          enteredById: adminId,
+          assigneeAtEntry: memberId,
+          enteredAt: twoHoursAgo,
+        },
+      });
+
+      const headers = new Headers();
+      headers.set('x-user-id', memberId);
+      const req = new NextRequest(
+        `http://localhost:3000/api/reports/me?from=2026-01-01&to=2026-12-31`,
+        { method: 'GET', headers }
+      );
+      const response = await getMeReport(req);
+      expect(response.status).toBe(200);
+      const data = await response.json();
+
+      expect(data.report.assigned.over_limit_count).toBeGreaterThan(0);
+
+      // Clean up
+      await prisma.taskStageEntry.deleteMany({ where: { taskId: overLimitTask.id } });
+      await prisma.task.delete({ where: { id: overLimitTask.id } });
+    }
+  });
+
   afterAll(async () => {
     // Clean up test data
     if (projectId) {
