@@ -222,6 +222,44 @@ All task responses include:
 |--------|------|-----------|-------------|
 | GET | /api/calendar | - | Get calendar tasks (from, to dates, optional projectId, boardId, assignedToMe filter) |
 
+## Search
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/search | - | Search for tasks, projects, and boards (query must be at least 2 characters) |
+
+### Search Query Parameters
+
+- `q` (required): Search query (minimum 2 characters)
+
+### Search Response
+
+Returns three groups with at most 8 results each:
+```json
+{
+  "tasks": [
+    {
+      "key": "PROJ-123",
+      "title": "Task title",
+      "projectName": "Project Name"
+    }
+  ],
+  "projects": [
+    {
+      "id": "project-id",
+      "name": "Project Name"
+    }
+  ],
+  "boards": [
+    {
+      "id": "board-id",
+      "name": "Board Name",
+      "projectName": "Project Name"
+    }
+  ]
+}
+```
+
 ### Calendar Query Parameters
 
 - `from` (required): Start date in YYYY-MM-DD format
