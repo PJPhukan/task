@@ -106,6 +106,31 @@ describe("Join Requests API", () => {
       const data = await response.json();
       expect(data.error.code).toBe("FORBIDDEN");
     });
+
+    it("returns join requests with roles array including displayName", async () => {
+      const headers = new Headers();
+      headers.set("x-user-id", adminUserId);
+      const req = new NextRequest("http://localhost:3000/api/join-requests", { headers });
+      const response = await listRequests(req);
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(Array.isArray(data.joinRequests)).toBe(true);
+
+      const requests = data.joinRequests.filter((r: any) =>
+        [pendingUserId, otherPendingUserId].includes(r.id)
+      );
+      expect(requests.length).toBeGreaterThanOrEqual(2);
+
+      requests.forEach((request: any) => {
+        expect(request.roles).toBeDefined();
+        expect(Array.isArray(request.roles)).toBe(true);
+        request.roles.forEach((role: any) => {
+          expect(role.id).toBeDefined();
+          expect(role.displayName).toBeDefined();
+        });
+      });
+    });
   });
 
   describe("POST /api/join-requests/[userId]/approve", () => {

@@ -20,7 +20,10 @@ export class JoinRequestService {
       orderBy: { createdAt: "asc" },
     });
 
-    return users;
+    return users.map((user) => ({
+      ...user,
+      roles: [],
+    }));
   }
 
   static async approveUser(userId: string, input: ApproveJoinRequestInput) {

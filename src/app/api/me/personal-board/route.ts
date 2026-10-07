@@ -4,13 +4,15 @@ import { getCurrentUser } from "@/server/auth/current-user";
 import { PersonalBoardService } from "@/server/modules/personal-board/service";
 
 export async function GET(req: NextRequest) {
-  const userResult = await getCurrentUser(req);
+  const userId = req.headers.get("x-user-id") || undefined;
+  const user = await getCurrentUser(userId, req);
 
-  if (!userResult.ok) {
-    return userResult.response;
+  if (!user) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHORIZED", message: "User not found" } },
+      { status: 401 }
+    );
   }
-
-  const user = userResult.user;
 
   try {
     const result = await PersonalBoardService.getOrCreatePersonalBoard(user.id);

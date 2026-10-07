@@ -19,20 +19,31 @@ export async function GET(
 
   const user = userResult.user;
 
-  const isMember = await ProjectService.isMember(projectId, user.id);
-  if (!isMember) {
-    return NextResponse.json(
-      { error: { code: "FORBIDDEN", message: "Not a project member" } },
-      { status: 403 }
-    );
-  }
-
   const project = await ProjectService.getProject(projectId);
   if (!project) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Project not found" } },
       { status: 404 }
     );
+  }
+
+  // Check personal project access
+  if ((project as any).isPersonal && (project as any).ownerId !== user.id) {
+    return NextResponse.json(
+      { error: { code: "FORBIDDEN", message: "Not a project member" } },
+      { status: 403 }
+    );
+  }
+
+  // Check regular project membership
+  if (!(project as any).isPersonal) {
+    const isMember = await ProjectService.isMember(projectId, user.id);
+    if (!isMember) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Not a project member" } },
+        { status: 403 }
+      );
+    }
   }
 
   return NextResponse.json({ project });
@@ -63,6 +74,22 @@ export async function PATCH(
     );
   }
 
+  // Check if project is personal
+  const project = await ProjectService.getProject(projectId);
+  if (!project) {
+    return NextResponse.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      { status: 404 }
+    );
+  }
+
+  if ((project as any).isPersonal) {
+    return NextResponse.json(
+      { error: { code: "BAD_REQUEST", message: "Cannot modify personal project" } },
+      { status: 400 }
+    );
+  }
+
   const body = await req.json();
   const result = updateProjectSchema.safeParse(body);
 
@@ -73,8 +100,8 @@ export async function PATCH(
     );
   }
 
-  const project = await ProjectService.updateProject(projectId, result.data);
-  return NextResponse.json({ project });
+  const updatedProject = await ProjectService.updateProject(projectId, result.data);
+  return NextResponse.json({ project: updatedProject });
 }
 
 export async function DELETE(
@@ -99,6 +126,22 @@ export async function DELETE(
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Permission denied" } },
       { status: 403 }
+    );
+  }
+
+  // Check if project is personal
+  const project = await ProjectService.getProject(projectId);
+  if (!project) {
+    return NextResponse.json(
+      { error: { code: "NOT_FOUND", message: "Project not found" } },
+      { status: 404 }
+    );
+  }
+
+  if ((project as any).isPersonal) {
+    return NextResponse.json(
+      { error: { code: "BAD_REQUEST", message: "Cannot delete personal project" } },
+      { status: 400 }
     );
   }
 
