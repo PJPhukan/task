@@ -1,11 +1,9 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { NextRequest } from "next/server";
 import { GET as getAttachmentsRoute, POST as createAttachmentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/route";
-import { DELETE as deleteAttachmentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/[attachmentId]/route";
 import { POST as getSignatureRoute } from "@/app/api/uploads/signature/route";
-import { DELETE as deleteTaskRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/route";
 import { prisma } from "@/server/lib/prisma";
-import { setFakeCloudinaryResource, clearFakeCloudinaryResources, getFakeCloudinaryResources, buildImageUrl } from "@/server/lib/cloudinary";
+import { setFakeCloudinaryResource, clearFakeCloudinaryResources } from "@/server/lib/cloudinary";
 import { reseedDatabase, cleanupNonSeededUsers } from "@/__tests__/__helpers__/seed";
 
 function generateProjectKey(length = 4): string {

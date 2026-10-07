@@ -125,7 +125,7 @@ async function buildTestData() {
   });
 
   // Task 3: No due date - completed 1 week ago - in done column
-  const task3 = await prisma.task.create({
+  await prisma.task.create({
     data: {
       projectId,
       boardId,
@@ -142,7 +142,7 @@ async function buildTestData() {
 
   // Task 4: Open overdue task in To Do column (should be in overdue list)
   const pastDueDate = new Date('2026-10-01T00:00:00.000Z');
-  const task4 = await prisma.task.create({
+  await prisma.task.create({
     data: {
       projectId,
       boardId,
@@ -158,7 +158,7 @@ async function buildTestData() {
   });
 
   // Task 5: Open task with future due date
-  const task5 = await prisma.task.create({
+  await prisma.task.create({
     data: {
       projectId,
       boardId,
