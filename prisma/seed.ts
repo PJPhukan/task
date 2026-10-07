@@ -122,7 +122,7 @@ async function main() {
       data: {
         userId: user.id,
         providerId: 'credential',
-        accountId: user.email,
+        accountId: user.id,  // Better Auth uses user ID as accountId for credentials
         password: hashedPassword,
       },
     });

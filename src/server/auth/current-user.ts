@@ -25,23 +25,34 @@ export async function getCurrentUser(userId?: string, req?: NextRequest) {
   }
 
   if (env.AUTH_MODE === "dev") {
-    if (!userId) {
-      return null;
+    if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        return null;
+      }
+
+      if (!user.isActive) {
+        throw new Error("User is inactive");
+      }
+
+      return user;
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      return null;
+    // Fall back to session if no x-user-id header provided
+    if (req) {
+      const session = await auth.api.getSession({ headers: req.headers });
+      if (session && session.user) {
+        const user = await prisma.user.findUnique({
+          where: { id: session.user.id },
+        });
+        return user;
+      }
     }
 
-    if (!user.isActive) {
-      throw new Error("User is inactive");
-    }
-
-    return user;
+    return null;
   }
 
   return null;

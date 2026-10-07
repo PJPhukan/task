@@ -53,6 +53,47 @@ describe('Seeded User Sign-In', () => {
     expect(meData.roles).toContain('admin');
   });
 
+  it('Seeded Admin can sign in and access /api/me with session cookie', async () => {
+    const email = 'admin@example.com';
+    const password = 'development123';
+
+    // Sign in with seeded admin credentials
+    const signInReq = new NextRequest('http://localhost:3000/api/auth/sign-in/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': 'http://localhost:3000',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const signInRes = await authPost(signInReq);
+    expect(signInRes.status).toBe(200);
+
+    // Extract session cookie
+    const setCookieHeader = signInRes.headers.get('set-cookie');
+    expect(setCookieHeader).toBeDefined();
+    expect(setCookieHeader).toContain('session');
+
+    const cookies = setCookieHeader!.split(';')[0];
+
+    // Call GET /api/me with session cookie (simulating session mode)
+    const meReq = new NextRequest('http://localhost:3000/api/me', {
+      method: 'GET',
+      headers: {
+        'Cookie': cookies,
+      },
+    });
+
+    const meRes = await getMeRoute(meReq);
+    expect(meRes.status).toBe(200);
+
+    const meData = await meRes.json();
+    expect(meData.user).toBeDefined();
+    expect(meData.user.email).toBe(email);
+    expect(meData.user.name).toBe('Admin User');
+  });
+
   it('User can sign up and then sign in with correct password', async () => {
     const email = `test-signin-${Date.now()}@example.com`;
     const password = 'TestPassword123!';

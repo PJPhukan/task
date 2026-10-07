@@ -13,7 +13,7 @@ const patchMeSchema = z.object({
 
 export async function GET(req: NextRequest) {
   const userId = req.headers.get("x-user-id") || undefined;
-  const user = await getCurrentUser(userId);
+  const user = await getCurrentUser(userId, req);
 
   if (!user) {
     return NextResponse.json(
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const userId = req.headers.get("x-user-id") || undefined;
-  const user = await getCurrentUser(userId);
+  const user = await getCurrentUser(userId, req);
 
   if (!user) {
     return NextResponse.json(
