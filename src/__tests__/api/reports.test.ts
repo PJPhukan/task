@@ -6,14 +6,17 @@ import { GET as getOverviewReport } from '@/app/api/reports/overview/route';
 import { GET as getStageTimesReport } from '@/app/api/reports/stage-times/route';
 import { GET as getExportReport } from '@/app/api/reports/export/route';
 import { prisma } from '@/server/lib/prisma';
+import { getPerms, setupPermissions } from '@/server/lib/permly';
 import { reseedDatabase, cleanupNonSeededUsers } from '@/__tests__/__helpers__/seed';
 import { Workbook } from 'exceljs';
 
 let adminId: string;
 let memberId: string;
 let viewerId: string;
+let reportViewerId: string;
 let projectId: string;
 let boardId: string;
+let restrictedBoardId: string;
 let doneColumnId: string;
 
 async function buildTestData() {
@@ -173,10 +176,51 @@ async function buildTestData() {
     },
   });
 
+  // Create a restricted board with no access for reportViewerId
+  const restrictedBoard = await prisma.board.create({
+    data: {
+      projectId,
+      name: 'Restricted Report Board',
+      position: 1,
+      createdById: adminId,
+      isOpen: false,
+      columns: {
+        create: [
+          { name: 'To Do', position: 0 },
+          { name: 'In Progress', position: 1 },
+          { name: 'Done', position: 2, isDone: true },
+        ],
+      },
+    },
+  });
+  restrictedBoardId = restrictedBoard.id;
+
+  // Create a user with report.view.all permission but no access to restricted board
+  const reportViewerUser = await prisma.user.create({
+    data: {
+      name: 'Report Viewer',
+      email: `report-viewer-${Date.now()}@test.example.com`,
+      emailVerified: true,
+      status: 'ACTIVE',
+      isActive: true,
+    },
+  });
+  reportViewerId = reportViewerUser.id;
+
+  // Add reportViewerId to project (as membership)
+  await prisma.projectMember.create({
+    data: { projectId, userId: reportViewerId },
+  });
+
+  // Give reportViewerId the report.view.all permission
+  await setupPermissions();
+  const perms = getPerms();
+  await perms.user(reportViewerId).givePermission('report.view.all');
+
   // Create stage history entries for task 1 with known durations
   // Task 1: To Do -> In Progress (2 hours = 7200 seconds), In Progress -> Done (1 hour = 3600 seconds)
   const toDoCol = board.columns.find((c) => c.name === 'To Do')!;
-  const inProgressCol = board.columns.find((c) => c.name === 'In Progress')!;
+  const inProgressCol = board.columns.find((c) => c.name === 'In Progress')!
 
   // First stage: entered To Do by admin, left by member after 2 hours
   await prisma.taskStageEntry.create({
@@ -296,6 +340,35 @@ describe('Reports API', () => {
     // Task 1 was completed Oct 1 (2 weeks ago), Tasks 2, 3 were completed Oct 8 (1 week ago)
     const totalCompleted = data.report.completedPerWeek.reduce((sum: number, w: any) => sum + w.value, 0);
     expect(totalCompleted).toBe(3);
+  });
+
+  it('user with report.view.all but no access to restricted board gets 404', async () => {
+    const headers = new Headers();
+    headers.set('x-user-id', reportViewerId);
+
+    // Should get 404 on overview for restricted board
+    const overviewReq = new NextRequest(
+      `http://localhost:3000/api/reports/overview?projectId=${projectId}&boardId=${restrictedBoardId}`,
+      { method: 'GET', headers }
+    );
+    const overviewRes = await getOverviewReport(overviewReq);
+    expect(overviewRes.status).toBe(404);
+
+    // Should get 404 on stage-times for restricted board
+    const stageTimesReq = new NextRequest(
+      `http://localhost:3000/api/reports/stage-times?projectId=${projectId}&boardId=${restrictedBoardId}`,
+      { method: 'GET', headers }
+    );
+    const stageTimesRes = await getStageTimesReport(stageTimesReq);
+    expect(stageTimesRes.status).toBe(404);
+
+    // Should get 200 on overview for open board
+    const openBoardReq = new NextRequest(
+      `http://localhost:3000/api/reports/overview?projectId=${projectId}&boardId=${boardId}`,
+      { method: 'GET', headers }
+    );
+    const openBoardRes = await getOverviewReport(openBoardReq);
+    expect(openBoardRes.status).toBe(200);
   });
 
   it('user without report.view.all gets 403 on another user report and overview, 200 on own', async () => {
@@ -544,6 +617,9 @@ describe('Reports API', () => {
     }
     if (memberId) {
       await prisma.user.delete({ where: { id: memberId } }).catch(() => {});
+    }
+    if (reportViewerId) {
+      await prisma.user.delete({ where: { id: reportViewerId } }).catch(() => {});
     }
     await reseedDatabase();
     await cleanupNonSeededUsers();

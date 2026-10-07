@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/server/lib/prisma";
-import { getPerms } from "@/server/lib/permly";
+import { getPerms, setupPermissions } from "@/server/lib/permly";
+import { BoardAccessService } from "@/server/modules/boards/access-service";
 import type {
   MeReportQuery,
   UserReportQuery,
@@ -105,6 +106,14 @@ export class ReportService {
       throw new Error("Board not found");
     }
 
+    // Check board access
+    await setupPermissions();
+    const userRoles = await perms.user(userId).getRoles();
+    const hasAccess = await BoardAccessService.canUserAccessBoard(userId, boardId, userRoles);
+    if (!hasAccess) {
+      throw new Error("Board not found");
+    }
+
     const tasksPerColumn = board.columns.map((col) => ({
       label: col.name,
       value: board.tasks.filter((t) => t.columnId === col.id).length,
@@ -148,6 +157,14 @@ export class ReportService {
     });
 
     if (!board) {
+      throw new Error("Board not found");
+    }
+
+    // Check board access
+    await setupPermissions();
+    const userRoles = await perms.user(userId).getRoles();
+    const hasAccess = await BoardAccessService.canUserAccessBoard(userId, boardId, userRoles);
+    if (!hasAccess) {
       throw new Error("Board not found");
     }
 
