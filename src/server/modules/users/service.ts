@@ -70,6 +70,11 @@ export class UserService {
     const perms = getPerms();
     await setupPermissions();
 
+    const currentUserHasManage = await perms.user(userId).can("role.manage");
+    if (currentUserHasManage) {
+      await this.ensureRoleManageGuard(userId);
+    }
+
     // Get current roles
     const currentRoles = await perms.user(userId).getRoles();
 
@@ -82,8 +87,6 @@ export class UserService {
     for (const roleId of input.roleIds) {
       await perms.user(userId).assignRole(roleId);
     }
-
-    await this.ensureRoleManageGuard(userId);
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -188,13 +191,11 @@ export class UserService {
     const perms = getPerms();
     await setupPermissions();
 
-    // Check if this user has user.manage
-    const currentHasManage = await perms.user(userId).can("user.manage");
-    if (!currentHasManage) {
-      return; // Not an admin, no guard needed
+    const userHasManage = await perms.user(userId).can("role.manage");
+    if (!userHasManage) {
+      return; // User doesn't have role.manage, so no guard needed
     }
 
-    // Count active users with user.manage permission
     const allUsers = await prisma.user.findMany({
       where: { isActive: true },
       select: { id: true },
@@ -202,15 +203,14 @@ export class UserService {
 
     let activeManagerCount = 0;
     for (const user of allUsers) {
-      const hasManage = await perms.user(user.id).can("user.manage");
+      const hasManage = await perms.user(user.id).can("role.manage");
       if (hasManage) {
         activeManagerCount++;
       }
     }
 
-    // If this is the last user with user.manage, we can't deactivate
     if (activeManagerCount <= 1) {
-      throw new Error("Cannot deactivate the last user with user.manage permission");
+      throw new Error("Cannot modify: at least one active user must have role.manage");
     }
   }
 }

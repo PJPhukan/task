@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET as getRolesRoute, POST as createRoleRoute } from '@/app/api/roles/route';
 import { PATCH as updateRoleRoute, DELETE as deleteRoleRoute } from '@/app/api/roles/[roleId]/route';
 import { GET as getMeRoute } from '@/app/api/me/route';
 import { POST as createUserRoute } from '@/app/api/users/route';
 import { prisma } from '@/server/lib/prisma';
+import { reseedDatabase, cleanupNonSeededUsers } from '@/__tests__/__helpers__/seed';
 
 let adminId: string;
 let viewerId: string;
@@ -215,6 +216,22 @@ describe('Roles API', () => {
     expect(response.status).toBe(403);
   });
 
+  it('Cannot remove role.manage permission from the last user with it', async () => {
+    // Try to remove role.manage from admin role when admin is the only one with it
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/roles/admin', {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({
+        permissionKeys: ['user.manage', 'project.create', 'member.manage'],
+      }),
+    });
+    const response = await updateRoleRoute(req, { params: Promise.resolve({ roleId: 'admin' }) });
+    expect(response.status).toBe(400);
+  });
+
   it('Custom role with task.create only allows creating tasks, rejects updates', async () => {
     const timestamp = Date.now();
     const customRoleName = `custom-task-creator-${timestamp}`;
@@ -260,5 +277,10 @@ describe('Roles API', () => {
     const meData = await meRes.json();
     expect(meData.permissions).toContain('task.create');
     expect(meData.permissions).not.toContain('task.update');
+  });
+
+  afterAll(async () => {
+    await reseedDatabase();
+    await cleanupNonSeededUsers();
   });
 });

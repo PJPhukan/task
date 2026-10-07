@@ -119,20 +119,30 @@ export class RoleService {
     const perms = getPerms();
     await setupPermissions();
 
-    const admin = await prisma.user.findFirst({
-      where: {
-        email: "admin@example.com",
-        isActive: true,
-      },
+    if (!affectedRoleId) return;
+
+    const affectedRolePerms = await perms.role(affectedRoleId).getPermissions({ expand: true });
+    const hasRoleManageInAffectedRole = affectedRolePerms.includes("role.manage");
+
+    if (!hasRoleManageInAffectedRole) {
+      return;
+    }
+
+    const allUsers = await prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true },
     });
 
-    if (!admin) return;
-
-    if (affectedRoleId === "admin") {
-      const hasManage = await perms.user(admin.id).can("role.manage");
-      if (!hasManage) {
-        throw new Error("Cannot remove role.manage permission from the last admin");
+    let activeManagerCount = 0;
+    for (const user of allUsers) {
+      const hasManage = await perms.user(user.id).can("role.manage");
+      if (hasManage) {
+        activeManagerCount++;
       }
+    }
+
+    if (activeManagerCount <= 1) {
+      throw new Error("Cannot modify: at least one active user must have role.manage");
     }
   }
 }
