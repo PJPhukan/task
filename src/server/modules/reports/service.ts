@@ -55,6 +55,13 @@ export class ReportService {
       open: visibleTasks.filter((t) => !t.completedAt).length,
       overdue: visibleTasks.filter((t) => !t.completedAt && t.dueDate && new Date(t.dueDate) < new Date()).length,
       completed: visibleTasks.filter((t) => t.completedAt && new Date(t.completedAt) <= toDate).length,
+      sent_back_count: visibleTasks.filter((t) => t.bounceCount > 0).length,
+      over_limit_count: visibleTasks.filter((t) => {
+        const currentEntry = t.stageHistory.find((s) => !s.leftAt);
+        if (!currentEntry || !t.column?.timeLimitHours) return false;
+        const waitingSeconds = (new Date().getTime() - new Date(currentEntry.enteredAt).getTime()) / 1000;
+        return waitingSeconds > t.column.timeLimitHours * 3600;
+      }).length,
     };
 
     const completedTasks = this.calculateOnTimeVsLate(visibleTasks.filter((t) => t.completedAt), fromDate, toDate);

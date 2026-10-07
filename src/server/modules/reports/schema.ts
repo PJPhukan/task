@@ -58,6 +58,8 @@ export interface MeReportResponse {
     open: number;
     overdue: number;
     completed: number;
+    sent_back_count: number;
+    over_limit_count: number;
   };
   reportedByMe: {
     total: number;
