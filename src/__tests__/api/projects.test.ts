@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { NextRequest } from 'next/server';
+import { GET as getProjectsRoute, POST as createProjectRoute } from '@/app/api/projects/route';
+import { GET as getProjectRoute, PATCH as updateProjectRoute, DELETE as deleteProjectRoute } from '@/app/api/projects/[projectId]/route';
+import { callApi } from '@/__tests__/__helpers__/api-call';
 import { prisma } from '@/server/lib/prisma';
 
 function generateProjectKey(length = 4): string {
@@ -26,11 +30,15 @@ describe('Projects API', () => {
 
   it('Admin can create a project', async () => {
     const projectKey = generateProjectKey();
-    const response = await fetch('http://localhost:3000/api/projects', {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/projects', {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({ name: 'Test Project', key: projectKey }),
     });
+    const response = await createProjectRoute(req);
     expect(response.status).toBe(201);
     const data = await response.json();
     projectId = data.project.id;
@@ -38,9 +46,10 @@ describe('Projects API', () => {
   });
 
   it('Admin can list projects they own', async () => {
-    const response = await fetch('http://localhost:3000/api/projects', {
-      headers: { 'x-user-id': adminId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest('http://localhost:3000/api/projects', { method: 'GET', headers });
+    const response = await getProjectsRoute(req);
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.projects)).toBe(true);
@@ -48,36 +57,46 @@ describe('Projects API', () => {
   });
 
   it('Admin can get a project they do not belong to', async () => {
-    const response = await fetch(`http://localhost:3000/api/projects/${projectId}`, {
-      headers: { 'x-user-id': adminId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}`, { method: 'GET', headers });
+    const response = await getProjectRoute(req, { params: { projectId } });
     expect(response.status).toBe(200);
   });
 
   it('Non-member cannot read project', async () => {
-    const response = await fetch(`http://localhost:3000/api/projects/${projectId}`, {
-      headers: { 'x-user-id': nonMemberId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', nonMemberId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}`, { method: 'GET', headers });
+    const response = await getProjectRoute(req, { params: { projectId } });
     expect(response.status).toBe(403);
   });
 
   it('Admin can update project', async () => {
-    const response = await fetch(`http://localhost:3000/api/projects/${projectId}`, {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}`, {
       method: 'PATCH',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({ name: 'Updated Project' }),
     });
+    const response = await updateProjectRoute(req, { params: { projectId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.project.name).toBe('Updated Project');
   });
 
   it('Viewer cannot update project', async () => {
-    const response = await fetch(`http://localhost:3000/api/projects/${projectId}`, {
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}`, {
       method: 'PATCH',
-      headers: { 'x-user-id': viewerId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({ name: 'Should Fail' }),
     });
+    const response = await updateProjectRoute(req, { params: { projectId } });
     expect(response.status).toBe(403);
   });
 
@@ -85,10 +104,10 @@ describe('Projects API', () => {
     const newProject = await prisma.project.create({
       data: { name: 'Empty Project', key: generateProjectKey() },
     });
-    const response = await fetch(`http://localhost:3000/api/projects/${newProject.id}`, {
-      method: 'DELETE',
-      headers: { 'x-user-id': adminId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${newProject.id}`, { method: 'DELETE', headers });
+    const response = await deleteProjectRoute(req, { params: { projectId: newProject.id } });
     expect(response.status).toBe(200);
   });
 
@@ -117,10 +136,10 @@ describe('Projects API', () => {
       },
     });
 
-    const response = await fetch(`http://localhost:3000/api/projects/${projectId}`, {
-      method: 'DELETE',
-      headers: { 'x-user-id': adminId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}`, { method: 'DELETE', headers });
+    const response = await deleteProjectRoute(req, { params: { projectId } });
     expect(response.status).toBe(200);
 
     // Verify project is archived, not deleted
