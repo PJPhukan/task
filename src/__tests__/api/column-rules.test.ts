@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { NextRequest } from 'next/server';
+import { GET as getBoardRoute } from '@/app/api/projects/[projectId]/boards/[boardId]/route';
+import { GET as getColumnsRoute } from '@/app/api/projects/[projectId]/boards/[boardId]/columns/route';
+import { PUT as setColumnRulesRoute } from '@/app/api/projects/[projectId]/columns/[columnId]/rules/route';
 import { prisma } from '@/server/lib/prisma';
 import { getPerms, setupPermissions } from '@/server/lib/permly';
 
@@ -58,27 +62,26 @@ beforeAll(async () => {
 
 describe('Column Rules API', () => {
   it('PUT /api/projects/:projectId/columns/:columnId/rules sets view and move rules', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/columns/${columnId}/rules`,
-      {
-        method: 'PUT',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          viewRoleIds: ['developer', 'manager'],
-          moveRoleIds: ['developer'],
-        }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/columns/${columnId}/rules`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        viewRoleIds: ['developer', 'manager'],
+        moveRoleIds: ['developer'],
+      }),
+    });
+    const response = await setColumnRulesRoute(req, { params: { projectId, columnId } });
     expect(response.status).toBe(200);
   });
 
   it('GET board includes canMove for each column', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}`,
-      {
-        headers: { 'x-user-id': developerId },
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', developerId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}`, { method: 'GET', headers });
+    const response = await getBoardRoute(req, { params: { projectId, boardId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     const testColumn = data.board.columns.find((c: any) => c.id === columnId);
@@ -102,12 +105,10 @@ describe('Column Rules API', () => {
     });
 
     // Column has view rule for developer only, viewer should not see it
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}`,
-      {
-        headers: { 'x-user-id': viewer.id },
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', viewer.id);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}`, { method: 'GET', headers });
+    const response = await getBoardRoute(req, { params: { projectId, boardId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     const testColumn = data.board.columns.find((c: any) => c.id === columnId);
@@ -129,12 +130,10 @@ describe('Column Rules API', () => {
     });
 
     // Manager can view (has view rule) but cannot move
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}`,
-      {
-        headers: { 'x-user-id': manager.id },
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', manager.id);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}`, { method: 'GET', headers });
+    const response = await getBoardRoute(req, { params: { projectId, boardId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     const testColumn = data.board.columns.find((c: any) => c.id === columnId);
@@ -143,12 +142,10 @@ describe('Column Rules API', () => {
   });
 
   it('GET /api/projects/:projectId/boards/:boardId/columns returns visible columns with canMove', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/boards/${boardId}/columns`,
-      {
-        headers: { 'x-user-id': developerId },
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', developerId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/boards/${boardId}/columns`, { method: 'GET', headers });
+    const response = await getColumnsRoute(req, { params: { projectId, boardId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.columns)).toBe(true);
@@ -190,17 +187,18 @@ describe('Column Rules API', () => {
   });
 
   it('User without column.manage cannot set rules', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/columns/${columnId}/rules`,
-      {
-        method: 'PUT',
-        headers: { 'x-user-id': developerId, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          viewRoleIds: ['developer'],
-          moveRoleIds: [],
-        }),
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', developerId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/columns/${columnId}/rules`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        viewRoleIds: ['developer'],
+        moveRoleIds: [],
+      }),
+    });
+    const response = await setColumnRulesRoute(req, { params: { projectId, columnId } });
     expect(response.status).toBe(403);
   });
 });
