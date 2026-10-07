@@ -107,7 +107,7 @@ API specification and endpoint reference for cm-task-manager backend.
 | GET | /api/projects/:projectId/boards/:boardId/columns | - | Get board columns (filtered by view rules, includes canMove) |
 | POST | /api/projects/:projectId/boards/:boardId/columns | column.manage | Add column to board |
 | PATCH | /api/projects/:projectId/boards/:boardId/columns | column.manage | Reorder columns (atomic transaction) |
-| PATCH | /api/projects/:projectId/columns/:columnId | column.manage | Rename/recolor/mark as done column |
+| PATCH | /api/projects/:projectId/columns/:columnId | column.manage | Rename/recolor/mark as done column, optionally set timeLimitHours (cannot set on done columns) |
 | DELETE | /api/projects/:projectId/columns/:columnId | column.manage | Delete column (with targetColumnId to move tasks) |
 | PUT | /api/projects/:projectId/columns/:columnId/rules | column.manage | Set column view/move rules by role |
 
@@ -120,15 +120,24 @@ API specification and endpoint reference for cm-task-manager backend.
 | GET | /api/projects/:projectId/tasks/:taskId | - | Get task (404 if column not visible to user) |
 | PATCH | /api/projects/:projectId/tasks/:taskId | task.update | Update task fields (title, description with mentions, priority, dates, assignee) |
 | DELETE | /api/projects/:projectId/tasks/:taskId | task.delete or task.delete.own | Delete task (delete any or only own reported tasks) |
-| PATCH | /api/projects/:projectId/tasks/:taskId/move | task.move | Move task to different column with reordering |
+| PATCH | /api/projects/:projectId/tasks/:taskId/move | task.move | Move task to different column with reordering; backward move requires reason parameter |
 | PUT | /api/projects/:projectId/tasks/:taskId/labels | task.update | Replace task's label list |
 | GET | /api/projects/:projectId/tasks/:taskId/stages | - | Get task stage history with durations |
+
+### Task Response Fields
+
+All task responses include:
+- `key`: Task identifier (e.g., "PROJ-123")
+- `bounceCount`: Number of times task was sent back to a previous column
+- `waitingSeconds`: Seconds task has been in current column
+- `overLimit`: Boolean indicating if task exceeds column time limit (if set)
 
 ## My Tasks
 
 | Method | Path | Permission | Description |
 |--------|------|-----------|-------------|
 | GET | /api/me/tasks | - | List tasks assigned to current user with filters (open, overdue, completed) |
+| GET | /api/me/queue | - | Get current user's task queue (includes tasks in columns with MOVE rules for their roles, plus assigned tasks in columns with no MOVE rule). Optionally filter with assignedOnly=true for only tasks assigned to user. Each task includes queueReason ("move_rule" or "assigned_to_me"), sorted by waitingSeconds descending |
 
 ## Labels
 
@@ -185,12 +194,30 @@ API specification and endpoint reference for cm-task-manager backend.
 | GET | /api/me/notification-settings | - | Get user's notification settings |
 | PATCH | /api/me/notification-settings | - | Update user's notification settings (emailEnabled) |
 
+### Notification Types
+
+- `task.created`: Sent to assignee when task is created and assigned
+- `task.assigned`: Sent to new assignee when task is reassigned
+- `task.unassigned`: Sent to previous assignee when task is unassigned
+- `task.moved`: Sent when task is moved to done or to users with MOVE rules for the destination column
+- `task.sent_back`: Sent to assignee and to person who moved task forward when task is moved backward with reason
+- `task.over_limit`: Sent to assignee and users with MOVE rules for the column when task exceeds column time limit
+- `comment.added`: Sent to assignee, reporter, and previous commenters when comment is created
+- `comment.edited`: App-only notification sent when comment is edited
+- `due_date_changed`: Sent to assignee and reporter when due date is changed
+
 ## Reports
 
 | Method | Path | Permission | Description |
 |--------|------|-----------|-------------|
-| GET | /api/reports/me | - | Get current user's report (tasks assigned, reported, commented, on-time metrics) |
-| GET | /api/reports/users/:userId | report.view.all (if viewing another user) | Get specific user's report |
+| GET | /api/reports/me | - | Get current user's report (tasks assigned with sent_back_count and over_limit_count, reported, commented, on-time metrics) |
+| GET | /api/reports/users/:userId | report.view.all (if viewing another user) | Get specific user's report with sent_back_count and over_limit_count |
 | GET | /api/reports/overview | report.view.all | Get board overview (tasks per column, completed per week, overdue list, workload) |
 | GET | /api/reports/stage-times | report.view.all | Get stage timing analysis (average/longest times per column and person) |
 | GET | /api/reports/export | same as underlying report | Export report as Excel (xlsx) or PDF with query params: report, format, userId, from, to, projectId, boardId |
+
+## Jobs
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| POST | /api/jobs/check-time-limits | Bearer {CRON_SECRET} | Check all columns for tasks over time limits and send notifications; requires CRON_SECRET header (no user session required) |
