@@ -439,3 +439,14 @@ model NotificationSetting {
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model RoleLabel {
+  id          String   @id @default(cuid())
+  roleId      String   @unique // Permly role ID
+  displayName String   @unique // User-friendly display name (max 40 chars)
+  slug        String   // URL-safe slug derived from displayName
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([roleId])
+}
