@@ -1,5 +1,5 @@
 import "server-only";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 
 export async function exportToExcel(
@@ -8,111 +8,103 @@ export async function exportToExcel(
   reportType: string,
   dateRange: { from?: string; to?: string }
 ): Promise<Buffer> {
-  const workbook = XLSX.utils.book_new();
+  const workbook = new ExcelJS.Workbook();
 
   // Summary sheet
-  const summarySheet = [
-    ["Report", reportTitle],
-    ["Generated", new Date().toISOString()],
-    ["Date Range", `${dateRange.from || "All"} to ${dateRange.to || "All"}`],
-  ];
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(summarySheet), "Summary");
+  const summarySheet = workbook.addWorksheet("Summary");
+  summarySheet.addRow(["Report", reportTitle]);
+  summarySheet.addRow(["Generated", new Date().toISOString()]);
+  summarySheet.addRow(["Date Range", `${dateRange.from || "All"} to ${dateRange.to || "All"}`]);
 
   if (reportType === "me" || reportType === "user") {
-    const assignedSheet = [
-      ["Metric", "Count"],
-      ["Open", reportData.assigned.open],
-      ["Overdue", reportData.assigned.overdue],
-      ["Completed", reportData.assigned.completed],
-    ];
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(assignedSheet), "Assigned");
+    const assignedSheet = workbook.addWorksheet("Assigned");
+    assignedSheet.addRow(["Metric", "Count"]);
+    assignedSheet.addRow(["Open", reportData.assigned.open]);
+    assignedSheet.addRow(["Overdue", reportData.assigned.overdue]);
+    assignedSheet.addRow(["Completed", reportData.assigned.completed]);
 
-    const completedSheet = [
-      ["Status", "Count"],
-      ...reportData.completedTasks.map((t: any) => [t.label, t.value]),
-    ];
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(completedSheet), "Completed");
+    const completedSheet = workbook.addWorksheet("Completed");
+    completedSheet.addRow(["Status", "Count"]);
+    reportData.completedTasks.forEach((t: any) => {
+      completedSheet.addRow([t.label, t.value]);
+    });
 
     if (reportData.completedPerWeek && reportData.completedPerWeek.length > 0) {
-      const weekSheet = [
-        ["Week", "Count"],
-        ...reportData.completedPerWeek.map((w: any) => [w.label, w.value]),
-      ];
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(weekSheet), "Per Week");
+      const weekSheet = workbook.addWorksheet("Per Week");
+      weekSheet.addRow(["Week", "Count"]);
+      reportData.completedPerWeek.forEach((w: any) => {
+        weekSheet.addRow([w.label, w.value]);
+      });
     }
   } else if (reportType === "overview") {
-    const tasksSheet = [
-      ["Column", "Count"],
-      ...reportData.tasksPerColumn.map((t: any) => [t.label, t.value]),
-    ];
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(tasksSheet), "Tasks Per Column");
+    const tasksSheet = workbook.addWorksheet("Tasks Per Column");
+    tasksSheet.addRow(["Column", "Count"]);
+    reportData.tasksPerColumn.forEach((t: any) => {
+      tasksSheet.addRow([t.label, t.value]);
+    });
 
-    const statusSheet = [
-      ["Status", "Count"],
-      ...reportData.onTimeVsLate.map((t: any) => [t.label, t.value]),
-    ];
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(statusSheet), "On Time vs Late");
+    const statusSheet = workbook.addWorksheet("On Time vs Late");
+    statusSheet.addRow(["Status", "Count"]);
+    reportData.onTimeVsLate.forEach((t: any) => {
+      statusSheet.addRow([t.label, t.value]);
+    });
 
     if (reportData.overdueList && reportData.overdueList.length > 0) {
-      const overdueSheet = [
-        ["Task", "Title", "Assignee", "Days Overdue"],
-        ...reportData.overdueList.map((t: any) => [t.taskKey, t.taskTitle, t.assignee || "Unassigned", t.daysOverdue]),
-      ];
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(overdueSheet), "Overdue");
+      const overdueSheet = workbook.addWorksheet("Overdue");
+      overdueSheet.addRow(["Task", "Title", "Assignee", "Days Overdue"]);
+      reportData.overdueList.forEach((t: any) => {
+        overdueSheet.addRow([t.taskKey, t.taskTitle, t.assignee || "Unassigned", t.daysOverdue]);
+      });
     }
 
     if (reportData.completedPerWeek && reportData.completedPerWeek.length > 0) {
-      const weekSheet = [
-        ["Week", "Count"],
-        ...reportData.completedPerWeek.map((w: any) => [w.label, w.value]),
-      ];
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(weekSheet), "Completed Per Week");
+      const weekSheet = workbook.addWorksheet("Completed Per Week");
+      weekSheet.addRow(["Week", "Count"]);
+      reportData.completedPerWeek.forEach((w: any) => {
+        weekSheet.addRow([w.label, w.value]);
+      });
     }
 
     if (reportData.workloadPerPerson && reportData.workloadPerPerson.length > 0) {
-      const workloadSheet = [
-        ["Person", "Open", "Overdue", "Completed"],
-        ...reportData.workloadPerPerson.map((w: any) => {
-          const series = w.series.reduce((acc: any, s: any) => {
-            acc[s.label] = s.value;
-            return acc;
-          }, {});
-          return [w.label, series["Open"] || 0, series["Overdue"] || 0, series["Completed"] || 0];
-        }),
-      ];
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(workloadSheet), "Workload");
+      const workloadSheet = workbook.addWorksheet("Workload");
+      workloadSheet.addRow(["Person", "Open", "Overdue", "Completed"]);
+      reportData.workloadPerPerson.forEach((w: any) => {
+        const series = w.series.reduce((acc: any, s: any) => {
+          acc[s.label] = s.value;
+          return acc;
+        }, {});
+        workloadSheet.addRow([w.label, series["Open"] || 0, series["Overdue"] || 0, series["Completed"] || 0]);
+      });
     }
   } else if (reportType === "stage-times") {
-    const avgSheet = [
-      ["Column", "Average Hours"],
-      ...reportData.averageTimePerColumn.map((t: any) => [t.label, t.value]),
-    ];
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(avgSheet), "Average Times");
+    const avgSheet = workbook.addWorksheet("Average Times");
+    avgSheet.addRow(["Column", "Average Hours"]);
+    reportData.averageTimePerColumn.forEach((t: any) => {
+      avgSheet.addRow([t.label, t.value]);
+    });
 
-    const longestSheet = [
-      ["Column", "Longest Hours"],
-      ...reportData.longestTimePerColumn.map((t: any) => [t.label, t.value]),
-    ];
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(longestSheet), "Longest Times");
+    const longestSheet = workbook.addWorksheet("Longest Times");
+    longestSheet.addRow(["Column", "Longest Hours"]);
+    reportData.longestTimePerColumn.forEach((t: any) => {
+      longestSheet.addRow([t.label, t.value]);
+    });
 
     if (reportData.averageTimePerPersonPerColumn && reportData.averageTimePerPersonPerColumn.length > 0) {
       const columns = reportData.averageTimePerPersonPerColumn[0]?.series?.map((s: any) => s.label) || [];
-      const personSheet = [
-        ["Person", ...columns],
-        ...reportData.averageTimePerPersonPerColumn.map((p: any) => {
-          const row = [p.label];
-          columns.forEach((col: string) => {
-            const val = p.series.find((s: any) => s.label === col);
-            row.push(val?.value || 0);
-          });
-          return row;
-        }),
-      ];
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(personSheet), "Per Person Per Column");
+      const personSheet = workbook.addWorksheet("Per Person Per Column");
+      personSheet.addRow(["Person", ...columns]);
+      reportData.averageTimePerPersonPerColumn.forEach((p: any) => {
+        const row = [p.label];
+        columns.forEach((col: string) => {
+          const val = p.series.find((s: any) => s.label === col);
+          row.push(val?.value || 0);
+        });
+        personSheet.addRow(row);
+      });
     }
   }
 
-  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  return await workbook.xlsx.writeBuffer() as Buffer;
 }
 
 export async function exportToPdf(
