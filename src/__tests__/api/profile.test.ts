@@ -6,6 +6,7 @@ import { prisma } from '@/server/lib/prisma';
 
 let adminId: string;
 let userId: string;
+let profileTestProjectId: string;
 
 beforeAll(async () => {
   const users = await prisma.user.findMany({
@@ -21,6 +22,19 @@ beforeAll(async () => {
     },
   });
   userId = newUser.id;
+
+  // Create project for profile test in beforeAll to avoid concurrent writes
+  const project = await prisma.project.create({
+    data: {
+      name: 'Profile Test Project',
+      key: `PF${Date.now().toString().slice(-2)}`,
+    },
+  });
+  profileTestProjectId = project.id;
+
+  await prisma.projectMember.create({
+    data: { projectId: project.id, userId },
+  });
 });
 
 describe('Profile API', () => {
@@ -39,21 +53,9 @@ describe('Profile API', () => {
     expect(data.profile).toHaveProperty('permissions');
     expect(data.profile).toHaveProperty('projects');
     expect(data.profile).toHaveProperty('boards');
-  }, 10000);
+  });
 
   it('GET /api/users/:userId/profile includes user roles and projects', async () => {
-    // Create a project and add user as member
-    const project = await prisma.project.create({
-      data: {
-        name: 'Profile Test Project',
-        key: `PF${Date.now().toString().slice(-2)}`,
-      },
-    });
-
-    await prisma.projectMember.create({
-      data: { projectId: project.id, userId },
-    });
-
     const headers = new Headers();
     headers.set('x-user-id', adminId);
     const req = new NextRequest(`http://localhost:3000/api/users/${userId}/profile`, { method: 'GET', headers });
@@ -61,7 +63,7 @@ describe('Profile API', () => {
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.profile.projects)).toBe(true);
-    const hasProject = data.profile.projects.some((p: any) => p.id === project.id);
+    const hasProject = data.profile.projects.some((p: any) => p.id === profileTestProjectId);
     expect(hasProject).toBe(true);
   });
 
