@@ -169,3 +169,14 @@ API specification and endpoint reference for cm-task-manager backend.
 |--------|------|-----------|-------------|
 | GET | /api/projects/:projectId/tasks/:taskId/activity | - | Get task activity (newest first, paginated, with actor) |
 | GET | /api/projects/:projectId/activity | - | Get project activity (newest first, paginated, filters hidden columns) |
+
+## Notifications
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | /api/notifications | - | List user's notifications (newest first, optional unread filter, paginated) |
+| GET | /api/notifications/unread-count | - | Get count of unread notifications |
+| POST | /api/notifications/:notificationId/read | - | Mark notification as read |
+| POST | /api/notifications/read-all | - | Mark all notifications as read |
+| GET | /api/me/notification-settings | - | Get user's notification settings |
+| PATCH | /api/me/notification-settings | - | Update user's notification settings (emailEnabled) |

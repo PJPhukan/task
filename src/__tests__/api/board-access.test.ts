@@ -116,7 +116,7 @@ describe('Board Access API', () => {
   it('POST /api/projects/:projectId/members with boardIds grants board access', async () => {
     const newUserEmail = `test-user-${Date.now()}@example.com`;
     const newUser = await prisma.user.create({
-      data: { name: 'Test User', email: newUserEmail, isActive: true },
+      data: { name: 'Test User', email: newUserEmail, isActive: true, status: 'ACTIVE' },
     });
 
     // Restrict the board

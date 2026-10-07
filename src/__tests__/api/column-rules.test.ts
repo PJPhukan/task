@@ -97,6 +97,7 @@ describe('Column Rules API', () => {
         name: 'Viewer',
         email: `viewer-${Date.now()}@example.com`,
         isActive: true,
+        status: 'ACTIVE',
       },
     });
 
@@ -118,7 +119,7 @@ describe('Column Rules API', () => {
   it('canMove is false for role without MOVE rule', async () => {
     const managerEmail = `manager-${Date.now()}@example.com`;
     const manager = await prisma.user.create({
-      data: { name: 'Manager', email: managerEmail, isActive: true },
+      data: { name: 'Manager', email: managerEmail, isActive: true, status: 'ACTIVE' },
     });
 
     const perms = getPerms();

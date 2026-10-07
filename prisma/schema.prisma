@@ -32,6 +32,9 @@ model User {
   accounts          Account[]
   verifications     Verification[]
   invitesSent       Invite[]
+  notificationsReceived Notification[] @relation("notificationsReceived")
+  notificationsCreated  Notification[] @relation("notificationsCreated")
+  notificationSettings  NotificationSetting?
 
   @@index([email])
 }
@@ -122,6 +125,7 @@ model Project {
   tasks          Task[]
   labels         Label[]
   activityLogs   ActivityLog[]
+  notifications  Notification[]
 
   @@index([key])
   @@index([archivedAt])
@@ -238,6 +242,7 @@ model Task {
   attachments  Attachment[]
   activityLogs ActivityLog[]
   stageHistory TaskStageEntry[]
+  notifications Notification[]
 
   @@unique([projectId, number])
   @@index([projectId])
@@ -352,4 +357,36 @@ model ActivityLog {
   @@index([taskId])
   @@index([actorId])
   @@index([createdAt])
+}
+
+model Notification {
+  id           String   @id @default(cuid())
+  recipientId  String
+  type         String   // task.created, task.assigned, task.moved, comment.added, comment.edited, due_date_changed
+  actorId      String
+  projectId    String
+  taskId       String?
+  commentId    String?
+  payload      Json     // { taskKey, taskTitle, ... }
+  readAt       DateTime?
+  emailStatus  String   @default("PENDING") // PENDING, SENT, FAILED, SKIPPED
+  createdAt    DateTime @default(now())
+
+  recipient    User     @relation("notificationsReceived", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor        User     @relation("notificationsCreated", fields: [actorId], references: [id], onDelete: Cascade)
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task         Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, readAt, createdAt])
+  @@index([recipientId, createdAt])
+}
+
+model NotificationSetting {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  emailEnabled Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

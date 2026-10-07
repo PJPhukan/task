@@ -10,6 +10,7 @@ export class UserService {
         name: input.name,
         email: input.email,
         isActive: true,
+        status: 'ACTIVE',
       },
     });
 
