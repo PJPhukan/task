@@ -3,7 +3,6 @@ import { NextRequest } from 'next/server';
 import { GET as getMeReport } from '@/app/api/reports/me/route';
 import { GET as getUserReport } from '@/app/api/reports/users/[userId]/route';
 import { GET as getOverviewReport } from '@/app/api/reports/overview/route';
-import { GET as getStageTimesReport } from '@/app/api/reports/stage-times/route';
 import { GET as getExportReport } from '@/app/api/reports/export/route';
 import { prisma } from '@/server/lib/prisma';
 import { reseedDatabase, cleanupNonSeededUsers } from '@/__tests__/__helpers__/seed';

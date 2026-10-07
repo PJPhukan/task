@@ -29,11 +29,11 @@ export const stageTimesReportQuerySchema = z.object({
 export const exportReportQuerySchema = z.object({
   report: z.enum(['me', 'user', 'overview', 'stage-times']),
   format: z.enum(['xlsx', 'pdf']),
-  userId: z.string().nullable().optional(),
-  from: z.string().date().nullable().optional(),
-  to: z.string().date().nullable().optional(),
-  projectId: z.string().nullable().optional(),
-  boardId: z.string().nullable().optional(),
+  userId: z.string().optional(),
+  from: z.string().date().optional(),
+  to: z.string().date().optional(),
+  projectId: z.string().optional(),
+  boardId: z.string().optional(),
 });
 
 export type ReportDateRange = z.infer<typeof reportDateRangeSchema>;

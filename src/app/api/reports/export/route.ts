@@ -22,11 +22,11 @@ export async function GET(request: NextRequest) {
     const queryData = {
       report: searchParams.get("report"),
       format: searchParams.get("format"),
-      userId: searchParams.get("userId"),
-      from: searchParams.get("from"),
-      to: searchParams.get("to"),
-      projectId: searchParams.get("projectId"),
-      boardId: searchParams.get("boardId"),
+      userId: searchParams.get("userId") || undefined,
+      from: searchParams.get("from") || undefined,
+      to: searchParams.get("to") || undefined,
+      projectId: searchParams.get("projectId") || undefined,
+      boardId: searchParams.get("boardId") || undefined,
     };
 
     const query = exportReportQuerySchema.parse(queryData);
@@ -35,29 +35,34 @@ export async function GET(request: NextRequest) {
     let reportTitle = "";
     let dateRange = "";
 
-    if (query.from && query.to) {
-      dateRange = ` (${query.from} to ${query.to})`;
+    const from = query.from === null ? undefined : query.from;
+    const to = query.to === null ? undefined : query.to;
+
+    if (from && to) {
+      dateRange = ` (${from} to ${to})`;
     }
 
     if (query.report === "me") {
       reportTitle = `My Report${dateRange}`;
       reportData = await ReportService.getMeReport(currentUser.id, {
-        from: query.from || "",
-        to: query.to || "",
-        projectId: query.projectId,
-        boardId: query.boardId,
+        from: from || "",
+        to: to || "",
+        projectId: query.projectId === null ? undefined : query.projectId,
+        boardId: query.boardId === null ? undefined : query.boardId,
       });
     } else if (query.report === "user") {
       const targetUserId = query.userId || currentUser.id;
       reportTitle = `User Report${dateRange}`;
       reportData = await ReportService.getUserReport(currentUser.id, targetUserId, {
-        from: query.from || "",
-        to: query.to || "",
-        projectId: query.projectId,
-        boardId: query.boardId,
+        from: from || "",
+        to: to || "",
+        projectId: query.projectId === null ? undefined : query.projectId,
+        boardId: query.boardId === null ? undefined : query.boardId,
       });
     } else if (query.report === "overview") {
-      if (!query.projectId || !query.boardId) {
+      const projectId = query.projectId === null ? undefined : query.projectId;
+      const boardId = query.boardId === null ? undefined : query.boardId;
+      if (!projectId || !boardId) {
         return NextResponse.json(
           { error: { code: "BAD_REQUEST", message: "projectId and boardId are required for overview report" } },
           { status: 400 }
@@ -65,13 +70,15 @@ export async function GET(request: NextRequest) {
       }
       reportTitle = `Board Overview Report${dateRange}`;
       reportData = await ReportService.getOverviewReport(currentUser.id, {
-        from: query.from,
-        to: query.to,
-        projectId: query.projectId,
-        boardId: query.boardId,
-      });
+        from: from ?? undefined,
+        to: to ?? undefined,
+        projectId: projectId as string,
+        boardId: boardId as string,
+      } as any);
     } else if (query.report === "stage-times") {
-      if (!query.projectId || !query.boardId) {
+      const projectId = query.projectId === null ? undefined : query.projectId;
+      const boardId = query.boardId === null ? undefined : query.boardId;
+      if (!projectId || !boardId) {
         return NextResponse.json(
           { error: { code: "BAD_REQUEST", message: "projectId and boardId are required for stage-times report" } },
           { status: 400 }
@@ -79,9 +86,9 @@ export async function GET(request: NextRequest) {
       }
       reportTitle = `Stage Times Report${dateRange}`;
       reportData = await ReportService.getStageTimesReport(currentUser.id, {
-        projectId: query.projectId,
-        boardId: query.boardId,
-      });
+        projectId: projectId as string,
+        boardId: boardId as string,
+      } as any);
     } else {
       return NextResponse.json(
         { error: { code: "BAD_REQUEST", message: "Invalid report type" } },

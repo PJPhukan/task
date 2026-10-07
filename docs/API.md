@@ -189,3 +189,4 @@ API specification and endpoint reference for cm-task-manager backend.
 | GET | /api/reports/users/:userId | report.view.all (if viewing another user) | Get specific user's report |
 | GET | /api/reports/overview | report.view.all | Get board overview (tasks per column, completed per week, overdue list, workload) |
 | GET | /api/reports/stage-times | report.view.all | Get stage timing analysis (average/longest times per column and person) |
+| GET | /api/reports/export | same as underlying report | Export report as Excel (xlsx) or PDF with query params: report, format, userId, from, to, projectId, boardId |
