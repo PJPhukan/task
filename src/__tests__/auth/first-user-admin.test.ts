@@ -1,0 +1,143 @@
+import { describe, it, expect, beforeEach, beforeAll } from "vitest";
+import prisma from "@/server/lib/prisma";
+import { UserService } from "@/server/modules/users/service";
+import { JoinRequestService } from "@/server/modules/join-requests/service";
+import { getPerms, setupPermissions } from "@/server/lib/permly";
+import { getMailer } from "@/server/lib/mailer";
+
+const seededEmails = [
+  'admin@example.com',
+  'manager@example.com',
+  'member@example.com',
+  'viewer@example.com',
+  'developer@example.com',
+  'qa@example.com',
+  'deployment@example.com',
+];
+
+describe("First User Admin Promotion", () => {
+  let testMailer: ReturnType<typeof getMailer>;
+
+  beforeAll(async () => {
+    const nonSeeded = await prisma.user.findMany({
+      where: {
+        NOT: { email: { in: seededEmails } },
+      },
+      select: { id: true },
+    });
+
+    if (nonSeeded.length > 0) {
+      await prisma.user.deleteMany({
+        where: {
+          id: { in: nonSeeded.map(u => u.id) },
+        },
+      });
+    }
+  });
+
+  beforeEach(async () => {
+    testMailer = getMailer();
+    testMailer.clearSentEmails();
+  });
+
+  describe("promoteFirstUserToAdmin", () => {
+    it("sets ACTIVE and assigns admin role if first non-seeded user", async () => {
+      const timestamp = Date.now();
+      const rand = Math.random();
+
+      const firstUser = await prisma.user.create({
+        data: {
+          name: "First Non-Seeded",
+          email: `first-nonseed-${timestamp}-${rand}@example.com`,
+          status: "PENDING",
+          isActive: true,
+          emailVerified: true,
+        },
+      });
+
+      await UserService.promoteFirstUserToAdmin(firstUser.id);
+
+      const updated = await prisma.user.findUnique({ where: { id: firstUser.id } });
+      expect(updated?.status).toBe("ACTIVE");
+
+      const perms = getPerms();
+      await setupPermissions();
+      const hasAdminRole = await perms.user(firstUser.id).hasRole("admin");
+      expect(hasAdminRole).toBe(true);
+    });
+
+    it("keeps PENDING if not first non-seeded user", async () => {
+      const timestamp = Date.now();
+      const rand = Math.random();
+
+      const firstUser = await prisma.user.create({
+        data: {
+          name: "First Non-Seeded 2",
+          email: `first-nonseed2-${timestamp}-${rand}@example.com`,
+          status: "PENDING",
+          isActive: true,
+          emailVerified: true,
+        },
+      });
+
+      const perms = getPerms();
+      await setupPermissions();
+      await perms.user(firstUser.id).assignRole("admin");
+
+      const secondUser = await prisma.user.create({
+        data: {
+          name: "Second Non-Seeded",
+          email: `second-nonseed-${timestamp}-${rand}@example.com`,
+          status: "PENDING",
+          isActive: true,
+          emailVerified: true,
+        },
+      });
+
+      await UserService.promoteFirstUserToAdmin(secondUser.id);
+
+      const updated = await prisma.user.findUnique({ where: { id: secondUser.id } });
+      expect(updated?.status).toBe("PENDING");
+
+      const secondHasAdminRole = await perms.user(secondUser.id).hasRole("admin");
+      expect(secondHasAdminRole).toBe(false);
+    });
+
+    it("notifies admins when user verifies email", async () => {
+      const timestamp = Date.now();
+      const rand = Math.random();
+
+      const admin = await prisma.user.create({
+        data: {
+          name: "Admin",
+          email: `admin-${timestamp}-${rand}@example.com`,
+          status: "ACTIVE",
+          isActive: true,
+          emailVerified: true,
+        },
+      });
+
+      const perms = getPerms();
+      await setupPermissions();
+      await perms.user(admin.id).assignRole("admin");
+
+      testMailer.clearSentEmails();
+
+      const newUser = await prisma.user.create({
+        data: {
+          name: "New User",
+          email: `newuser-${timestamp}-${rand}@example.com`,
+          status: "PENDING",
+          isActive: true,
+          emailVerified: true,
+        },
+      });
+
+      await JoinRequestService.notifyManagers(newUser.id);
+
+      const emails = testMailer.getSentEmails().filter((e) => e.to === admin.email);
+      expect(emails.length).toBeGreaterThan(0);
+      expect(emails[0].subject).toContain("New Account Approval Request");
+    });
+  });
+});
