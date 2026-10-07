@@ -1,4 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { NextRequest } from 'next/server';
+import { GET as getUsersRoute, POST as createUserRoute } from '@/app/api/users/route';
+import { PATCH as updateUserRoute } from '@/app/api/users/[userId]/route';
+import { PUT as setUserRolesRoute } from '@/app/api/users/[userId]/roles/route';
+import { GET as getMeRoute } from '@/app/api/me/route';
 import { prisma } from '@/server/lib/prisma';
 
 let adminId: string;
@@ -14,9 +19,10 @@ beforeAll(async () => {
 
 describe('Users API', () => {
   it('GET /api/users returns active users', async () => {
-    const response = await fetch('http://localhost:3000/api/users', {
-      headers: { 'x-user-id': adminId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest('http://localhost:3000/api/users', { method: 'GET', headers });
+    const response = await getUsersRoute(req);
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.users)).toBe(true);
@@ -29,24 +35,29 @@ describe('Users API', () => {
   });
 
   it('User without member.manage cannot list users', async () => {
-    const response = await fetch('http://localhost:3000/api/users', {
-      headers: { 'x-user-id': viewerId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    const req = new NextRequest('http://localhost:3000/api/users', { method: 'GET', headers });
+    const response = await getUsersRoute(req);
     expect(response.status).toBe(403);
   });
 
   it('POST /api/users creates user with roleIds', async () => {
     const timestamp = Date.now();
     const email = `new-user-${timestamp}@example.com`;
-    const response = await fetch('http://localhost:3000/api/users', {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/users', {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         name: 'New User',
         email,
         roleIds: ['member', 'viewer'],
       }),
     });
+    const response = await createUserRoute(req);
     expect(response.status).toBe(201);
     const data = await response.json();
     const user = data.user;
@@ -65,15 +76,19 @@ describe('Users API', () => {
   it('User with two roles gets permissions of both', async () => {
     const timestamp = Date.now();
     const email = `dual-role-user-${timestamp}@example.com`;
-    const response = await fetch('http://localhost:3000/api/users', {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/users', {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         name: 'Dual Role User',
         email,
         roleIds: ['member', 'manager'],
       }),
     });
+    const response = await createUserRoute(req);
     expect(response.status).toBe(201);
     const data = await response.json();
     const user = data.user;
@@ -88,15 +103,19 @@ describe('Users API', () => {
 
   it('User without user.manage cannot create users', async () => {
     const timestamp = Date.now();
-    const response = await fetch('http://localhost:3000/api/users', {
+    const headers = new Headers();
+    headers.set('x-user-id', viewerId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/users', {
       method: 'POST',
-      headers: { 'x-user-id': viewerId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         name: 'Unauthorized User',
         email: `unauthorized-${timestamp}@example.com`,
         roleIds: ['viewer'],
       }),
     });
+    const response = await createUserRoute(req);
     expect(response.status).toBe(403);
   });
 
@@ -104,26 +123,34 @@ describe('Users API', () => {
     // Create a user first
     const timestamp = Date.now();
     const email = `patch-test-${timestamp}@example.com`;
-    const createRes = await fetch('http://localhost:3000/api/users', {
+    const createHeaders = new Headers();
+    createHeaders.set('x-user-id', adminId);
+    createHeaders.set('content-type', 'application/json');
+    const createReq = new NextRequest('http://localhost:3000/api/users', {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: createHeaders,
       body: JSON.stringify({
         name: 'Original Name',
         email,
         roleIds: ['member'],
       }),
     });
+    const createRes = await createUserRoute(createReq);
     const createData = await createRes.json();
     const userId = createData.user.id;
 
     // Update the user's name only
-    const response = await fetch(`http://localhost:3000/api/users/${userId}`, {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/users/${userId}`, {
       method: 'PATCH',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         name: 'Updated Name',
       }),
     });
+    const response = await updateUserRoute(req, { params: { userId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.user.name).toBe('Updated Name');
@@ -133,26 +160,34 @@ describe('Users API', () => {
     // Create a user first
     const timestamp = Date.now();
     const email = `roles-test-${timestamp}@example.com`;
-    const createRes = await fetch('http://localhost:3000/api/users', {
+    const createHeaders = new Headers();
+    createHeaders.set('x-user-id', adminId);
+    createHeaders.set('content-type', 'application/json');
+    const createReq = new NextRequest('http://localhost:3000/api/users', {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: createHeaders,
       body: JSON.stringify({
         name: 'Role Test User',
         email,
         roleIds: ['member'],
       }),
     });
+    const createRes = await createUserRoute(createReq);
     const createData = await createRes.json();
     const userId = createData.user.id;
 
     // Replace roles
-    const response = await fetch(`http://localhost:3000/api/users/${userId}/roles`, {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/users/${userId}/roles`, {
       method: 'PUT',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         roleIds: ['manager', 'viewer'],
       }),
     });
+    const response = await setUserRolesRoute(req, { params: { userId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.user.roles).toContain('manager');
@@ -162,21 +197,26 @@ describe('Users API', () => {
 
   it('Cannot deactivate the last user with role.manage', async () => {
     // This is a safety check - we can't deactivate the admin user
-    const response = await fetch(`http://localhost:3000/api/users/${adminId}`, {
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest(`http://localhost:3000/api/users/${adminId}`, {
       method: 'PATCH',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({
         isActive: false,
       }),
     });
+    const response = await updateUserRoute(req, { params: { userId: adminId } });
     // Should fail because admin is the last with role.manage
     expect(response.status).toBe(400);
   }, 10000);
 
   it('GET /api/me returns user with roles and permissions', async () => {
-    const response = await fetch('http://localhost:3000/api/me', {
-      headers: { 'x-user-id': adminId },
-    });
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest('http://localhost:3000/api/me', { method: 'GET', headers });
+    const response = await getMeRoute(req);
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.user).toBeDefined();
