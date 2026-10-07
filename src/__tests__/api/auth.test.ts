@@ -358,22 +358,22 @@ describe('Seeded User Sign-In', () => {
     expect(newSignInRes.status).toBe(200);
   });
 
-  it('request with invalid x-user-id returns 401', async () => {
-    // In dev mode, x-user-id is used to identify the user
-    // If the user ID is invalid/non-existent, request should return 401
-    const fakeUserId = 'invalid-user-id-' + Date.now();
+  it('x-user-id with non-existent user ID is rejected with 401', async () => {
+    // Attempt to use a non-existent user ID
+    const fakeUserId = 'nonexistent-user-' + Date.now();
 
-    const meReq = new NextRequest('http://localhost:3000/api/me', {
+    const { GET: getProjects } = await import('@/app/api/projects/route');
+    const projectsReq = new NextRequest('http://localhost:3000/api/projects', {
       method: 'GET',
       headers: {
         'x-user-id': fakeUserId,
       },
     });
 
-    const meRes = await getMeRoute(meReq);
-    expect(meRes.status).toBe(401);
+    const projectsRes = await getProjects(projectsReq);
+    expect(projectsRes.status).toBe(401);
 
-    const meData = await meRes.json();
-    expect(meData.error.code).toBe('UNAUTHORIZED');
+    const projectsData = await projectsRes.json();
+    expect(projectsData.error.code).toBe('UNAUTHORIZED');
   });
 });

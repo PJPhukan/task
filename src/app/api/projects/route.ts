@@ -1,20 +1,19 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/server/auth/current-user";
-import { checkAccountStatus } from "@/server/auth/check-account-status";
+import { getCurrentUserWithStatus } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { ProjectService } from "@/server/modules/projects/service";
 import { createProjectSchema } from "@/server/modules/projects/schema";
 
 export async function GET(req: NextRequest) {
   const userId = req.headers.get("x-user-id") || undefined;
-  const statusResult = await checkAccountStatus(userId, req);
+  const userResult = await getCurrentUserWithStatus(userId, req);
 
-  if (!statusResult.authorized) {
-    return statusResult.response;
+  if (!userResult.ok) {
+    return userResult.response;
   }
 
-  const user = statusResult.user;
+  const user = userResult.user;
   const perms = getPerms();
   await setupPermissions();
 
@@ -26,13 +25,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const userId = req.headers.get("x-user-id") || undefined;
-  const statusResult = await checkAccountStatus(userId, req);
+  const userResult = await getCurrentUserWithStatus(userId, req);
 
-  if (!statusResult.authorized) {
-    return statusResult.response;
+  if (!userResult.ok) {
+    return userResult.response;
   }
 
-  const user = statusResult.user;
+  const user = userResult.user;
   const perms = getPerms();
   await setupPermissions();
 
