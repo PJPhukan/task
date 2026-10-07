@@ -534,7 +534,6 @@ describe('Reports API', () => {
     expect(jsonData.report.completedPerWeek).toBeDefined();
   });
 
-
   afterAll(async () => {
     // Clean up test data
     if (projectId) {
