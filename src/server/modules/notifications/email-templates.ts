@@ -6,7 +6,8 @@ export function createNotificationEmailTemplate(
   type: string,
   actor: { name: string },
   task: { number: number; title: string },
-  taskUrl: string
+  taskUrl: string,
+  metadata?: any
 ): { html: string; text: string; subject: string } {
   const taskLink = `${APP_URL}${taskUrl}`;
 
@@ -40,6 +41,11 @@ export function createNotificationEmailTemplate(
       subject: `Task status changed: ${task.number}`,
       text: `${actor.name} moved task ${task.number} - ${task.title}\n\nView task: ${taskLink}`,
       html: `<p><strong>${actor.name}</strong> moved task <strong>${task.number}</strong> - ${task.title}</p><p><a href="${taskLink}">View task</a></p>`,
+    },
+    "task.sent_back": {
+      subject: `Task sent back: ${task.number}`,
+      text: `${actor.name} sent back task ${task.number} - ${task.title}\n${metadata?.reason ? `Reason: ${metadata.reason}\n` : ""}View task: ${taskLink}`,
+      html: `<p><strong>${actor.name}</strong> sent back task <strong>${task.number}</strong> - ${task.title}</p>${metadata?.reason ? `<p><strong>Reason:</strong> ${metadata.reason}</p>` : ""}<p><a href="${taskLink}">View task</a></p>`,
     },
     "mention": {
       subject: `You were mentioned on task: ${task.number}`,

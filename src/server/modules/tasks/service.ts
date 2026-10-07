@@ -5,6 +5,7 @@ import { CreateTaskInput, UpdateTaskInput, MoveTaskInput } from "./schema";
 import { ActivityService } from "@/server/modules/activity/service";
 import { ColumnRulesService } from "@/server/modules/columns/rules-service";
 import { MentionService } from "@/server/modules/mentions/service";
+import { sendNotificationEmailsAsync } from "@/server/modules/notifications/email-sender";
 import { deleteResource } from "@/server/lib/cloudinary";
 
 export class TaskService {
@@ -438,6 +439,52 @@ export class TaskService {
         isSendBack: isBackwardMove,
         sendBackReason: isBackwardMove ? input.reason : undefined,
       });
+    }
+
+    // Create task.sent_back notification if this was a backward move
+    if (isBackwardMove && task.assigneeId) {
+      const recipientIds = new Set<string>();
+
+      // Always notify the assignee
+      if (task.assigneeId !== userId) {
+        recipientIds.add(task.assigneeId);
+      }
+
+      // Find who moved it forward out of the target column
+      const targetStageEntry = await prisma.taskStageEntry.findFirst({
+        where: {
+          taskId,
+          columnId: input.columnId,
+          leftAt: { not: null },
+        },
+        orderBy: { leftAt: "desc" },
+      });
+
+      if (targetStageEntry?.leftById && targetStageEntry.leftById !== userId) {
+        recipientIds.add(targetStageEntry.leftById);
+      }
+
+      // Create notifications for each recipient
+      for (const recipientId of recipientIds) {
+        await prisma.notification.create({
+          data: {
+            recipientId,
+            type: "task.sent_back",
+            actorId: userId,
+            projectId,
+            taskId,
+            metadata: { reason: input.reason },
+            emailStatus: "PENDING",
+          },
+        });
+      }
+
+      // Send emails asynchronously
+      try {
+        await sendNotificationEmailsAsync(projectId);
+      } catch (e) {
+        console.error("Error sending task.sent_back emails:", e);
+      }
     }
 
     // Get the updated task with related data

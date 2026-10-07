@@ -63,11 +63,13 @@ export async function sendPendingNotificationEmails(projectId: string) {
 
     try {
       const taskUrl = `/projects/${notification.task.projectId}/boards/${notification.task.boardId}`;
+      const metadata = notification.metadata as Record<string, any> || {};
       const template = createNotificationEmailTemplate(
         notification.type,
         { name: notification.actor.name },
         { number: notification.task.number, title: notification.task.title },
-        taskUrl
+        taskUrl,
+        metadata
       );
 
       await mailer.send({

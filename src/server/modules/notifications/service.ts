@@ -10,7 +10,8 @@ export type NotificationType =
   | "comment.added"
   | "comment.edited"
   | "due_date_changed"
-  | "task.moved";
+  | "task.moved"
+  | "task.sent_back";
 
 export class NotificationService {
   static async recordActivityAndNotify(
