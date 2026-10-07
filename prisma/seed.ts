@@ -138,32 +138,35 @@ async function main() {
   console.log(`  Deployment: ${deployment.id}`);
   console.log(`\nDevelopment password for all users: ${DEV_PASSWORD}`);
 
-  // Setup permly
+  // Setup permly with only catalog permissions
+  const catalogPermissions = [
+    'project.create',
+    'project.delete',
+    'project.update',
+    'board.create',
+    'board.update',
+    'board.delete',
+    'column.manage',
+    'task.create',
+    'task.update',
+    'task.move',
+    'task.delete',
+    'task.delete.own',
+    'comment.create',
+    'comment.delete.any',
+    'attachment.upload',
+    'attachment.delete.any',
+    'label.manage',
+    'member.manage',
+    'role.manage',
+    'user.manage',
+    'report.view.all',
+    'mention.all',
+  ];
+
   const perms = createPermissions({
     adapter: postgresAdapter(pool, { schema: 'permly' }),
-    permissions: [
-      'project.create',
-      'project.delete',
-      'project.update',
-      'board.create',
-      'board.update',
-      'board.delete',
-      'column.manage',
-      'task.create',
-      'task.update',
-      'task.move',
-      'task.delete',
-      'task.delete.own',
-      'comment.create',
-      'comment.delete.any',
-      'attachment.upload',
-      'attachment.delete.any',
-      'label.manage',
-      'member.manage',
-      'role.manage',
-      'user.manage',
-      'report.view.all',
-    ],
+    permissions: catalogPermissions,
     roles: ['admin', 'manager', 'member', 'viewer', 'developer', 'qa', 'deployment'],
   });
 
@@ -180,8 +183,32 @@ async function main() {
 
   console.log('Roles assigned');
 
+  // Create or update RoleLabels for seeded roles with proper display names
+  const roleDisplayNames: Record<string, string> = {
+    admin: 'Admin',
+    manager: 'Manager',
+    member: 'Member',
+    viewer: 'Viewer',
+    developer: 'Developer',
+    qa: 'QA',
+    deployment: 'Deployment',
+  };
+
+  for (const [roleId, displayName] of Object.entries(roleDisplayNames)) {
+    await prisma.roleLabel.upsert({
+      where: { roleId },
+      update: { displayName },
+      create: {
+        roleId,
+        displayName,
+        slug: roleId,
+      },
+    });
+  }
+
+  console.log('Role labels created');
+
   // Grant permissions to roles (regardless of whether roles are newly created)
-  await perms.role('admin').givePermission('*');
   await perms.role('manager').syncPermissions([
     'project.update',
     'member.manage',
@@ -228,6 +255,10 @@ async function main() {
   ]);
 
   console.log('Permissions granted');
+
+  // Sync admin role to have exactly all catalog permissions
+  await perms.role('admin').syncPermissions(catalogPermissions as any);
+  console.log('Admin role synced to catalog permissions');
 
   // Create demo project
   const project = await prisma.project.upsert({
