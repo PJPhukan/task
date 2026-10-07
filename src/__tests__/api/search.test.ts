@@ -16,7 +16,6 @@ let project2Id: string;
 let board1Id: string;
 let board2Id: string;
 let column1Id: string;
-let column2Id: string;
 
 beforeAll(async () => {
   const admin = await prisma.user.findUnique({
@@ -94,10 +93,9 @@ beforeAll(async () => {
   });
   column1Id = column1.id;
 
-  const column2 = await prisma.boardColumn.create({
+  await prisma.boardColumn.create({
     data: { boardId: board2Id, name: "To Do", position: 0 },
   });
-  column2Id = column2.id;
 
 });
 
@@ -248,6 +246,113 @@ describe("Search API", () => {
     expect(data).toHaveProperty("tasks");
     expect(data).toHaveProperty("projects");
     expect(data).toHaveProperty("boards");
+  });
+
+  it("excludes tasks in columns the user cannot view from search results", async () => {
+    // Create a restricted column
+    const restrictedColumn = await prisma.boardColumn.create({
+      data: { boardId: board1Id, name: "Restricted", position: 1 },
+    });
+
+    // Create a view rule that excludes "viewer" role
+    await prisma.columnRule.create({
+      data: {
+        columnId: restrictedColumn.id,
+        ruleType: "view",
+        roleId: "developer", // Only developers can view
+      },
+    });
+
+    // Create a task in the restricted column
+    const restrictedTask = await prisma.task.create({
+      data: {
+        projectId: project1Id,
+        boardId: board1Id,
+        columnId: restrictedColumn.id,
+        number: 100,
+        title: "Hidden restricted task",
+        reporterId: adminId,
+        position: 0,
+      },
+    });
+
+    // userId1 is a member but not a developer, so they shouldn't see this task
+    const headers = new Headers();
+    headers.set("x-user-id", userId1);
+    const req = new NextRequest(`http://localhost:3000/api/search?q=Hidden`, {
+      method: "GET",
+      headers,
+    });
+    const res = await searchRoute(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+
+    // Task should not appear in search results
+    expect(data.tasks.some((t: any) => t.title === "Hidden restricted task")).toBe(false);
+
+    // Cleanup
+    await prisma.task.delete({ where: { id: restrictedTask.id } });
+    await prisma.columnRule.delete({
+      where: { columnId_ruleType_roleId: { columnId: restrictedColumn.id, ruleType: "view", roleId: "developer" } },
+    });
+    await prisma.boardColumn.delete({ where: { id: restrictedColumn.id } });
+  });
+
+  it("excludes tasks on restricted boards the user cannot access from search results", async () => {
+    // Create a restricted board
+    const restrictedBoard = await prisma.board.create({
+      data: {
+        projectId: project1Id,
+        name: "Restricted Board",
+        position: 1,
+        isOpen: false,
+        createdById: adminId,
+      },
+    });
+
+    const restrictedBoardColumn = await prisma.boardColumn.create({
+      data: { boardId: restrictedBoard.id, name: "To Do", position: 0 },
+    });
+
+    // Only give adminId access to the restricted board
+    await prisma.boardAccess.create({
+      data: {
+        boardId: restrictedBoard.id,
+        userId: adminId,
+      },
+    });
+
+    // Create a task in the restricted board
+    const restrictedTask = await prisma.task.create({
+      data: {
+        projectId: project1Id,
+        boardId: restrictedBoard.id,
+        columnId: restrictedBoardColumn.id,
+        number: 101,
+        title: "Secret board task",
+        reporterId: adminId,
+        position: 0,
+      },
+    });
+
+    // userId1 is a project member but not allowed on this board
+    const headers = new Headers();
+    headers.set("x-user-id", userId1);
+    const req = new NextRequest(`http://localhost:3000/api/search?q=Secret`, {
+      method: "GET",
+      headers,
+    });
+    const res = await searchRoute(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+
+    // Task should not appear in search results
+    expect(data.tasks.some((t: any) => t.title === "Secret board task")).toBe(false);
+
+    // Cleanup
+    await prisma.task.delete({ where: { id: restrictedTask.id } });
+    await prisma.boardAccess.deleteMany({ where: { boardId: restrictedBoard.id } });
+    await prisma.board.delete({ where: { id: restrictedBoard.id } });
   });
 
   afterAll(async () => {

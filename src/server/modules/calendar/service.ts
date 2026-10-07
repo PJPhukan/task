@@ -30,16 +30,6 @@ export class CalendarService {
     await setupPermissions();
     const userRoles = await perms.user(userId).getRoles();
 
-    // Build where clause
-    const where: any = {
-      startDate: { not: null },
-      dueDate: { not: null },
-      OR: [
-        { startDate: null },
-        { dueDate: null },
-      ],
-    };
-
     // Check if any column rules prevent viewing
     // Get all columns the user can view
     const viewableColumns = await prisma.boardColumn.findMany({

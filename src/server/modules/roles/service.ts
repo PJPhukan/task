@@ -1,7 +1,6 @@
 import "server-only";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { prisma } from "@/server/lib/prisma";
-import { createSlug } from "@/server/lib/slug";
 import { CreateRoleInput, UpdateRoleInput } from "./schema";
 
 export class RoleService {

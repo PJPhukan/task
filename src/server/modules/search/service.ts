@@ -27,6 +27,21 @@ function matchesQuery(text: string, query: string): boolean {
 }
 
 export class SearchService {
+  private static async canAccessBoard(userId: string, boardId: string, isOpen: boolean): Promise<boolean> {
+    // Open boards are accessible to all project members
+    if (isOpen) {
+      return true;
+    }
+
+    // Restricted boards require explicit access
+    const hasAccess = await prisma.boardAccess.findUnique({
+      where: {
+        boardId_userId: { boardId, userId },
+      },
+    });
+    return !!hasAccess;
+  }
+
   static async search(userId: string, query: string): Promise<SearchResult> {
     const perms = getPerms();
     await setupPermissions();
@@ -59,17 +74,21 @@ export class SearchService {
 
     const accessibleBoards = [];
     for (const board of allBoards) {
-      // Check if user can access this board
+      // Check board-level access first
+      const hasBoardAccess = await this.canAccessBoard(userId, board.id, board.isOpen);
+      if (!hasBoardAccess) continue;
+
+      // Check if user can view at least one column
       const columns = await prisma.boardColumn.findMany({ where: { boardId: board.id } });
-      let hasAccess = false;
+      let hasColumnAccess = false;
       for (const col of columns) {
         const canView = await ColumnRulesService.canViewColumn(userRoles, col.id);
         if (canView) {
-          hasAccess = true;
+          hasColumnAccess = true;
           break;
         }
       }
-      if (hasAccess && matchesQuery(board.name, query)) {
+      if (hasColumnAccess && matchesQuery(board.name, query)) {
         accessibleBoards.push(board);
       }
     }
@@ -85,11 +104,17 @@ export class SearchService {
       include: {
         project: { select: { key: true, name: true } },
         column: { select: { id: true } },
+        board: { select: { id: true, isOpen: true } },
       },
     });
 
     const accessibleTasks = [];
     for (const task of tasks) {
+      // Check board-level access
+      const hasBoardAccess = await this.canAccessBoard(userId, task.board.id, task.board.isOpen);
+      if (!hasBoardAccess) continue;
+
+      // Check column-level access
       const canView = await ColumnRulesService.canViewColumn(userRoles, task.column.id);
       if (!canView) continue;
 
