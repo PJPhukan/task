@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { NextRequest } from 'next/server';
+import { GET as getProfileRoute } from '@/app/api/users/[userId]/profile/route';
+import { GET as getMeRoute, PATCH as updateMeRoute } from '@/app/api/me/route';
 import { prisma } from '@/server/lib/prisma';
 
 let adminId: string;
@@ -22,12 +25,10 @@ beforeAll(async () => {
 
 describe('Profile API', () => {
   it('GET /api/users/:userId/profile returns user profile', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/users/${adminId}/profile`,
-      {
-        headers: { 'x-user-id': adminId },
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/users/${adminId}/profile`, { method: 'GET', headers });
+    const response = await getProfileRoute(req, { params: { userId: adminId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.profile).toBeDefined();
@@ -53,12 +54,10 @@ describe('Profile API', () => {
       data: { projectId: project.id, userId },
     });
 
-    const response = await fetch(
-      `http://localhost:3000/api/users/${userId}/profile`,
-      {
-        headers: { 'x-user-id': adminId },
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/users/${userId}/profile`, { method: 'GET', headers });
+    const response = await getProfileRoute(req, { params: { userId } });
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(Array.isArray(data.profile.projects)).toBe(true);
@@ -67,49 +66,58 @@ describe('Profile API', () => {
   });
 
   it('GET /api/users/:userId/profile returns 404 for non-existent user', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/users/non-existent-id/profile`,
-      {
-        headers: { 'x-user-id': adminId },
-      }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/users/non-existent-id/profile`, { method: 'GET', headers });
+    const response = await getProfileRoute(req, { params: { userId: 'non-existent-id' } });
     expect(response.status).toBe(404);
   });
 
   it('GET /api/users/:userId/profile requires authentication', async () => {
-    const response = await fetch(
-      `http://localhost:3000/api/users/${adminId}/profile`
-    );
+    const headers = new Headers();
+    const req = new NextRequest(`http://localhost:3000/api/users/${adminId}/profile`, { method: 'GET', headers });
+    const response = await getProfileRoute(req, { params: { userId: adminId } });
     expect(response.status).toBe(401);
   });
 
   it('PATCH /api/me updates current user name', async () => {
     const newName = `Updated Name ${Date.now()}`;
-    const response = await fetch('http://localhost:3000/api/me', {
+    const headers = new Headers();
+    headers.set('x-user-id', userId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/me', {
       method: 'PATCH',
-      headers: { 'x-user-id': userId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({ name: newName }),
     });
+    const response = await updateMeRoute(req);
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.user.name).toBe(newName);
   });
 
   it('PATCH /api/me without updates returns error', async () => {
-    const response = await fetch('http://localhost:3000/api/me', {
+    const headers = new Headers();
+    headers.set('x-user-id', userId);
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/me', {
       method: 'PATCH',
-      headers: { 'x-user-id': userId, 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({}),
     });
+    const response = await updateMeRoute(req);
     expect(response.status).toBe(400);
   });
 
   it('PATCH /api/me requires authentication', async () => {
-    const response = await fetch('http://localhost:3000/api/me', {
+    const headers = new Headers();
+    headers.set('content-type', 'application/json');
+    const req = new NextRequest('http://localhost:3000/api/me', {
       method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({ name: 'New Name' }),
     });
+    const response = await updateMeRoute(req);
     expect(response.status).toBe(401);
   });
 });
