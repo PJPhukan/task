@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { NextRequest } from 'next/server';
+import { GET as getStagesRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/stages/route';
+import { PATCH as moveTaskRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/move/route';
+import { POST as createTaskRoute } from '@/app/api/projects/[projectId]/tasks/route';
 import { prisma } from '@/server/lib/prisma';
 
 function generateProjectKey(length = 4): string {
@@ -48,22 +52,26 @@ beforeAll(async () => {
 
 describe('Stage History API', () => {
   it('GET /api/projects/:projectId/tasks/:taskId/stages returns stage history', async () => {
-    const taskRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const taskHeaders = new Headers();
+    taskHeaders.set('x-user-id', adminId);
+    taskHeaders.set('content-type', 'application/json');
+    const taskReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: taskHeaders,
       body: JSON.stringify({
         boardId,
         columnId: columnId1,
         title: 'Stage Test Task',
       }),
     });
+    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
     expect(taskRes.status).toBe(201);
     const task = (await taskRes.json()).task;
 
-    const res = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`,
-      { headers: { 'x-user-id': adminId } }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`, { method: 'GET', headers });
+    const res = await getStagesRoute(req, { params: { projectId, taskId: task.id } });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data.stages)).toBe(true);
@@ -71,21 +79,25 @@ describe('Stage History API', () => {
   });
 
   it('Stage history includes task entry info', async () => {
-    const taskRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const taskHeaders = new Headers();
+    taskHeaders.set('x-user-id', adminId);
+    taskHeaders.set('content-type', 'application/json');
+    const taskReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: taskHeaders,
       body: JSON.stringify({
         boardId,
         columnId: columnId1,
         title: 'Stage Info Task',
       }),
     });
+    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
     const task = (await taskRes.json()).task;
 
-    const res = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`,
-      { headers: { 'x-user-id': adminId } }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`, { method: 'GET', headers });
+    const res = await getStagesRoute(req, { params: { projectId, taskId: task.id } });
     const data = await res.json();
     const firstStage = data.stages[0];
 
@@ -99,31 +111,36 @@ describe('Stage History API', () => {
   });
 
   it('Stage history returns entries in order', async () => {
-    const taskRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const taskHeaders = new Headers();
+    taskHeaders.set('x-user-id', adminId);
+    taskHeaders.set('content-type', 'application/json');
+    const taskReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: taskHeaders,
       body: JSON.stringify({
         boardId,
         columnId: columnId1,
         title: 'Order Test Task',
       }),
     });
+    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
     const task = (await taskRes.json()).task;
 
     // Move to next column
-    await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`,
-      {
-        method: 'PATCH',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({ columnId: columnId2, index: 0 }),
-      }
-    );
+    const moveHeaders = new Headers();
+    moveHeaders.set('x-user-id', adminId);
+    moveHeaders.set('content-type', 'application/json');
+    const moveReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`, {
+      method: 'PATCH',
+      headers: moveHeaders,
+      body: JSON.stringify({ columnId: columnId2, index: 0 }),
+    });
+    await moveTaskRoute(moveReq, { params: { projectId, taskId: task.id } });
 
-    const res = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`,
-      { headers: { 'x-user-id': adminId } }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`, { method: 'GET', headers });
+    const res = await getStagesRoute(req, { params: { projectId, taskId: task.id } });
     const data = await res.json();
 
     // Check stages are in chronological order
@@ -135,21 +152,25 @@ describe('Stage History API', () => {
   });
 
   it('Open stage shows elapsed time', async () => {
-    const taskRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const taskHeaders = new Headers();
+    taskHeaders.set('x-user-id', adminId);
+    taskHeaders.set('content-type', 'application/json');
+    const taskReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: taskHeaders,
       body: JSON.stringify({
         boardId,
         columnId: columnId1,
         title: 'Elapsed Time Task',
       }),
     });
+    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
     const task = (await taskRes.json()).task;
 
-    const res = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`,
-      { headers: { 'x-user-id': adminId } }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`, { method: 'GET', headers });
+    const res = await getStagesRoute(req, { params: { projectId, taskId: task.id } });
     const data = await res.json();
     const currentStage = data.stages[data.stages.length - 1];
 
@@ -158,31 +179,36 @@ describe('Stage History API', () => {
   });
 
   it('Closed stage shows actual duration', async () => {
-    const taskRes = await fetch(`http://localhost:3000/api/projects/${projectId}/tasks`, {
+    const taskHeaders = new Headers();
+    taskHeaders.set('x-user-id', adminId);
+    taskHeaders.set('content-type', 'application/json');
+    const taskReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
+      headers: taskHeaders,
       body: JSON.stringify({
         boardId,
         columnId: columnId1,
         title: 'Closed Stage Task',
       }),
     });
+    const taskRes = await createTaskRoute(taskReq, { params: { projectId } });
     const task = (await taskRes.json()).task;
 
     // Move to next column to close the first stage
-    await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`,
-      {
-        method: 'PATCH',
-        headers: { 'x-user-id': adminId, 'content-type': 'application/json' },
-        body: JSON.stringify({ columnId: columnId2, index: 0 }),
-      }
-    );
+    const moveHeaders = new Headers();
+    moveHeaders.set('x-user-id', adminId);
+    moveHeaders.set('content-type', 'application/json');
+    const moveReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/move`, {
+      method: 'PATCH',
+      headers: moveHeaders,
+      body: JSON.stringify({ columnId: columnId2, index: 0 }),
+    });
+    await moveTaskRoute(moveReq, { params: { projectId, taskId: task.id } });
 
-    const res = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`,
-      { headers: { 'x-user-id': adminId } }
-    );
+    const headers = new Headers();
+    headers.set('x-user-id', adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${task.id}/stages`, { method: 'GET', headers });
+    const res = await getStagesRoute(req, { params: { projectId, taskId: task.id } });
     const data = await res.json();
     const firstStage = data.stages[0];
 
