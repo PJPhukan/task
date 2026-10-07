@@ -52,11 +52,6 @@ describe("First User Admin Promotion", () => {
 
   afterAll(async () => {
     await cleanupNonSeededUsers();
-    try {
-      await reseedDatabase();
-    } catch (error) {
-      console.error("Error reseeding database in afterAll:", error);
-    }
   });
 
   describe("promoteFirstUserToAdmin", () => {

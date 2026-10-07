@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { POST as createTaskRoute, GET as getTasksRoute } from '@/app/api/projects/[projectId]/tasks/route';
 import { PATCH as moveTaskRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/move/route';
 import { PUT as setTaskLabelsRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/labels/route';
 import { GET as getMyTasksRoute } from '@/app/api/me/tasks/route';
 import { prisma } from '@/server/lib/prisma';
-import { cleanupNonSeededUsers, reseedDatabase } from '@/__tests__/__helpers__/seed';
 
 function generateProjectKey(length = 4): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -65,11 +64,6 @@ beforeAll(async () => {
     data: { projectId, name: 'Bug', color: '#FF6B6B' },
   });
   labelId1 = label1.id;
-});
-
-afterAll(async () => {
-  await cleanupNonSeededUsers();
-  await reseedDatabase();
 });
 
 describe('Task List API', () => {

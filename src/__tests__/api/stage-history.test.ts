@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET as getStagesRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/stages/route';
 import { PATCH as moveTaskRoute } from '@/app/api/projects/[projectId]/tasks/[taskId]/move/route';
 import { POST as createTaskRoute } from '@/app/api/projects/[projectId]/tasks/route';
 import { prisma } from '@/server/lib/prisma';
-import { reseedDatabase } from '@/__tests__/__helpers__/seed';
 
 function generateProjectKey(length = 4): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -49,10 +48,6 @@ beforeAll(async () => {
     data: { boardId, name: 'In Progress', position: 1 },
   });
   columnId2 = col2.id;
-});
-
-afterAll(async () => {
-  await reseedDatabase();
 });
 
 describe('Stage History API', () => {

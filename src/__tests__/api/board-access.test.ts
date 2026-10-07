@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET as getBoardsRoute } from '@/app/api/projects/[projectId]/boards/route';
 import { PUT as updateBoardAccessRoute } from '@/app/api/projects/[projectId]/boards/[boardId]/access/route';
@@ -6,7 +6,6 @@ import { POST as addProjectMemberRoute } from '@/app/api/projects/[projectId]/me
 import { POST as createRoleRoute } from '@/app/api/roles/route';
 import { POST as createUserRoute } from '@/app/api/users/route';
 import { prisma } from '@/server/lib/prisma';
-import { cleanupNonSeededUsers, reseedDatabase } from '@/__tests__/__helpers__/seed';
 
 function generateProjectKey(length = 4): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -46,11 +45,6 @@ beforeAll(async () => {
     },
   });
   boardId = board.id;
-});
-
-afterAll(async () => {
-  await cleanupNonSeededUsers();
-  await reseedDatabase();
 });
 
 describe('Board Access API', () => {
