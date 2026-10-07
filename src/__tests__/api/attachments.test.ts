@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
+import { GET as getAttachmentsRoute, POST as createAttachmentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/attachments/route";
+import { POST as getSignatureRoute } from "@/app/api/uploads/signature/route";
 import { prisma } from "@/server/lib/prisma";
 import { setFakeCloudinaryResource, clearFakeCloudinaryResources } from "@/server/lib/cloudinary";
 
@@ -62,12 +65,10 @@ beforeEach(() => {
 
 describe("Attachments API", () => {
   it("GET /api/projects/:projectId/tasks/:taskId/attachments returns empty list initially", async () => {
-    const res = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`,
-      {
-        headers: { "x-user-id": adminId },
-      }
-    );
+    const headers = new Headers();
+    headers.set("x-user-id", adminId);
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`, { method: "GET", headers });
+    const res = await getAttachmentsRoute(req, { params: { projectId, taskId } });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data.attachments)).toBe(true);
@@ -75,41 +76,29 @@ describe("Attachments API", () => {
 
   it("POST /api/uploads/signature returns 503 when Cloudinary not configured", async () => {
     // Since env is not configured in tests, should return 503
-    const res = await fetch(`http://localhost:3000/api/uploads/signature`, {
-      method: "POST",
-      headers: { "x-user-id": adminId, "content-type": "application/json" },
-      body: JSON.stringify({
-        projectId,
-        kind: "attachment",
-      }),
-    });
+    const headers = new Headers();
+    headers.set("x-user-id", adminId);
+    headers.set("content-type", "application/json");
+    const req = new NextRequest(`http://localhost:3000/api/uploads/signature`, { method: "POST", headers, body: JSON.stringify({ projectId, kind: "attachment" }) });
+    const res = await getSignatureRoute(req);
     expect(res.status).toBe(503);
   });
 
   it("POST /api/uploads/signature returns 404 for nonexistent project", async () => {
-    const res = await fetch(`http://localhost:3000/api/uploads/signature`, {
-      method: "POST",
-      headers: { "x-user-id": adminId, "content-type": "application/json" },
-      body: JSON.stringify({
-        projectId: "cm000000000000000000000aaa",
-        kind: "attachment",
-      }),
-    });
+    const headers = new Headers();
+    headers.set("x-user-id", adminId);
+    headers.set("content-type", "application/json");
+    const req = new NextRequest(`http://localhost:3000/api/uploads/signature`, { method: "POST", headers, body: JSON.stringify({ projectId: "cm000000000000000000000aaa", kind: "attachment" }) });
+    const res = await getSignatureRoute(req);
     expect(res.status).toBe(404);
   });
 
   it("POST /api/projects/:projectId/tasks/:taskId/attachments returns 400 for missing resource", async () => {
-    const res = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`,
-      {
-        method: "POST",
-        headers: { "x-user-id": adminId, "content-type": "application/json" },
-        body: JSON.stringify({
-          publicId: "nonexistent",
-          originalName: "test.jpg",
-        }),
-      }
-    );
+    const headers = new Headers();
+    headers.set("x-user-id", adminId);
+    headers.set("content-type", "application/json");
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`, { method: "POST", headers, body: JSON.stringify({ publicId: "nonexistent", originalName: "test.jpg" }) });
+    const res = await createAttachmentRoute(req, { params: { projectId, taskId } });
     expect(res.status).toBe(400);
   });
 
@@ -122,17 +111,11 @@ describe("Attachments API", () => {
       bytes: 6 * 1024 * 1024, // 6 MB
     });
 
-    const res = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`,
-      {
-        method: "POST",
-        headers: { "x-user-id": adminId, "content-type": "application/json" },
-        body: JSON.stringify({
-          publicId: largeFilePublicId,
-          originalName: "large-file.jpg",
-        }),
-      }
-    );
+    const headers = new Headers();
+    headers.set("x-user-id", adminId);
+    headers.set("content-type", "application/json");
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`, { method: "POST", headers, body: JSON.stringify({ publicId: largeFilePublicId, originalName: "large-file.jpg" }) });
+    const res = await createAttachmentRoute(req, { params: { projectId, taskId } });
     expect(res.status).toBe(400);
   });
 
@@ -145,17 +128,11 @@ describe("Attachments API", () => {
       bytes: 100 * 1024, // 100 KB
     });
 
-    const res = await fetch(
-      `http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`,
-      {
-        method: "POST",
-        headers: { "x-user-id": adminId, "content-type": "application/json" },
-        body: JSON.stringify({
-          publicId: wrongFolderPublicId,
-          originalName: "file.jpg",
-        }),
-      }
-    );
+    const headers = new Headers();
+    headers.set("x-user-id", adminId);
+    headers.set("content-type", "application/json");
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${taskId}/attachments`, { method: "POST", headers, body: JSON.stringify({ publicId: wrongFolderPublicId, originalName: "file.jpg" }) });
+    const res = await createAttachmentRoute(req, { params: { projectId, taskId } });
     expect(res.status).toBe(400);
   });
 
