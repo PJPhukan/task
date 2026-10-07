@@ -6,8 +6,9 @@ import { InviteService } from "@/server/modules/invites/service";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { inviteId: string } }
+  context: { params: Promise<{ inviteId: string }> }
 ) {
+  const { inviteId } = await context.params;
   const userId = req.headers.get("x-user-id") || undefined;
   const userResult = await getCurrentUserWithStatus(userId, req);
 
@@ -27,7 +28,7 @@ export async function POST(
   }
 
   try {
-    const result = await InviteService.resendInvite(params.inviteId);
+    const result = await InviteService.resendInvite(inviteId);
     return NextResponse.json({ invite: result });
   } catch (error: any) {
     const message = error.message || "Failed to resend invite";

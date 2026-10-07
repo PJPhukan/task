@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserWithStatus } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { InviteService } from "@/server/modules/invites/service";
-import { createInviteSchema } from "@/server/modules/invites/schema";
+import { createInviteSchema, type CreateInviteInput } from "@/server/modules/invites/schema";
 import { validateRequest } from "@/server/http/route";
 
 export async function GET(req: NextRequest) {
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const validation = validateRequest(createInviteSchema, body);
+  const validation = validateRequest<CreateInviteInput>(createInviteSchema, body);
 
   if (!validation.success) {
     return NextResponse.json(

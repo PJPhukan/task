@@ -153,12 +153,12 @@ model Board {
   description String?
   position    Int
   isOpen      Boolean   @default(true)
-  createdById String
+  createdById String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy   User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
   columns     BoardColumn[]
   tasks       Task[]
   access      BoardAccess[]
@@ -175,7 +175,7 @@ model BoardAccess {
   createdAt DateTime @default(now())
 
   board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([boardId, userId])
   @@index([boardId])
@@ -258,7 +258,7 @@ model TaskStageEntry {
   taskId            String
   columnId          String
   enteredAt         DateTime @default(now())
-  enteredById       String
+  enteredById       String?
   leftAt            DateTime?
   leftById          String?
   durationSeconds   Int?
@@ -267,7 +267,7 @@ model TaskStageEntry {
 
   task              Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
   column            BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  enteredBy         User        @relation("stageEnteredBy", fields: [enteredById], references: [id], onDelete: Cascade)
+  enteredBy         User?       @relation("stageEnteredBy", fields: [enteredById], references: [id], onDelete: SetNull)
   leftBy            User?       @relation("stageLeftBy", fields: [leftById], references: [id], onDelete: SetNull)
 
   @@index([taskId])
@@ -345,14 +345,14 @@ model ActivityLog {
   id        String   @id @default(cuid())
   projectId String
   taskId    String?
-  actorId   String
+  actorId   String?
   action    String
   meta      Json?
   createdAt DateTime @default(now())
 
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  actor     User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([taskId])
@@ -364,7 +364,7 @@ model Notification {
   id           String   @id @default(cuid())
   recipientId  String
   type         String   // task.created, task.assigned, task.moved, comment.added, comment.edited, due_date_changed
-  actorId      String
+  actorId      String?
   projectId    String
   taskId       String?
   commentId    String?
@@ -374,7 +374,7 @@ model Notification {
   createdAt    DateTime @default(now())
 
   recipient    User     @relation("notificationsReceived", fields: [recipientId], references: [id], onDelete: Cascade)
-  actor        User     @relation("notificationsCreated", fields: [actorId], references: [id], onDelete: Cascade)
+  actor        User?    @relation("notificationsCreated", fields: [actorId], references: [id], onDelete: SetNull)
   project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   task         Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   comment      Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)

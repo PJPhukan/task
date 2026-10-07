@@ -496,7 +496,7 @@ describe("Invites API", () => {
         { method: "DELETE", headers: revokeHeaders }
       );
 
-      await deleteInviteRoute(revokeReq, { params: { inviteId } });
+      await deleteInviteRoute(revokeReq, { params: Promise.resolve({ inviteId }) });
 
       // Try to accept
       const acceptReq = new NextRequest("http://localhost:3000/api/invites/accept", {
@@ -559,7 +559,7 @@ describe("Invites API", () => {
         { method: "DELETE", headers: revokeHeaders }
       );
 
-      const revokeRes = await deleteInviteRoute(revokeReq, { params: { inviteId } });
+      const revokeRes = await deleteInviteRoute(revokeReq, { params: Promise.resolve({ inviteId }) });
       expect(revokeRes.status).toBe(200);
 
       // Verify revoked
@@ -576,7 +576,7 @@ describe("Invites API", () => {
         headers,
       });
 
-      const revokeRes = await deleteInviteRoute(revokeReq, { params: { inviteId: "fake-id" } });
+      const revokeRes = await deleteInviteRoute(revokeReq, { params: Promise.resolve({ inviteId: "fake-id" }) });
       expect(revokeRes.status).toBe(403);
     });
   });
@@ -622,7 +622,7 @@ describe("Invites API", () => {
         { method: "POST", headers: resendHeaders }
       );
 
-      const resendRes = await resendInviteRoute(resendReq, { params: { inviteId } });
+      const resendRes = await resendInviteRoute(resendReq, { params: Promise.resolve({ inviteId }) });
       expect(resendRes.status).toBe(200);
 
       // Verify old token no longer works
@@ -656,7 +656,7 @@ describe("Invites API", () => {
         { method: "POST", headers }
       );
 
-      const resendRes = await resendInviteRoute(resendReq, { params: { inviteId: "fake-id" } });
+      const resendRes = await resendInviteRoute(resendReq, { params: Promise.resolve({ inviteId: "fake-id" }) });
       expect(resendRes.status).toBe(403);
     });
   });

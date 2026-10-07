@@ -1,14 +1,14 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { InviteService } from "@/server/modules/invites/service";
-import { acceptInviteQuerySchema, acceptInviteSchema } from "@/server/modules/invites/schema";
+import { acceptInviteQuerySchema, acceptInviteSchema, type AcceptInviteQueryInput, type AcceptInviteInput } from "@/server/modules/invites/schema";
 import { validateRequest } from "@/server/http/route";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
 
-  const validation = validateRequest(acceptInviteQuerySchema, { token });
+  const validation = validateRequest<AcceptInviteQueryInput>(acceptInviteQuerySchema, { token });
   if (!validation.success) {
     return NextResponse.json(
       { error: { code: "VALIDATION_ERROR", message: "Invalid input", details: validation.error } },
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const validation = validateRequest(acceptInviteSchema, body);
+  const validation = validateRequest<AcceptInviteInput>(acceptInviteSchema, body);
 
   if (!validation.success) {
     return NextResponse.json(

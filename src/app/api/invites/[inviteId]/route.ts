@@ -4,7 +4,8 @@ import { getCurrentUserWithStatus } from "@/server/auth/current-user";
 import { getPerms, setupPermissions } from "@/server/lib/permly";
 import { InviteService } from "@/server/modules/invites/service";
 
-export async function DELETE(req: NextRequest, { params }: { params: { inviteId: string } }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ inviteId: string }> }) {
+  const { inviteId } = await context.params;
   const userId = req.headers.get("x-user-id") || undefined;
   const userResult = await getCurrentUserWithStatus(userId, req);
 
@@ -24,7 +25,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { inviteId:
   }
 
   try {
-    await InviteService.revokeInvite(params.inviteId);
+    await InviteService.revokeInvite(inviteId);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     const message = error.message || "Failed to revoke invite";
