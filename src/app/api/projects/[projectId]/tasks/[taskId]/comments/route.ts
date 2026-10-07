@@ -147,7 +147,9 @@ const postHandler = createRouteHandler(async (
           { status: parsedError.code === "FORBIDDEN" ? 403 : 400 }
         );
       }
-    } catch {}
+    } catch {
+      /* ignore parsing errors */
+    }
     throw error;
   }
 });

@@ -67,7 +67,9 @@ async function patchHandler(req: NextRequest, context: any) {
           { status: parsedError.code === "FORBIDDEN" ? 403 : 400 }
         );
       }
-    } catch {}
+    } catch {
+      /* ignore parsing errors */
+    }
     console.error("PATCH /comments error:", error);
     if (error instanceof Error) console.error(error.stack);
     return NextResponse.json(

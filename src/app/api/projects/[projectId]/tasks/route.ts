@@ -127,7 +127,7 @@ export async function POST(
     }
 
     // Remove mention metadata from response
-    const { newMentionUserIds, hasAllMention, ...taskResponse } = task;
+    const { newMentionUserIds: _, hasAllMention: __, ...taskResponse } = task;
     return NextResponse.json({ task: taskResponse }, { status: 201 });
   } catch (error: any) {
     try {
@@ -138,7 +138,9 @@ export async function POST(
           { status: parsedError.code === "FORBIDDEN" ? 403 : 400 }
         );
       }
-    } catch {}
+    } catch {
+      /* ignore parsing errors */
+    }
     return NextResponse.json(
       { error: { code: "CREATION_ERROR", message: error.message || "Failed to create task" } },
       { status: 400 }

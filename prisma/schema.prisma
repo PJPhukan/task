@@ -231,6 +231,7 @@ model Task {
   reporterId  String?
   position    Int
   completedAt DateTime?
+  bounceCount Int       @default(0)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -266,6 +267,8 @@ model TaskStageEntry {
   leftById          String?
   durationSeconds   Int?
   assigneeAtEntry   String?
+  isSendBack        Boolean  @default(false)
+  sendBackReason    String?
   createdAt         DateTime @default(now())
 
   task              Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)

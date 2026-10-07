@@ -73,12 +73,17 @@ export class TaskService {
       return newTask;
     });
 
+    let newMentionUserIds: string[] = [];
+    let hasAllMention = false;
+
     if (input.description) {
       const mentionResult = await MentionService.validateAndSaveMentions(projectId, task.id, input.description, userId);
       if ("error" in mentionResult) {
         await prisma.task.delete({ where: { id: task.id } });
         throw new Error(JSON.stringify(mentionResult.error));
       }
+      newMentionUserIds = mentionResult.newMentionUserIds;
+      hasAllMention = mentionResult.hasAllMention;
     }
 
     // Record activity
@@ -92,6 +97,8 @@ export class TaskService {
       key: `${updatedProject.key}-${task.number}`,
       labels: [],
       canMove: false,
+      newMentionUserIds,
+      hasAllMention,
     };
   }
 
@@ -196,11 +203,16 @@ export class TaskService {
       updateData.assigneeId = input.assigneeId;
     }
 
+    let newMentionUserIds: string[] = [];
+    let hasAllMention = false;
+
     if (input.description !== undefined) {
       const mentionResult = await MentionService.validateAndSaveMentions(projectId, taskId, input.description, userId);
       if ("error" in mentionResult) {
         throw new Error(JSON.stringify(mentionResult.error));
       }
+      newMentionUserIds = mentionResult.newMentionUserIds;
+      hasAllMention = mentionResult.hasAllMention;
     }
 
     const updated = await prisma.task.update({
@@ -242,6 +254,8 @@ export class TaskService {
         color: tl.label.color,
       })),
       canMove: false,
+      newMentionUserIds,
+      hasAllMention,
     };
   }
 
@@ -301,6 +315,13 @@ export class TaskService {
     });
     if (!sourceColumn) throw new Error("Source column not found");
 
+    // Check if this is a backward move
+    const isBackwardMove = targetColumn.position < sourceColumn.position;
+    if (isBackwardMove && !input.sendBackReason) {
+      const error = { code: "VALIDATION_ERROR", message: "Reason required for moving task backward", details: ["sendBackReason"] };
+      throw new Error(JSON.stringify(error));
+    }
+
     // Check move permission
     const perms = getPerms();
     await setupPermissions();
@@ -313,7 +334,7 @@ export class TaskService {
     if (!canViewTarget) throw new Error("Cannot access target column");
 
     // Update task and handle stage entries
-    const updated = await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // If moving to a different column, close current stage entry and open new one
       if (task.columnId !== input.columnId) {
         // Close current stage entry
@@ -328,24 +349,27 @@ export class TaskService {
           },
         });
 
-        // Open new stage entry
+        // Open new stage entry with send back info
         await (tx as any).taskStageEntry.create({
           data: {
             taskId,
             columnId: input.columnId,
             enteredById: userId,
             assigneeAtEntry: task.assigneeId,
+            isSendBack: isBackwardMove,
+            sendBackReason: isBackwardMove ? input.sendBackReason : null,
           },
         });
       }
 
-      // Update task position and column
+      // Update task position, column, and bounceCount if backward move
       const updatedTask = await tx.task.update({
         where: { id: taskId },
         data: {
           columnId: input.columnId,
           position: input.index,
           completedAt: targetColumn.isDone ? new Date() : null,
+          bounceCount: isBackwardMove ? { increment: 1 } : undefined,
         },
       });
 
@@ -403,20 +427,42 @@ export class TaskService {
 
     // Record activity only if moved to different column
     if (task.columnId !== input.columnId) {
-      const targetColumn = await prisma.boardColumn.findUnique({
-        where: { id: input.columnId },
-      });
-
       const columnRules = await ColumnRulesService.getColumnRules(input.columnId);
 
       await ActivityService.recordActivity(projectId, "task.moved", userId, taskId, {
         fromColumnId: task.columnId,
         toColumnId: input.columnId,
-        columnIsDone: targetColumn?.isDone || false,
+        columnIsDone: targetColumn.isDone || false,
         moveRoleIds: columnRules.moveRoleIds,
+        isSendBack: isBackwardMove,
+        sendBackReason: isBackwardMove ? input.sendBackReason : undefined,
       });
     }
 
-    return updated;
+    // Get the updated task with related data
+    const taskWithRelations = await prisma.task.findFirst({
+      where: { id: taskId, projectId },
+      include: {
+        assignee: { select: { id: true, name: true, email: true } },
+        reporter: { select: { id: true, name: true, email: true } },
+        labels: { include: { label: true } },
+      },
+    });
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { key: true },
+    });
+
+    return {
+      ...taskWithRelations,
+      key: `${project?.key}-${taskWithRelations?.number}`,
+      labels: taskWithRelations?.labels.map((tl) => ({
+        id: tl.label.id,
+        name: tl.label.name,
+        color: tl.label.color,
+      })) || [],
+      canMove: false,
+    };
   }
 }

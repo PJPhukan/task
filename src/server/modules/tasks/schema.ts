@@ -41,6 +41,7 @@ export const updateTaskSchema = z.object({
 export const moveTaskSchema = z.object({
   columnId: z.string().min(1, 'Column ID required'),
   index: z.number().int().min(0),
+  sendBackReason: z.string().min(1, 'Reason required').max(500).optional(),
 });
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;

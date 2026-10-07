@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { NextRequest } from "next/server";
 import { GET as getCommentsRoute, POST as createCommentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/route";
 import { GET as getMentionableRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/mentionable/route";
+import { PATCH as updateCommentRoute } from "@/app/api/projects/[projectId]/tasks/[taskId]/comments/[commentId]/route";
 import { prisma } from "@/server/lib/prisma";
 import { parseMentions } from "@/server/modules/mentions/parser";
 import { reseedDatabase, cleanupNonSeededUsers } from "@/__tests__/__helpers__/seed";
@@ -260,5 +261,164 @@ describe("Mentions System", () => {
       where: { commentId: comment.id },
     });
     expect(mentions1.length).toBe(1);
+  });
+
+  it("Person who is both assignee and mentioned gets exactly one notification of type mention", async () => {
+    // Create a new task for this test to avoid interference from previous tests
+    const newBoard = await prisma.board.create({
+      data: {
+        projectId,
+        name: "Assignment Test Board",
+        position: 1,
+        createdById: adminId,
+      },
+    });
+
+    const newColumn = await prisma.boardColumn.create({
+      data: { boardId: newBoard.id, name: "To Do", position: 0 },
+    });
+
+    const newTask = await prisma.task.create({
+      data: {
+        projectId,
+        boardId: newBoard.id,
+        columnId: newColumn.id,
+        number: 3,
+        title: "Assignment Test Task",
+        reporterId: adminId,
+        assigneeId: memberId, // Assign to memberId
+        position: 0,
+      },
+    });
+
+    // Create initial stage entry
+    await prisma.taskStageEntry.create({
+      data: {
+        taskId: newTask.id,
+        columnId: newColumn.id,
+        enteredById: adminId,
+        assigneeAtEntry: memberId,
+      },
+    });
+
+    // Clear old notifications
+    await prisma.notification.deleteMany({
+      where: {
+        recipientId: memberId,
+        taskId: newTask.id,
+        type: "mention",
+      },
+    });
+
+    const headers = new Headers();
+    headers.set("x-user-id", adminId);
+    headers.set("content-type", "application/json");
+
+    // Create a comment mentioning the assignee
+    const req = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${newTask.id}/comments`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ body: `@[user:${memberId}] you are responsible` }),
+    });
+    const res = await createCommentRoute(req, { params: Promise.resolve({ projectId, taskId: newTask.id }) });
+    expect(res.status).toBe(201);
+
+    // Get notifications for the mentioned person
+    const notifications = await prisma.notification.findMany({
+      where: {
+        recipientId: memberId,
+        taskId: newTask.id,
+        type: "mention",
+      },
+    });
+
+    // Should have exactly one notification, of type mention (not duplicated with assignment)
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].type).toBe("mention");
+  });
+
+  it("Editing comment to add second mention notifies only the new person", async () => {
+    // Create a new task for this test
+    const editBoard = await prisma.board.create({
+      data: {
+        projectId,
+        name: "Edit Test Board",
+        position: 2,
+        createdById: adminId,
+      },
+    });
+
+    const editColumn = await prisma.boardColumn.create({
+      data: { boardId: editBoard.id, name: "To Do", position: 0 },
+    });
+
+    const editTask = await prisma.task.create({
+      data: {
+        projectId,
+        boardId: editBoard.id,
+        columnId: editColumn.id,
+        number: 4,
+        title: "Edit Test Task",
+        reporterId: adminId,
+        position: 0,
+      },
+    });
+
+    // Create initial stage entry
+    await prisma.taskStageEntry.create({
+      data: {
+        taskId: editTask.id,
+        columnId: editColumn.id,
+        enteredById: adminId,
+      },
+    });
+
+    const headers = new Headers();
+    headers.set("x-user-id", adminId);
+    headers.set("content-type", "application/json");
+
+    // Create comment with first mention
+    const createReq = new NextRequest(`http://localhost:3000/api/projects/${projectId}/tasks/${editTask.id}/comments`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ body: `Hey @[user:${memberId}]` }),
+    });
+    const createRes = await createCommentRoute(createReq, { params: Promise.resolve({ projectId, taskId: editTask.id }) });
+    const comment = (await createRes.json()).comment;
+
+    // Clear notifications created from first mention
+    await prisma.notification.deleteMany({
+      where: {
+        commentId: comment.id,
+        type: "mention",
+      },
+    });
+
+    // Edit comment to add second mention
+    const updateReq = new NextRequest(
+      `http://localhost:3000/api/projects/${projectId}/tasks/${editTask.id}/comments/${comment.id}`,
+      {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({
+          body: `Hey @[user:${memberId}] and @[user:${developerId}]`,
+        }),
+      }
+    );
+    const updateRes = await updateCommentRoute(updateReq, {
+      params: Promise.resolve({ projectId, taskId: editTask.id, commentId: comment.id }),
+    });
+    expect(updateRes.status).toBe(200);
+
+    // Should have a notification for the new mention (developerId) only
+    const notifications = await prisma.notification.findMany({
+      where: {
+        commentId: comment.id,
+        type: "mention",
+      },
+    });
+
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].recipientId).toBe(developerId);
   });
 });

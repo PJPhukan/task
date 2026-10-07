@@ -7,7 +7,7 @@ export interface ParsedMention {
 
 export function parseMentions(text: string): ParsedMention[] {
   const mentions: ParsedMention[] = [];
-  const mentionRegex = /@\[(?:user:([a-z0-9\-]+)|all)\]/g;
+  const mentionRegex = /@\[(?:user:([a-z0-9-]+)|all)\]/g;
 
   let match;
   const seen = new Set<string>();

@@ -87,7 +87,7 @@ export async function PATCH(
     }
 
     // Remove mention metadata from response
-    const { newMentionUserIds, hasAllMention, ...taskResponse } = task;
+    const { newMentionUserIds: _, hasAllMention: __, ...taskResponse } = task;
     return NextResponse.json({ task: taskResponse });
   } catch (error: any) {
     try {
@@ -98,7 +98,9 @@ export async function PATCH(
           { status: parsedError.code === "FORBIDDEN" ? 403 : 400 }
         );
       }
-    } catch {}
+    } catch {
+      /* ignore parsing errors */
+    }
     return NextResponse.json(
       { error: { code: "UPDATE_ERROR", message: error.message || "Failed to update task" } },
       { status: 400 }
