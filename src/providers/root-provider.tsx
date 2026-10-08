@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { ReactNode, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { AuthProvider } from './auth-provider';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,10 +42,12 @@ export function RootProvider({ children }: RootProviderProps) {
         <Suspense fallback={null}>
           <ThemeSync />
         </Suspense>
-        <TooltipProvider>
-          {children}
-          <Toaster />
-        </TooltipProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            {children}
+            <Toaster />
+          </TooltipProvider>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

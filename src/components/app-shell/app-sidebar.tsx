@@ -8,11 +8,12 @@ import {
   FolderKanban,
   PanelLeftClose,
   PanelLeft,
-  Layers,
   Plus,
   FolderPlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BRAND } from '@/lib/brand';
+import { useCurrentUser } from '@/hooks/use-current-user';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -34,9 +35,11 @@ export function AppSidebar({
   className,
 }: AppSidebarProps) {
   const pathname = usePathname();
+  const { can } = useCurrentUser();
 
   const isMyTasksActive = pathname === '/my-tasks' || pathname === '/';
   const isProjectsActive = pathname.startsWith('/projects');
+  const canCreateProject = can('project.create');
 
   return (
     <aside
@@ -47,21 +50,21 @@ export function AppSidebar({
       )}
     >
       {/* Sidebar Header: App Brand */}
-      <div className="flex items-center justify-between h-14 px-3 border-b border-sidebar-border/60">
+      <div className="flex items-center justify-between h-14 px-3 border-b border-sidebar-border/80">
         <Link
           href="/my-tasks"
           onClick={onNavigate}
           className={cn(
-            'flex items-center gap-2.5 font-semibold text-foreground overflow-hidden rounded-md px-1.5 py-1 transition-colors hover:bg-sidebar-accent/50',
+            'flex items-center gap-2.5 font-semibold text-foreground overflow-hidden rounded-sm px-1.5 py-1 transition-colors hover:bg-sidebar-accent/50',
             isCollapsed && 'justify-center w-full px-0'
           )}
         >
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
-            <Layers className="h-4 w-4" />
+          <div className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-brand text-brand-foreground font-semibold text-xs">
+            R
           </div>
           {!isCollapsed && (
             <span className="text-sm font-semibold tracking-tight truncate">
-              Task Manager
+              {BRAND.name}
             </span>
           )}
         </Link>
@@ -91,7 +94,7 @@ export function AppSidebar({
                     href="/my-tasks"
                     onClick={onNavigate}
                     className={cn(
-                      'flex h-9 w-9 mx-auto items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                      'flex h-9 w-9 mx-auto items-center justify-center rounded-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                       isMyTasksActive &&
                         'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
                     )}
@@ -108,7 +111,7 @@ export function AppSidebar({
               href="/my-tasks"
               onClick={onNavigate}
               className={cn(
-                'flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                'flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-xs font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                 isMyTasksActive
                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
                   : 'text-sidebar-foreground/80'
@@ -127,7 +130,7 @@ export function AppSidebar({
                     href="/projects"
                     onClick={onNavigate}
                     className={cn(
-                      'flex h-9 w-9 mx-auto items-center justify-center rounded-md text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                      'flex h-9 w-9 mx-auto items-center justify-center rounded-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                       isProjectsActive &&
                         'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
                     )}
@@ -144,7 +147,7 @@ export function AppSidebar({
               href="/projects"
               onClick={onNavigate}
               className={cn(
-                'flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                'flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-xs font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                 isProjectsActive
                   ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
                   : 'text-sidebar-foreground/80'
@@ -161,26 +164,39 @@ export function AppSidebar({
           <div className="space-y-2 pt-2">
             <div className="flex items-center justify-between px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
               <span>Projects</span>
-              <Link
-                href="/projects"
-                onClick={onNavigate}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                title="View projects"
-              >
-                <Plus className="h-3 w-3" />
-              </Link>
+              {canCreateProject && (
+                <Link
+                  href="/projects/new"
+                  onClick={onNavigate}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title="Create project"
+                >
+                  <Plus className="h-3 w-3" />
+                </Link>
+              )}
             </div>
 
             {/* Empty state for Projects */}
-            <div className="px-2 py-3 rounded-md border border-dashed border-sidebar-border bg-sidebar-accent/30 text-center space-y-1.5">
+            <div className="px-2.5 py-3 rounded-sm border border-dashed border-sidebar-border bg-sidebar-accent/20 text-center space-y-1.5">
               <FolderPlus className="h-4 w-4 mx-auto text-muted-foreground/60" />
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 <p className="text-xs font-medium text-sidebar-foreground/90">
                   No projects yet
                 </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Create a project to start
+                <p className="text-[11px] text-muted-foreground leading-normal">
+                  Create your first project to start tracking role handoffs.
                 </p>
+                {canCreateProject && (
+                  <div className="pt-1">
+                    <Link
+                      href="/projects/new"
+                      onClick={onNavigate}
+                      className="text-xs font-medium text-brand hover:underline inline-block"
+                    >
+                      + Create project
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -189,7 +205,7 @@ export function AppSidebar({
 
       {/* Sidebar Footer */}
       {isCollapsed && (
-        <div className="p-2 border-t border-sidebar-border/60 flex justify-center hidden md:flex">
+        <div className="p-2 border-t border-sidebar-border/80 flex justify-center hidden md:flex">
           <Tooltip>
             <TooltipTrigger
               render={

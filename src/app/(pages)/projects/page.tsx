@@ -14,7 +14,7 @@ export default function ProjectsPage() {
         title="Projects"
         description="Manage and organize your team's projects, boards, and workflows"
         actions={
-          <Button size="sm" className="gap-1.5 text-xs">
+          <Button size="sm" className="gap-1.5 text-xs bg-brand text-brand-foreground hover:bg-brand/90">
             <Plus className="h-3.5 w-3.5" />
             <span>Create project</span>
           </Button>
@@ -28,17 +28,18 @@ export default function ProjectsPage() {
           <Input
             type="search"
             placeholder="Search projects..."
-            className="h-8 pl-8 text-xs bg-muted/30 border-border/60"
+            className="h-8 pl-8 text-xs bg-muted/40 border-border/70"
             disabled
           />
         </div>
       </div>
 
-      {/* Proper Empty State */}
+      {/* Empty State */}
       <EmptyState
         icon={FolderKanban}
         title="No projects yet"
-        description="Projects help you organize tasks into boards and track progress across your team. Create your first project to get started."
+        description="Projects help you organize tasks into boards and track progress across roles."
+        nextActionText="Create your first project to configure columns and start tracking role handoffs."
         action={{
           label: 'Create first project',
           onClick: () => {},

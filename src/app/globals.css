@@ -111,7 +111,7 @@
 
     --border: 203 18% 18%;
     --input: 203 18% 18%;
-    --ring: 176 68% 38%;
+    --ring: 176 72% 48%;
 
     --sidebar: 200 18% 8%;
     --sidebar-foreground: 203 13% 60%;
@@ -120,7 +120,7 @@
     --sidebar-accent: 200 16% 13%;
     --sidebar-accent-foreground: 200 19% 94%;
     --sidebar-border: 203 18% 18%;
-    --sidebar-ring: 176 68% 38%;
+    --sidebar-ring: 176 72% 48%;
 
     /* Semantic tokens */
     --priority-low: 207 12% 61%;
@@ -161,6 +161,13 @@
 @layer base {
   * {
     @apply border-border;
+  }
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring)) !important;
+    outline-offset: 2px !important;
+  }
+  a:focus-visible {
+    border-radius: var(--radius);
   }
   body {
     @apply bg-background text-foreground antialiased font-sans;

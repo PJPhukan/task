@@ -15,6 +15,7 @@ interface EmptyStateProps {
   icon?: LucideIcon;
   title: string;
   description?: string;
+  nextActionText?: string;
   action?: EmptyStateAction;
   children?: React.ReactNode;
   className?: string;
@@ -25,6 +26,7 @@ export function EmptyState({
   icon: Icon = Inbox,
   title,
   description,
+  nextActionText,
   action,
   children,
   className,
@@ -33,12 +35,12 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center text-center rounded-lg border border-dashed border-border/80 bg-card/30 p-8 sm:p-12 transition-colors',
+        'flex flex-col items-center justify-center text-center rounded-sm border border-dashed border-border/80 bg-card/40 p-8 sm:p-12 transition-colors',
         compact && 'p-4 sm:p-6 border-transparent bg-transparent',
         className
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/60 text-muted-foreground ring-1 ring-border/50 mb-3.5">
+      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted/60 text-muted-foreground ring-1 ring-border/60 mb-3.5">
         <Icon className="h-5 w-5" />
       </div>
 
@@ -49,6 +51,12 @@ export function EmptyState({
       {description && (
         <p className="mt-1.5 text-xs sm:text-sm text-muted-foreground max-w-sm leading-relaxed">
           {description}
+        </p>
+      )}
+
+      {nextActionText && (
+        <p className="mt-2 text-xs font-medium text-foreground max-w-sm">
+          {nextActionText}
         </p>
       )}
 

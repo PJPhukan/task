@@ -20,7 +20,7 @@ export default async function SignInPage({
   const themeClass = theme === 'light' ? 'light' : theme === 'dark' ? 'dark' : '';
 
   return (
-    <div className={cn('min-h-screen bg-background text-foreground flex flex-col items-center justify-start pt-16 sm:pt-24 pb-12 px-4', themeClass)}>
+    <div className={cn('min-h-screen bg-background text-foreground flex flex-col items-center justify-start pt-16 sm:pt-[max(3.5rem,calc(40vh-190px))] pb-12 px-4', themeClass)}>
       <div className="w-full max-w-[360px] rounded border border-border bg-card p-6">
         {/* Brand header with inline theme toggle */}
         <div className="flex items-center justify-between pb-5 border-b border-border/80">

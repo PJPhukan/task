@@ -6,24 +6,28 @@ import { Button } from '@/components/ui/button';
 interface ErrorStateProps {
   title?: string;
   message?: string;
+  nextStep?: string;
   onRetry?: () => void;
+  retryLabel?: string;
   className?: string;
 }
 
 export function ErrorState({
   title = 'Something went wrong',
   message = 'An unexpected error occurred while loading this view.',
+  nextStep,
   onRetry,
+  retryLabel = 'Try again',
   className,
 }: ErrorStateProps) {
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center text-center rounded-lg border border-destructive/20 bg-destructive/5 p-8 sm:p-12',
+        'flex flex-col items-center justify-center text-center rounded-sm border border-danger/30 bg-danger/5 p-8 sm:p-12',
         className
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-3.5 ring-1 ring-destructive/20">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-danger/10 text-danger mb-3.5 ring-1 ring-danger/20">
         <AlertCircle className="h-6 w-6" />
       </div>
 
@@ -35,6 +39,12 @@ export function ErrorState({
         {message}
       </p>
 
+      {nextStep && (
+        <p className="mt-2 text-xs font-medium text-foreground max-w-sm">
+          Next step: {nextStep}
+        </p>
+      )}
+
       {onRetry && (
         <div className="mt-5">
           <Button
@@ -44,7 +54,7 @@ export function ErrorState({
             className="gap-1.5 border-border hover:bg-muted"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            <span>Try again</span>
+            <span>{retryLabel}</span>
           </Button>
         </div>
       )}
