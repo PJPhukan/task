@@ -157,6 +157,44 @@ export function AppSidebar({
               <span className="truncate">Projects</span>
             </Link>
           )}
+
+          {can('user.manage') && (
+            isCollapsed ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Link
+                      href="/invites"
+                      onClick={onNavigate}
+                      className={cn(
+                        'flex h-9 w-9 mx-auto items-center justify-center rounded-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                        pathname === '/invites' &&
+                          'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                      )}
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span className="sr-only">Invites</span>
+                    </Link>
+                  }
+                />
+                <TooltipContent side="right">Invites</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Link
+                href="/invites"
+                onClick={onNavigate}
+                className={cn(
+                  'flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-xs font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  pathname === '/invites'
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+                    : 'text-sidebar-foreground/80'
+                )}
+              >
+                <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">Invites</span>
+              </Link>
+            )
+          )}
         </div>
 
         {/* Projects Section */}

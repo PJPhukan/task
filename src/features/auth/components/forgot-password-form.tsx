@@ -28,6 +28,7 @@ export function ForgotPasswordForm() {
     try {
       await apiClient.post('/api/auth/request-password-reset', {
         email: email.trim(),
+        redirectTo: '/reset-password',
       });
       setIsSubmitted(true);
     } catch {

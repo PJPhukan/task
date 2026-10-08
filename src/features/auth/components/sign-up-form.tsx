@@ -44,7 +44,8 @@ export function SignUpForm() {
         name: name.trim(),
         email: email.trim(),
         password,
-      });
+        callbackURL: '/email-verified',
+      } as any);
 
       if (response.error) {
         const msg = response.error.message || '';
