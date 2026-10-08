@@ -10,12 +10,19 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-sans)', 'sans-serif'],
+      },
       colors: {
         border: 'hsl(var(--border) / <alpha-value>)',
         input: 'hsl(var(--input) / <alpha-value>)',
         ring: 'hsl(var(--ring) / <alpha-value>)',
         background: 'hsl(var(--background) / <alpha-value>)',
         foreground: 'hsl(var(--foreground) / <alpha-value>)',
+        brand: {
+          DEFAULT: 'hsl(var(--brand) / <alpha-value>)',
+          foreground: 'hsl(var(--brand-foreground) / <alpha-value>)',
+        },
         primary: {
           DEFAULT: 'hsl(var(--primary) / <alpha-value>)',
           foreground: 'hsl(var(--primary-foreground) / <alpha-value>)',
@@ -64,7 +71,23 @@ const config: Config = {
           urgent: 'hsl(var(--priority-urgent) / <alpha-value>)',
           'urgent-foreground': 'hsl(var(--priority-urgent-foreground) / <alpha-value>)',
         },
+        'over-limit': {
+          DEFAULT: 'hsl(var(--over-limit) / <alpha-value>)',
+          foreground: 'hsl(var(--over-limit-foreground) / <alpha-value>)',
+        },
+        success: {
+          DEFAULT: 'hsl(var(--success) / <alpha-value>)',
+          foreground: 'hsl(var(--success-foreground) / <alpha-value>)',
+        },
+        danger: {
+          DEFAULT: 'hsl(var(--danger) / <alpha-value>)',
+          foreground: 'hsl(var(--danger-foreground) / <alpha-value>)',
+        },
         column: {
+          dev: 'hsl(var(--column-dev) / <alpha-value>)',
+          qa: 'hsl(var(--column-qa) / <alpha-value>)',
+          deploy: 'hsl(var(--column-deploy) / <alpha-value>)',
+          done: 'hsl(var(--column-done) / <alpha-value>)',
           1: 'hsl(var(--column-1) / <alpha-value>)',
           2: 'hsl(var(--column-2) / <alpha-value>)',
           3: 'hsl(var(--column-3) / <alpha-value>)',
@@ -76,9 +99,10 @@ const config: Config = {
         },
       },
       borderRadius: {
+        DEFAULT: 'var(--radius)',
+        sm: 'var(--radius)',
+        md: 'var(--radius)',
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
       },
     },
   },
