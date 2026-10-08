@@ -1,5 +1,5 @@
 export const BRAND = {
   name: 'Rolane',
-  tagline: 'Role-driven task management for software teams',
-  description: 'Stage custody, handoff rules, and dwell time tracking for engineering teams.',
+  tagline: 'Role-based task manager for software teams',
+  description: 'A task board where each column belongs to a role, recording waiting times and handoffs between roles.',
 } as const;

@@ -10,8 +10,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const { setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
@@ -21,8 +22,12 @@ export function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <Button variant="ghost" size="icon-sm" className="w-8 h-8 opacity-70">
-        <Sun className="h-4 w-4" />
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        className={cn('size-7 opacity-70 text-muted-foreground', className)}
+      >
+        <Sun className="size-3.5" />
         <span className="sr-only">Toggle theme</span>
       </Button>
     );
@@ -34,16 +39,19 @@ export function ThemeToggle() {
         render={
           <Button
             variant="ghost"
-            size="icon-sm"
-            className="w-8 h-8 text-muted-foreground hover:text-foreground"
+            size="icon-xs"
+            className={cn(
+              'size-7 text-muted-foreground hover:text-foreground',
+              className
+            )}
           >
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <Sun className="size-3.5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute size-3.5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             <span className="sr-only">Toggle theme</span>
           </Button>
         }
       />
-      <DropdownMenuContent align="end" className="w-32">
+      <DropdownMenuContent align="end" className="w-28 text-xs">
         <DropdownMenuItem onClick={() => setTheme('light')}>
           Light
         </DropdownMenuItem>

@@ -30,13 +30,13 @@ A restrained, high-contrast palette built for daily engineering and QA operation
 ## 2. Typography
 
 - **Family**: IBM Plex Sans (`next/font/google`). Designed for technical density, high legibility at 12–13px, and distinct glyphs (0 vs O, 1 vs l).
-- **Tabular Numerals**: `font-feature-settings: 'tnum' 1` enabled globally for all numerals. Clock counters, task IDs, durations, and counts never jitter during updates.
+- **Tabular Numerals**: `font-feature-settings: 'tnum' 1` enabled globally for all numerals. Waiting times, task keys, timestamps, and counts never jitter during updates.
 - **No Monospace for Labels**: Status labels and tags use standard sans-serif with medium weight.
 
 ### Type Scale
 | Level | Size / Line Height | Tracking | Weight | Usage |
 |---|---|---|---|---|
-| Micro | 11px / 14px | 0 | 500 | Column totals, stage metrics, ticket IDs |
+| Micro | 11px / 14px | 0 | 500 | Column totals, waiting metrics, ticket keys |
 | Caption | 12px / 16px | 0 | 400, 500 | Badges, secondary metadata, table headers |
 | Base UI | 13px / 18px | 0 | 400, 500 | Ticket titles, table cells, sidebar links |
 | Body | 14px / 20px | 0 | 400, 500 | Inputs, button text, dialog descriptions |
@@ -64,7 +64,7 @@ A restrained, high-contrast palette built for daily engineering and QA operation
 
 ## 4. Layout Concept & ASCII Wireframes
 
-A high-density operational workbench partitioned into role-custody stages where task dwell times and handoff boundaries remain persistently visible across flat, hairline-bordered panels.
+A dense, role-based workbench where column ownership and waiting times are visible across flat, hairline-bordered panels.
 
 ### App Shell Wireframe
 ```
@@ -90,42 +90,39 @@ A high-density operational workbench partitioned into role-custody stages where 
 ```
 +---------------------------------------------------------------------------------------+
 |                                                                                       |
-| +-----------------------------------------------------------------------------------+ |
-| |                                        |                                          | |
-| |  [Rolane Mark]                         |  Sign in to your account                 | |
-| |  Rolane                                |  Enter your work email and password.     | |
-| |                                        |                                          | |
-| |  Role-driven task management for       |  Email address                           | |
-| |  software teams.                       |  [ admin@example.com                   ] | |
-| |                                        |                                          | |
-| |  Columns belong to roles. Stage dwell  |  Password                                | |
-| |  times and handoffs are tracked in     |  [ ....................                ] | |
-| |  real time.                            |                                          | |
-| |                                        |  [ Sign in                             ] | |
-| |  - Developer to QA to Deployment       |                                          | |
-| |  - Live column wait-time limits        |  Forgot password? Reset it here          | |
-| |  - Backward moves require reasons      |  Need an account? Request access         | |
-| |                                        |                                          | |
-| +-----------------------------------------------------------------------------------+ |
+|                                                                                       |
+|                             +-----------------------------------+                     |
+|                             |  Rolane                    [Theme]|                     |
+|                             |                                   |                     |
+|                             |  Sign in                          |                     |
+|                             |                                   |                     |
+|                             |  Email address                    |                     |
+|                             |  [                              ] |                     |
+|                             |                                   |                     |
+|                             |  Password        Forgot password? |                     |
+|                             |  [                              ] |                     |
+|                             |                                   |                     |
+|                             |  [ Sign in                      ] |                     |
+|                             |                                   |                     |
+|                             |  Need an account? Request access  |                     |
+|                             +-----------------------------------+                     |
 |                                                                                       |
 +---------------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 5. The One Memorable Element
+## 5. The One Memorable Element: Column Owner and Waiting Time
 
-**The Stage Custody & Wait-Time Meter**:
-Every column features an authoritative, role-assigned spine on its left border and header (e.g. Developer in slate teal, QA in steel blue, Deployment in ochre amber) identifying which discipline currently holds custody of the work.
-
-Inside each ticket, the dwell duration is continuously displayed with tabular numbers (`2h 14m`). The moment a ticket breaches the column's defined time limit, the timer changes into a high-visibility, stark `#942036` (dark: `#E24D68`) alert tag displaying `+45m over limit`. This immediately signals bottlenecks across the entire team without decorative noise.
+Every column shows which role owns it (Developer, QA, Deployment) with a role color indicator on the column header. Tasks record how long they waited in each column using tabular numerals (e.g. `2h 14m`). When a task exceeds the column's time limit, the waiting time switches to the over-time-limit color (`#942036` in light, `#E24D68` in dark) showing the time it has been waiting over the limit. When a task is sent back to an earlier column, a reason is required and the bounce count is tracked.
 
 ---
 
 ## 6. Wording Rules
 
-- **Sentence case**: All headings, labels, tooltips, and buttons use sentence case (e.g., "Sign in to your account", "Email address", "Check time limits").
+- **Sentence case**: All headings, labels, tooltips, and buttons use sentence case (e.g., "Sign in", "Email address", "Check time limits").
 - **Plain verbs**: Action triggers describe the direct operation ("Sign in", "Create task", "Send invite", "Copy link").
-- **Problem-solution errors**: Error banners state exactly what failed and the resolution action (e.g., "Incorrect email or password. Verify your credentials or reset your password.").
+- **Problem-solution errors**: Error banners state exactly what failed and the resolution action (e.g., "Incorrect email or password. Verify your details or reset your password.").
 - **No exclamation marks**: Completely prohibited in all states, errors, notices, and toasts.
 - **No marketing filler**: Zero instances of "Welcome back!", "Nothing here yet!", or "Let's get started".
+- **Plain domain language**: Use real terms—role, column, waiting time, sent back. No invented jargon.
