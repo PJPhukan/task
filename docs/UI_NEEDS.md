@@ -25,3 +25,8 @@ Discrepancies between `docs/UI_GUIDE.md` / `docs/API.md` and the live dev server
 
 ## 5. Invites
 - **Invite list payload**: `GET /api/invites` returns `{ id, email, createdAt, expiresAt, invitedBy, roles }`. Project and board assignments are tracked upon invite creation and applied on acceptance.
+
+## 6. Board and Task Operations
+- **Task move payload**: `PATCH /api/projects/:projectId/tasks/:taskId/move` requires `{ columnId, index, reason? }` whereas `docs/UI_GUIDE.md` omitted `columnId`.
+- **Column rules endpoint permission**: `GET /api/projects/:projectId/columns/:columnId/rules` requires `column.manage` permission. Users without this permission (such as Developer or Viewer) receive 403 FORBIDDEN; the frontend gracefully falls back and displays column move permissions derived from column flags and cached rules.
+- **Board tasks detail**: `GET /api/projects/:projectId/boards/:boardId` supplies ordered tasks with calculated `waitingSeconds` and `overLimit`, but without relational `assignee` object or `labels` array. The UI fetches `GET /api/projects/:projectId/tasks?boardId=:boardId` or maps project users/labels to populate full card metadata (assignee, priority, due date, labels, bounce count).
