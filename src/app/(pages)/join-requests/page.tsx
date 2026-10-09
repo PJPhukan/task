@@ -2,13 +2,32 @@
 
 import * as React from 'react';
 import { useState, useEffect, useCallback } from 'react';
-import { UserCheck, Users, Check, X, Loader2, FolderKanban, LayoutGrid, CheckCircle2 } from 'lucide-react';
+import {
+  UserCheck,
+  Users,
+  Check,
+  X,
+  Loader2,
+  FolderKanban,
+  LayoutGrid,
+  CheckCircle2,
+} from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 interface RoleOption {
   id: string;
@@ -51,10 +70,18 @@ export default function JoinRequestsPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Reject dialog state
+  const [userToReject, setUserToReject] = useState<PendingJoinRequest | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [isRejecting, setIsRejecting] = useState(false);
+
   const fetchRequests = useCallback(async () => {
     try {
       const data = await apiClient.get<{ joinRequests: PendingJoinRequest[] }>('/api/join-requests');
-      setRequests(data.joinRequests || []);
+      const sorted = (data.joinRequests || []).sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      setRequests(sorted);
     } catch {
       // Failed to list
     }
@@ -82,11 +109,14 @@ export default function JoinRequestsPage() {
           apiClient.get<{ projects: ProjectOption[] }>('/api/projects').catch(() => ({ projects: [] })),
         ]);
 
-        const reqs = reqsData.joinRequests || [];
+        const rawReqs = reqsData.joinRequests || [];
+        const sorted = rawReqs.sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
         const loadedRoles = rolesData.roles || [];
         const loadedProjects = projectsData.projects || [];
 
-        setRequests(reqs);
+        setRequests(sorted);
         setRoles(loadedRoles);
         setProjects(loadedProjects);
 
@@ -97,7 +127,7 @@ export default function JoinRequestsPage() {
 
         // Initialize selections for each request
         const initialSelections: Record<string, { roleId: string; projectId: string; boardId: string }> = {};
-        for (const req of reqs) {
+        for (const req of sorted) {
           initialSelections[req.id] = {
             roleId: defaultRoleId,
             projectId: defaultProjectId,
@@ -233,30 +263,42 @@ export default function JoinRequestsPage() {
     }
   };
 
-  const handleReject = async (user: PendingJoinRequest) => {
-    setActionInProgress(user.id);
+  const handleConfirmReject = async () => {
+    if (!userToReject || isRejecting) return;
+
+    setIsRejecting(true);
     setSuccessMessage(null);
     setErrorMessage(null);
 
     try {
-      await apiClient.post(`/api/join-requests/${user.id}/reject`, {
-        reason: 'Registration request declined by administrator',
+      await apiClient.post(`/api/join-requests/${userToReject.id}/reject`, {
+        reason: rejectReason.trim() || undefined,
       });
-      setSuccessMessage(`Rejected request from ${user.email}.`);
+      setSuccessMessage(`Rejected request from ${userToReject.email}.`);
+      setUserToReject(null);
+      setRejectReason('');
       await fetchRequests();
     } catch (err: any) {
       setErrorMessage(err?.message || 'Failed to reject join request.');
     } finally {
-      setActionInProgress(null);
+      setIsRejecting(false);
     }
   };
 
   if (isAuthLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Join Requests" description="Self-registered user approvals" />
-        <div className="py-12 text-center text-xs text-muted-foreground">
-          Loading join requests...
+        <PageHeader
+          title="Join requests"
+          description="Review new sign-ups waiting for workspace access"
+        />
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="p-4 border border-border rounded-sm bg-card space-y-2">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-3 w-64" />
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -264,64 +306,68 @@ export default function JoinRequestsPage() {
 
   if (!canManageUsers) {
     return (
-      <div className="space-y-6">
-        <PageHeader title="Join Requests" description="Self-registered user approvals" />
-        <div className="rounded-sm border border-danger/30 bg-danger/5 p-6 text-center">
-          <h2 className="text-sm font-semibold text-foreground">Access denied</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            You do not have permission to review workspace join requests.
-          </p>
-        </div>
+      <div className="p-8 text-center space-y-3">
+        <p className="text-sm text-destructive">
+          You do not have permission to view or manage join requests.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl">
       <PageHeader
-        title="Join Requests"
-        description="Review self-registered users, assign their starting role, and grant workspace access"
+        title="Join requests"
+        description="Pending users with verified email, oldest first. Approve access to give them a role and board."
       />
 
       {successMessage && (
-        <div
-          role="status"
-          className="rounded-sm border border-success/40 bg-success/10 px-3 py-2 text-xs text-success flex items-center gap-2"
-        >
-          <CheckCircle2 className="size-4 shrink-0" />
+        <div className="flex items-center gap-2 p-3 rounded-sm border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-900 dark:text-emerald-200">
+          <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
           <span>{successMessage}</span>
         </div>
       )}
 
       {errorMessage && (
-        <div
-          role="alert"
-          className="rounded-sm border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
-        >
-          {errorMessage}
+        <div className="flex items-center gap-2 p-3 rounded-sm border border-destructive/30 bg-destructive/10 text-xs text-destructive">
+          <X className="size-4 shrink-0" />
+          <span>{errorMessage}</span>
         </div>
       )}
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Pending user requests ({requests.length})
-          </h3>
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="p-4 border border-border rounded-sm bg-card space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-4 w-28" />
+              </div>
+              <Skeleton className="h-8 w-full" />
+            </div>
+          ))}
         </div>
-
-        {isLoading ? (
-          <div className="py-8 text-center text-xs text-muted-foreground">
-            Loading join requests...
+      ) : requests.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="No one is waiting"
+          description="No one is waiting. New sign-ups appear here after they verify their email."
+          className="my-8"
+        />
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span>
+              <span className="font-medium text-foreground tabular-nums">
+                {requests.length}
+              </span>{' '}
+              {requests.length === 1 ? 'user waiting' : 'users waiting'} (oldest first)
+            </span>
           </div>
-        ) : requests.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="No pending join requests"
-            description="All verified self-registered users have already been reviewed and approved or rejected."
-            nextActionText="New user registrations requiring approval will appear here automatically."
-            className="my-4"
-          />
-        ) : (
+
           <div className="rounded-sm border border-border bg-card divide-y divide-border/60">
             {requests.map((user) => {
               const currentSel = selections[user.id] || {
@@ -329,35 +375,39 @@ export default function JoinRequestsPage() {
                 projectId: projects[0]?.id || '',
                 boardId: '',
               };
-              const currentBoards = (currentSel.projectId && projectBoards[currentSel.projectId]) || [];
+              const currentBoards =
+                (currentSel.projectId && projectBoards[currentSel.projectId]) || [];
               const isProcessing = actionInProgress === user.id;
 
               return (
                 <div
                   key={user.id}
-                  className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-xs"
+                  className="p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-4 text-xs"
                 >
                   {/* User info */}
-                  <div className="space-y-1 min-w-[220px]">
+                  <div className="space-y-1 min-w-[200px]">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-foreground text-sm">
                         {user.name || 'Unnamed user'}
                       </span>
-                      <Badge variant="outline" className="text-[10px] text-brand border-brand/30 bg-brand/5">
+                      <Badge variant="outline" className="text-[10px] rounded-sm">
                         Verified
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">{user.email}</p>
-                    <p className="text-[11px] text-muted-foreground/80">
-                      Requested on {new Date(user.createdAt).toLocaleDateString()}
+                    <p className="text-[11px] text-muted-foreground tabular-nums">
+                      Joined {new Date(user.createdAt).toLocaleDateString()}
                     </p>
                   </div>
 
                   {/* Role, Project & Board Selectors */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 flex-1 max-w-xl">
                     <div className="flex flex-col gap-1">
-                      <label htmlFor={`role-${user.id}`} className="text-[11px] font-medium text-foreground">
-                        Assigned role
+                      <label
+                        htmlFor={`role-${user.id}`}
+                        className="text-[11px] font-medium text-foreground"
+                      >
+                        Role
                       </label>
                       <select
                         id={`role-${user.id}`}
@@ -375,7 +425,10 @@ export default function JoinRequestsPage() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label htmlFor={`project-${user.id}`} className="text-[11px] font-medium text-foreground flex items-center gap-1">
+                      <label
+                        htmlFor={`project-${user.id}`}
+                        className="text-[11px] font-medium text-foreground flex items-center gap-1"
+                      >
                         <FolderKanban className="size-3 text-muted-foreground" />
                         <span>Project</span>
                       </label>
@@ -399,7 +452,10 @@ export default function JoinRequestsPage() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label htmlFor={`board-${user.id}`} className="text-[11px] font-medium text-foreground flex items-center gap-1">
+                      <label
+                        htmlFor={`board-${user.id}`}
+                        className="text-[11px] font-medium text-foreground flex items-center gap-1"
+                      >
                         <LayoutGrid className="size-3 text-muted-foreground" />
                         <span>Board</span>
                       </label>
@@ -424,39 +480,93 @@ export default function JoinRequestsPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0 pt-2 lg:pt-0">
+                  <div className="flex items-center gap-2 shrink-0 pt-2 xl:pt-0">
                     <Button
                       id={`approve-btn-${user.id}`}
                       data-email={user.email}
                       size="sm"
                       onClick={() => handleApprove(user)}
-                      disabled={isProcessing}
-                      className="h-8 bg-brand text-brand-foreground hover:bg-brand/90 gap-1.5 text-xs"
+                      disabled={isProcessing || !currentSel.roleId || !currentSel.boardId}
+                      className="h-8 bg-brand text-brand-foreground hover:bg-brand/90 gap-1.5 text-xs rounded-sm"
                     >
                       {isProcessing ? (
                         <Loader2 className="size-3.5 animate-spin" />
                       ) : (
                         <Check className="size-3.5" />
                       )}
-                      <span>Approve</span>
+                      <span>Approve and give access</span>
                     </Button>
                     <Button
+                      id={`reject-btn-${user.id}`}
                       variant="outline"
                       size="sm"
-                      onClick={() => handleReject(user)}
+                      onClick={() => setUserToReject(user)}
                       disabled={isProcessing}
-                      className="h-8 text-danger hover:text-danger hover:bg-danger/10 gap-1.5 text-xs"
+                      className="h-8 text-destructive hover:bg-destructive/10 gap-1.5 text-xs rounded-sm"
                     >
                       <X className="size-3.5" />
-                      <span>Reject</span>
+                      <span>Reject request</span>
                     </Button>
                   </div>
                 </div>
               );
             })}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Reject Request Dialog with optional reason */}
+      <Dialog
+        open={Boolean(userToReject)}
+        onOpenChange={(open) => !open && setUserToReject(null)}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Reject join request</DialogTitle>
+            <DialogDescription className="text-foreground pt-1">
+              Reject registration request for {userToReject?.email}? Their account will be closed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-1.5 pt-2">
+            <label
+              htmlFor="reject-reason-input"
+              className="text-xs font-medium text-foreground"
+            >
+              Reason <span className="text-muted-foreground">(optional)</span>
+            </label>
+            <Input
+              id="reject-reason-input"
+              placeholder="e.g. Please register using your company domain."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              className="h-9 text-xs"
+            />
+          </div>
+
+          <DialogFooter className="pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setUserToReject(null)}
+              disabled={isRejecting}
+            >
+              Cancel
+            </Button>
+            <Button
+              id="confirm-reject-btn"
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmReject}
+              disabled={isRejecting}
+            >
+              {isRejecting ? 'Rejecting...' : 'Reject request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -2,7 +2,16 @@
 
 import * as React from 'react';
 import { useState, useEffect, useCallback } from 'react';
-import { Mail, Plus, Loader2, RefreshCw, Trash2, CheckCircle2, FolderKanban, LayoutGrid } from 'lucide-react';
+import {
+  Mail,
+  Plus,
+  Loader2,
+  RefreshCw,
+  Trash2,
+  CheckCircle2,
+  FolderKanban,
+  LayoutGrid,
+} from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { PageHeader } from '@/components/page-header';
@@ -10,6 +19,15 @@ import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 interface RoleOption {
   id: string;
@@ -55,6 +73,10 @@ export default function InvitesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Revoke confirmation dialog state
+  const [inviteToRevoke, setInviteToRevoke] = useState<PendingInvite | null>(null);
+  const [isRevoking, setIsRevoking] = useState(false);
 
   const fetchInvites = useCallback(async () => {
     try {
@@ -157,35 +179,40 @@ export default function InvitesPage() {
         boardIds: [selectedBoardId],
       });
 
-      setSuccessMessage(`Invitation dispatched to ${email.trim()}.`);
+      setSuccessMessage(`Invitation sent to ${email.trim()}.`);
       setEmail('');
       await fetchInvites();
     } catch (err: any) {
       setErrorMessage(
-        err?.message || 'Unable to dispatch invitation. Verify details and try again.'
+        err?.message || 'Unable to send invitation. Verify details and try again.'
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleResend = async (id: string) => {
+  const handleResend = async (id: string, invEmail: string) => {
     try {
       await apiClient.post(`/api/invites/${id}/resend`);
-      setSuccessMessage('Invitation link refreshed and resent.');
+      setSuccessMessage(`Invitation link refreshed and resent to ${invEmail}.`);
       await fetchInvites();
     } catch (err: any) {
       setErrorMessage(err?.message || 'Failed to resend invite.');
     }
   };
 
-  const handleRevoke = async (id: string) => {
+  const handleConfirmRevoke = async () => {
+    if (!inviteToRevoke || isRevoking) return;
+    setIsRevoking(true);
     try {
-      await apiClient.delete(`/api/invites/${id}`);
-      setSuccessMessage('Invitation revoked.');
+      await apiClient.delete(`/api/invites/${inviteToRevoke.id}`);
+      setSuccessMessage(`Invitation for ${inviteToRevoke.email} has been revoked.`);
+      setInviteToRevoke(null);
       await fetchInvites();
     } catch (err: any) {
       setErrorMessage(err?.message || 'Failed to revoke invite.');
+    } finally {
+      setIsRevoking(false);
     }
   };
 
@@ -193,8 +220,9 @@ export default function InvitesPage() {
     return (
       <div className="space-y-6">
         <PageHeader title="Invites" description="Team invitation management" />
-        <div className="py-12 text-center text-xs text-muted-foreground">
-          Loading invitation management...
+        <div className="space-y-3">
+          <Skeleton className="h-48 w-full rounded-sm" />
+          <Skeleton className="h-24 w-full rounded-sm" />
         </div>
       </div>
     );
@@ -204,7 +232,7 @@ export default function InvitesPage() {
     return (
       <div className="space-y-6">
         <PageHeader title="Invites" description="Team invitation management" />
-        <div className="rounded-sm border border-danger/30 bg-danger/5 p-6 text-center">
+        <div className="rounded-sm border border-destructive/30 bg-destructive/5 p-6 text-center">
           <h2 className="text-sm font-semibold text-foreground">Access denied</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             You do not have permission to manage workspace users or send invitations.
@@ -215,7 +243,7 @@ export default function InvitesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl">
       <PageHeader
         title="Invites"
         description="Invite new team members and assign their initial role, project, and board"
@@ -233,9 +261,9 @@ export default function InvitesPage() {
         {successMessage && (
           <div
             role="status"
-            className="mt-4 rounded-sm border border-success/40 bg-success/10 px-3 py-2 text-xs text-success flex items-center gap-2"
+            className="mt-4 rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-900 dark:text-emerald-200 flex items-center gap-2"
           >
-            <CheckCircle2 className="size-4 shrink-0" />
+            <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
             <span>{successMessage}</span>
           </div>
         )}
@@ -243,28 +271,28 @@ export default function InvitesPage() {
         {errorMessage && (
           <div
             role="alert"
-            className="mt-4 rounded-sm border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger"
+            className="mt-4 rounded-sm border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
           >
             {errorMessage}
           </div>
         )}
 
-        <form onSubmit={handleSendInvite} className="mt-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <form onSubmit={handleSendInvite} className="space-y-4 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Email Input */}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="invite-email-input" className="text-xs font-medium text-foreground">
-                Recipient email
+                Email address
               </label>
               <Input
                 id="invite-email-input"
                 type="email"
-                required
-                disabled={isSubmitting}
-                placeholder="colleague@example.com"
+                placeholder="developer@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={isSubmitting}
                 className="h-9 text-xs"
+                required
               />
             </div>
 
@@ -277,8 +305,8 @@ export default function InvitesPage() {
                 id="invite-role-select"
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value)}
-                disabled={isSubmitting}
-                className="h-9 rounded-sm border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                disabled={isSubmitting || roles.length === 0}
+                className="h-9 rounded-sm border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring"
               >
                 {roles.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -299,7 +327,7 @@ export default function InvitesPage() {
                 value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
                 disabled={isSubmitting || projects.length === 0}
-                className="h-9 rounded-sm border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-9 rounded-sm border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring"
               >
                 {projects.length === 0 ? (
                   <option value="">No projects available</option>
@@ -327,7 +355,7 @@ export default function InvitesPage() {
                 value={selectedBoardId}
                 onChange={(e) => setSelectedBoardId(e.target.value)}
                 disabled={isSubmitting || isLoadingBoards || boards.length === 0}
-                className="h-9 rounded-sm border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-9 rounded-sm border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring"
               >
                 {isLoadingBoards ? (
                   <option value="">Loading boards...</option>
@@ -347,24 +375,24 @@ export default function InvitesPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-1 border-t border-border/40">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/40">
             <p className="text-[11px] text-muted-foreground">
               Invited users are automatically granted workspace membership and access to the selected board.
             </p>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="h-9 bg-brand text-brand-foreground hover:bg-brand/90 gap-1.5 text-xs whitespace-nowrap shrink-0"
+              className="h-9 bg-brand text-brand-foreground hover:bg-brand/90 gap-1.5 text-xs whitespace-nowrap shrink-0 rounded-sm"
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="size-3.5 animate-spin" />
-                  Sending...
+                  <span>Sending...</span>
                 </>
               ) : (
                 <>
                   <Plus className="size-3.5" />
-                  Send invite
+                  <span>Send invite</span>
                 </>
               )}
             </Button>
@@ -381,8 +409,13 @@ export default function InvitesPage() {
         </div>
 
         {isLoading ? (
-          <div className="py-8 text-center text-xs text-muted-foreground">
-            Loading invitations...
+          <div className="space-y-2">
+            {[1, 2].map((i) => (
+              <div key={i} className="p-4 border border-border rounded-sm bg-card space-y-2">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-64" />
+              </div>
+            ))}
           </div>
         ) : invites.length === 0 ? (
           <EmptyState
@@ -394,46 +427,97 @@ export default function InvitesPage() {
           />
         ) : (
           <div className="rounded-sm border border-border bg-card divide-y divide-border/60">
-            {invites.map((inv) => (
-              <div key={inv.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">{inv.email}</span>
-                    <Badge variant="secondary" className="text-[10px] uppercase font-semibold">
-                      {inv.roles?.map(r => r.displayName || r.id).join(', ') || inv.roleIds?.join(', ') || 'Developer'}
-                    </Badge>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Invited on {new Date(inv.createdAt).toLocaleDateString()}
-                    {inv.invitedBy && ` by ${typeof inv.invitedBy === 'string' ? inv.invitedBy : inv.invitedBy.name}`}
-                  </p>
-                </div>
+            {invites.map((inv) => {
+              const inviterName =
+                typeof inv.invitedBy === 'string'
+                  ? inv.invitedBy
+                  : inv.invitedBy?.name || 'Administrator';
+              const expiresDate = new Date(inv.expiresAt).toLocaleDateString();
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleResend(inv.id)}
-                    className="gap-1 text-xs h-7 px-2"
-                  >
-                    <RefreshCw className="size-3" />
-                    <span>Resend</span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRevoke(inv.id)}
-                    className="gap-1 text-xs text-danger hover:text-danger h-7 px-2"
-                  >
-                    <Trash2 className="size-3" />
-                    <span>Revoke</span>
-                  </Button>
+              return (
+                <div
+                  key={inv.id}
+                  className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">{inv.email}</span>
+                      <Badge variant="secondary" className="text-[10px] font-semibold rounded-sm">
+                        {inv.roles?.map((r) => r.displayName || r.id).join(', ') ||
+                          inv.roleIds?.join(', ') ||
+                          'Developer'}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground tabular-nums">
+                      <span>Sent by {inviterName}</span>
+                      <span>•</span>
+                      <span>Expires {expiresDate}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleResend(inv.id, inv.email)}
+                      className="gap-1 text-xs h-7 px-2.5 rounded-sm"
+                    >
+                      <RefreshCw className="size-3" />
+                      <span>Resend</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setInviteToRevoke(inv)}
+                      className="gap-1 text-xs text-destructive hover:bg-destructive/10 h-7 px-2.5 rounded-sm"
+                    >
+                      <Trash2 className="size-3" />
+                      <span>Revoke</span>
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Revoke Invite Confirmation Dialog */}
+      <Dialog
+        open={Boolean(inviteToRevoke)}
+        onOpenChange={(open) => !open && setInviteToRevoke(null)}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Revoke invitation</DialogTitle>
+            <DialogDescription className="text-foreground pt-1">
+              Revoke invitation for {inviteToRevoke?.email}? They will no longer be able to use this link to sign up.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setInviteToRevoke(null)}
+              disabled={isRevoking}
+            >
+              Cancel
+            </Button>
+            <Button
+              id="confirm-revoke-invite-btn"
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmRevoke}
+              disabled={isRevoking}
+            >
+              {isRevoking ? 'Revoking...' : 'Revoke invitation'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

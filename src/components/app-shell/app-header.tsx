@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, Search, LogOut } from 'lucide-react';
+import { Menu, Search, LogOut, User } from 'lucide-react';
 import { BRAND } from '@/lib/brand';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { Button } from '@/components/ui/button';
@@ -135,6 +135,16 @@ export function AppHeader({ onOpenMobileMenu }: AppHeaderProps) {
               </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
+            {user?.id && (
+              <DropdownMenuItem
+                render={
+                  <a href={`/users/${user.id}`} className="flex items-center gap-2 w-full text-xs cursor-pointer">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Profile</span>
+                  </a>
+                }
+              />
+            )}
             <DropdownMenuItem
               onClick={() => signOut()}
               className="text-xs gap-2 text-destructive focus:text-destructive cursor-pointer"

@@ -11,6 +11,8 @@ import {
   Plus,
   FolderPlus,
   UserCheck,
+  Shield,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BRAND } from '@/lib/brand';
@@ -39,8 +41,21 @@ export function AppSidebar({
   const { can } = useCurrentUser();
 
   const isMyTasksActive = pathname === '/my-tasks' || pathname === '/';
-  const isProjectsActive = pathname.startsWith('/projects');
+  const isProjectsActive = pathname === '/projects' || pathname.startsWith('/projects');
+  const isRolesActive = pathname.startsWith('/roles');
+  const isUsersActive = pathname.startsWith('/users');
   const canCreateProject = can('project.create');
+
+  const [sidebarProjects, setSidebarProjects] = React.useState<Array<{ id: string; name: string; key: string }>>([]);
+
+  React.useEffect(() => {
+    import('@/lib/api-client').then(({ apiClient }) => {
+      apiClient
+        .get<{ projects: any[] }>('/api/projects')
+        .then((res) => setSidebarProjects(res.projects || []))
+        .catch(() => {});
+    });
+  }, [pathname]);
 
   return (
     <aside
@@ -159,6 +174,85 @@ export function AppSidebar({
             </Link>
           )}
 
+          {/* Roles */}
+          {can('role.manage') && (
+            isCollapsed ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Link
+                      href="/roles"
+                      onClick={onNavigate}
+                      className={cn(
+                        'flex h-9 w-9 mx-auto items-center justify-center rounded-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                        isRolesActive &&
+                          'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                      )}
+                    >
+                      <Shield className="h-4 w-4" />
+                      <span className="sr-only">Roles</span>
+                    </Link>
+                  }
+                />
+                <TooltipContent side="right">Roles</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Link
+                href="/roles"
+                onClick={onNavigate}
+                className={cn(
+                  'flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-xs font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  isRolesActive
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+                    : 'text-sidebar-foreground/80'
+                )}
+              >
+                <Shield className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">Roles</span>
+              </Link>
+            )
+          )}
+
+          {/* Users */}
+          {(can('user.manage') || can('member.manage')) && (
+            isCollapsed ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Link
+                      href="/users"
+                      onClick={onNavigate}
+                      className={cn(
+                        'flex h-9 w-9 mx-auto items-center justify-center rounded-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                        isUsersActive &&
+                          'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                      )}
+                    >
+                      <Users className="h-4 w-4" />
+                      <span className="sr-only">Users</span>
+                    </Link>
+                  }
+                />
+                <TooltipContent side="right">Users</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Link
+                href="/users"
+                onClick={onNavigate}
+                className={cn(
+                  'flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-xs font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  isUsersActive
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+                    : 'text-sidebar-foreground/80'
+                )}
+              >
+                <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">Users</span>
+              </Link>
+            )
+          )}
+
+          {/* Invites & Join Requests */}
           {can('user.manage') && (
             <>
               {isCollapsed ? (
@@ -253,29 +347,54 @@ export function AppSidebar({
               )}
             </div>
 
-            {/* Empty state for Projects */}
-            <div className="px-2.5 py-3 rounded-sm border border-dashed border-sidebar-border bg-sidebar-accent/20 text-center space-y-1.5">
-              <FolderPlus className="h-4 w-4 mx-auto text-muted-foreground/60" />
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-sidebar-foreground/90">
-                  No projects yet
-                </p>
-                <p className="text-[11px] text-muted-foreground leading-normal">
-                  Create your first project to start tracking role handoffs.
-                </p>
-                {canCreateProject && (
-                  <div className="pt-1">
-                    <Link
-                      href="/projects/new"
-                      onClick={onNavigate}
-                      className="text-xs font-medium text-brand hover:underline inline-block"
-                    >
-                      + Create project
-                    </Link>
-                  </div>
-                )}
+            {sidebarProjects.length === 0 ? (
+              <div className="px-2.5 py-3 rounded-sm border border-dashed border-sidebar-border bg-sidebar-accent/20 text-center space-y-1.5">
+                <FolderPlus className="h-4 w-4 mx-auto text-muted-foreground/60" />
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-sidebar-foreground/90">
+                    No projects yet
+                  </p>
+                  <p className="text-[11px] text-muted-foreground leading-normal">
+                    Create your first project to start tracking role handoffs.
+                  </p>
+                  {canCreateProject && (
+                    <div className="pt-1">
+                      <Link
+                        href="/projects/new"
+                        onClick={onNavigate}
+                        className="text-xs font-medium text-brand hover:underline inline-block"
+                      >
+                        + Create project
+                      </Link>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-0.5">
+                {sidebarProjects.map((p) => {
+                  const isCur = pathname.startsWith(`/projects/${p.id}`);
+                  return (
+                    <Link
+                      key={p.id}
+                      href={`/projects/${p.id}`}
+                      onClick={onNavigate}
+                      className={cn(
+                        'flex items-center justify-between px-2.5 py-1.5 rounded-sm text-xs transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                        isCur
+                          ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+                          : 'text-sidebar-foreground/80'
+                      )}
+                    >
+                      <span className="truncate">{p.name}</span>
+                      <span className="font-mono text-[10px] text-muted-foreground shrink-0 ml-1">
+                        {p.key}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -9,3 +9,19 @@ Discrepancies between `docs/UI_GUIDE.md` / `docs/API.md` and the live dev server
 - **Password reset request endpoint**: `docs/API.md` lists `POST /api/auth/forgot-password`. In the active Better Auth setup, the route is `POST /api/auth/request-password-reset` with `{ email }`.
 - **Password reset execution**: `POST /api/auth/reset-password` accepts `{ token, newPassword }`.
 - **Invite accept endpoints**: `GET /api/invites/accept?token=...` validates token and returns `{ email, invitedBy }`. `POST /api/invites/accept` accepts `{ token, name, password }` and creates an active verified user.
+
+## 2. Projects and Boards
+- **Project list filtering**: `GET /api/projects` filters to active projects (`archivedAt: null`). Individual project status and details are retrieved with `GET /api/projects/:projectId`.
+- **Board column creation**: `POST /api/projects/:projectId/boards` automatically creates three default columns: To Do, In Progress, Done.
+
+## 3. Users and Profiles
+- **Users list vs profile**: `GET /api/users` returns active users with `{ id, name, email }`. Complete roles, permissions, projects, and accessible boards are retrieved via `GET /api/users/:userId/profile`.
+- **User role replacement**: Updating a user's roles uses `PUT /api/users/:userId/roles` with `{ roleIds: string[] }`.
+
+## 4. Columns and Rules
+- **Column rule configuration**: Role view and move rules are managed via `GET` and `PUT /api/projects/:projectId/columns/:columnId/rules` with `{ viewRoleIds, moveRoleIds }`.
+- **Column reordering**: Reordering columns uses `PATCH /api/projects/:projectId/boards/:boardId/columns` with `{ columns: [{ id, position }] }`.
+- **Column deletion**: Deleting a column with tasks requires `{ targetColumnId }` in `DELETE /api/projects/:projectId/columns/:columnId`.
+
+## 5. Invites
+- **Invite list payload**: `GET /api/invites` returns `{ id, email, createdAt, expiresAt, invitedBy, roles }`. Project and board assignments are tracked upon invite creation and applied on acceptance.

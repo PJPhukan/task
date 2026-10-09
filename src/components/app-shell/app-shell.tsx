@@ -4,12 +4,14 @@ import * as React from 'react';
 import { AppSidebar } from './app-sidebar';
 import { AppHeader } from './app-header';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { useAdminOnboarding } from '@/hooks/use-admin-onboarding';
 
 interface AppShellProps {
   children: React.ReactNode;
 }
 
 export function AppShell({ children }: AppShellProps) {
+  useAdminOnboarding();
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
 
