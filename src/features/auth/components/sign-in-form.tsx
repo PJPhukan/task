@@ -45,7 +45,7 @@ export function SignInForm() {
           code === 'EMAIL_NOT_VERIFIED' ||
           msg.toLowerCase().includes('verified')
         ) {
-          setErrorMessage('Incorrect email address or password. Verify your details or reset your password.');
+          setErrorMessage('Incorrect email address or password.');
         } else if (code === 'ACCOUNT_PENDING') {
           setErrorMessage('Your account is pending administrator approval. You will receive an email once approved.');
         } else if (code === 'ACCOUNT_REJECTED') {

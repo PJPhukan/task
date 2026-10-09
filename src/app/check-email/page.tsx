@@ -66,10 +66,10 @@ export default async function CheckEmailPage({
 
           <div className="mt-4 rounded-sm border border-border/80 bg-muted/40 p-3 text-left">
             <p className="text-[11px] font-medium text-foreground">
-              Next step:
+              Check your inbox:
             </p>
             <p className="mt-0.5 text-[11px] text-muted-foreground leading-relaxed">
-              Open your email inbox and click the verification link. If you do not see it within two minutes, check your spam folder or return to sign in.
+              Open your email inbox and click the verification link. If you do not see it within two minutes, check your spam folder or click resend below.
             </p>
           </div>
 

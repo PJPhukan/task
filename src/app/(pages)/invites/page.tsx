@@ -142,13 +142,8 @@ export default function InvitesPage() {
       return;
     }
 
-    if (!selectedProjectId) {
-      setErrorMessage('Please select at least one project so the invited user does not land in an empty workspace.');
-      return;
-    }
-
-    if (!selectedBoardId) {
-      setErrorMessage('Please select at least one board so the invited user has immediate access to tasks.');
+    if (!selectedProjectId || !selectedBoardId) {
+      setErrorMessage('Choose at least one project and board so the new person has somewhere to work.');
       return;
     }
 
