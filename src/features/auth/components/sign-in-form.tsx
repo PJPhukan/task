@@ -39,10 +39,13 @@ export function SignInForm() {
         const code = response.error.code || '';
         const msg = response.error.message || '';
 
-        if (code === 'INVALID_EMAIL_OR_PASSWORD' || msg.includes('Invalid email or password')) {
+        if (
+          code === 'INVALID_EMAIL_OR_PASSWORD' ||
+          msg.includes('Invalid email or password') ||
+          code === 'EMAIL_NOT_VERIFIED' ||
+          msg.toLowerCase().includes('verified')
+        ) {
           setErrorMessage('Incorrect email address or password. Verify your details or reset your password.');
-        } else if (code === 'EMAIL_NOT_VERIFIED' || msg.includes('verified')) {
-          setErrorMessage('Your email address is not verified. Check your inbox for the verification link.');
         } else if (code === 'ACCOUNT_PENDING') {
           setErrorMessage('Your account is pending administrator approval. You will receive an email once approved.');
         } else if (code === 'ACCOUNT_REJECTED') {

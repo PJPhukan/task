@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect } from 'react';
-import { Mail, Plus, Loader2, RefreshCw, Trash2, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Mail, Plus, Loader2, RefreshCw, Trash2, CheckCircle2, FolderKanban, LayoutGrid } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { PageHeader } from '@/components/page-header';
@@ -16,6 +16,16 @@ interface RoleOption {
   displayName: string;
 }
 
+interface ProjectOption {
+  id: string;
+  name: string;
+}
+
+interface BoardOption {
+  id: string;
+  name: string;
+}
+
 interface PendingInvite {
   id: string;
   email: string;
@@ -27,19 +37,26 @@ interface PendingInvite {
 }
 
 export default function InvitesPage() {
-  const { can } = useCurrentUser();
+  const { can, isLoading: isAuthLoading } = useCurrentUser();
   const canManageUsers = can('user.manage');
 
   const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [boards, setBoards] = useState<BoardOption[]>([]);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
+
   const [email, setEmail] = useState('');
   const [selectedRole, setSelectedRole] = useState('developer');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [selectedBoardId, setSelectedBoardId] = useState('');
+
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingBoards, setIsLoadingBoards] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const fetchInvites = React.useCallback(async () => {
+  const fetchInvites = useCallback(async () => {
     try {
       const data = await apiClient.get<{ invites: PendingInvite[] }>('/api/invites');
       setInvites(data.invites || []);
@@ -48,15 +65,31 @@ export default function InvitesPage() {
     }
   }, []);
 
+  // Fetch initial roles, projects, and existing invites
   useEffect(() => {
     async function loadData() {
       try {
-        const [rolesData, invitesData] = await Promise.all([
+        const [rolesData, invitesData, projectsData] = await Promise.all([
           apiClient.get<{ roles: RoleOption[] }>('/api/roles'),
           apiClient.get<{ invites: PendingInvite[] }>('/api/invites'),
+          apiClient.get<{ projects: ProjectOption[] }>('/api/projects').catch(() => ({ projects: [] })),
         ]);
-        setRoles(rolesData.roles || []);
+
+        const loadedRoles = rolesData.roles || [];
+        setRoles(loadedRoles);
+        if (loadedRoles.some((r) => r.id === 'developer')) {
+          setSelectedRole('developer');
+        } else if (loadedRoles.length > 0) {
+          setSelectedRole(loadedRoles[0].id);
+        }
+
         setInvites(invitesData.invites || []);
+
+        const loadedProjects = projectsData.projects || [];
+        setProjects(loadedProjects);
+        if (loadedProjects.length > 0) {
+          setSelectedProjectId(loadedProjects[0].id);
+        }
       } catch {
         // Ignored
       } finally {
@@ -66,6 +99,38 @@ export default function InvitesPage() {
 
     loadData();
   }, []);
+
+  // Load boards whenever selected project changes
+  useEffect(() => {
+    if (!selectedProjectId) {
+      setBoards([]);
+      setSelectedBoardId('');
+      return;
+    }
+
+    async function loadBoards() {
+      setIsLoadingBoards(true);
+      try {
+        const data = await apiClient.get<{ boards: BoardOption[] }>(
+          `/api/projects/${selectedProjectId}/boards`
+        );
+        const projectBoards = data.boards || [];
+        setBoards(projectBoards);
+        if (projectBoards.length > 0) {
+          setSelectedBoardId(projectBoards[0].id);
+        } else {
+          setSelectedBoardId('');
+        }
+      } catch {
+        setBoards([]);
+        setSelectedBoardId('');
+      } finally {
+        setIsLoadingBoards(false);
+      }
+    }
+
+    loadBoards();
+  }, [selectedProjectId]);
 
   const handleSendInvite = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -77,12 +142,24 @@ export default function InvitesPage() {
       return;
     }
 
+    if (!selectedProjectId) {
+      setErrorMessage('Please select at least one project so the invited user does not land in an empty workspace.');
+      return;
+    }
+
+    if (!selectedBoardId) {
+      setErrorMessage('Please select at least one board so the invited user has immediate access to tasks.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       await apiClient.post('/api/invites', {
         email: email.trim(),
         roleIds: [selectedRole],
+        projectIds: [selectedProjectId],
+        boardIds: [selectedBoardId],
       });
 
       setSuccessMessage(`Invitation dispatched to ${email.trim()}.`);
@@ -117,6 +194,17 @@ export default function InvitesPage() {
     }
   };
 
+  if (isAuthLoading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Invites" description="Team invitation management" />
+        <div className="py-12 text-center text-xs text-muted-foreground">
+          Loading invitation management...
+        </div>
+      </div>
+    );
+  }
+
   if (!canManageUsers) {
     return (
       <div className="space-y-6">
@@ -135,7 +223,7 @@ export default function InvitesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Invites"
-        description="Invite new team members and assign their starting role"
+        description="Invite new team members and assign their initial role, project, and board"
       />
 
       {/* Invite Form Card */}
@@ -166,59 +254,126 @@ export default function InvitesPage() {
           </div>
         )}
 
-        <form onSubmit={handleSendInvite} className="mt-4 flex flex-col sm:flex-row gap-3 items-end">
-          <div className="flex-1 flex flex-col gap-1.5 w-full">
-            <label htmlFor="invite-email-input" className="text-xs font-medium text-foreground">
-              Recipient email
-            </label>
-            <Input
-              id="invite-email-input"
-              type="email"
-              required
-              disabled={isSubmitting}
-              placeholder="colleague@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-9"
-            />
+        <form onSubmit={handleSendInvite} className="mt-4 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Email Input */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="invite-email-input" className="text-xs font-medium text-foreground">
+                Recipient email
+              </label>
+              <Input
+                id="invite-email-input"
+                type="email"
+                required
+                disabled={isSubmitting}
+                placeholder="colleague@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+
+            {/* Role Select */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="invite-role-select" className="text-xs font-medium text-foreground">
+                Assigned role
+              </label>
+              <select
+                id="invite-role-select"
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                disabled={isSubmitting}
+                className="h-9 rounded-sm border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.displayName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Project Select */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="invite-project-select" className="text-xs font-medium text-foreground flex items-center gap-1">
+                <FolderKanban className="size-3 text-muted-foreground" />
+                <span>Assigned project</span>
+              </label>
+              <select
+                id="invite-project-select"
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                disabled={isSubmitting || projects.length === 0}
+                className="h-9 rounded-sm border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {projects.length === 0 ? (
+                  <option value="">No projects available</option>
+                ) : (
+                  <>
+                    <option value="">-- Select project --</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+            </div>
+
+            {/* Board Select */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="invite-board-select" className="text-xs font-medium text-foreground flex items-center gap-1">
+                <LayoutGrid className="size-3 text-muted-foreground" />
+                <span>Assigned board</span>
+              </label>
+              <select
+                id="invite-board-select"
+                value={selectedBoardId}
+                onChange={(e) => setSelectedBoardId(e.target.value)}
+                disabled={isSubmitting || isLoadingBoards || boards.length === 0}
+                className="h-9 rounded-sm border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {isLoadingBoards ? (
+                  <option value="">Loading boards...</option>
+                ) : boards.length === 0 ? (
+                  <option value="">No boards available</option>
+                ) : (
+                  <>
+                    <option value="">-- Select board --</option>
+                    {boards.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-1.5 w-full sm:w-48">
-            <label htmlFor="invite-role-select" className="text-xs font-medium text-foreground">
-              Assigned role
-            </label>
-            <select
-              id="invite-role-select"
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
+          <div className="flex items-center justify-between pt-1 border-t border-border/40">
+            <p className="text-[11px] text-muted-foreground">
+              Invited users are automatically granted workspace membership and access to the selected board.
+            </p>
+            <Button
+              type="submit"
               disabled={isSubmitting}
-              className="h-9 rounded-sm border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-9 bg-brand text-brand-foreground hover:bg-brand/90 gap-1.5 text-xs whitespace-nowrap shrink-0"
             >
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.displayName}
-                </option>
-              ))}
-            </select>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Plus className="size-3.5" />
+                  Send invite
+                </>
+              )}
+            </Button>
           </div>
-
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="h-9 bg-brand text-brand-foreground hover:bg-brand/90 gap-1.5 text-xs whitespace-nowrap shrink-0 w-full sm:w-auto"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="size-3.5 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <Plus className="size-3.5" />
-                Send invite
-              </>
-            )}
-          </Button>
         </form>
       </div>
 

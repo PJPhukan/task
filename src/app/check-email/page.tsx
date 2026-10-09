@@ -5,6 +5,7 @@ import { BRAND } from '@/lib/brand';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ResendVerificationAction } from '@/features/auth/components/resend-verification-action';
 
 export const metadata = {
   title: `Check your email — ${BRAND.name}`,
@@ -72,7 +73,9 @@ export default async function CheckEmailPage({
             </p>
           </div>
 
-          <div className="mt-6 w-full">
+          <ResendVerificationAction defaultEmail={email} />
+
+          <div className="mt-4 w-full">
             <Button
               nativeButton={false}
               render={
