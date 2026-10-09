@@ -104,7 +104,7 @@ export default function SetupPage() {
   };
 
   // ================= Step b: Board =================
-  const [boardName, setBoardName] = React.useState('Development');
+  const [boardName, setBoardName] = React.useState('');
   const [isSubmittingBoard, setIsSubmittingBoard] = React.useState(false);
   const [boardError, setBoardError] = React.useState<string | null>(null);
 
