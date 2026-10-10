@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  UserCheck,
   Users,
   Check,
   X,
@@ -86,19 +85,6 @@ export default function JoinRequestsPage() {
       // Failed to list
     }
   }, []);
-
-  const loadBoardsForProject = useCallback(async (projectId: string) => {
-    if (!projectId || projectBoards[projectId]) return;
-    try {
-      const data = await apiClient.get<{ boards: BoardOption[] }>(`/api/projects/${projectId}/boards`);
-      setProjectBoards((prev) => ({
-        ...prev,
-        [projectId]: data.boards || [],
-      }));
-    } catch {
-      // Failed
-    }
-  }, [projectBoards]);
 
   useEffect(() => {
     async function loadInitialData() {

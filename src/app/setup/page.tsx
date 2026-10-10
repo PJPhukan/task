@@ -3,10 +3,6 @@
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  FolderKanban,
-  Kanban,
-  Columns3,
-  UserPlus,
   CheckCircle2,
   ArrowRight,
   ArrowLeft,
@@ -15,7 +11,7 @@ import {
   ChevronUp,
   ChevronDown,
 } from 'lucide-react';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,10 +25,10 @@ interface RoleOption {
   displayName: string;
 }
 
-export default function SetupPage() {
+function SetupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, can } = useCurrentUser();
+  useCurrentUser();
 
   // Progress kept in URL
   const currentStep = searchParams.get('step') || 'project';
@@ -380,7 +376,7 @@ export default function SetupPage() {
       <div className="max-w-xl mx-auto w-full my-auto py-8">
         {/* Step Tracker */}
         <div className="flex items-center justify-between mb-8 pb-3 border-b border-border text-xs">
-          {stepsList.map((s, idx) => {
+          {stepsList.map((s) => {
             const isActive = currentStep === s.key;
             return (
               <span
@@ -841,5 +837,19 @@ export default function SetupPage() {
         Rolane — Role-based task board for software engineering teams.
       </div>
     </div>
+  );
+}
+
+export default function SetupPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="h-8 w-48 bg-muted animate-pulse rounded-sm" />
+        </div>
+      }
+    >
+      <SetupContent />
+    </React.Suspense>
   );
 }

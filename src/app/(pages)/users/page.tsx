@@ -5,9 +5,6 @@ import Link from 'next/link';
 import {
   Users,
   Edit2,
-  Shield,
-  CheckCircle2,
-  XCircle,
   AlertTriangle,
   Search,
   ExternalLink,

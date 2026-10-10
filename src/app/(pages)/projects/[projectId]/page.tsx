@@ -6,14 +6,10 @@ import { useRouter } from 'next/navigation';
 import {
   Kanban,
   Plus,
-  Settings,
   Archive,
   Users,
   ArrowRight,
   Edit2,
-  Check,
-  X,
-  AlertTriangle,
 } from 'lucide-react';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { useCurrentUser } from '@/hooks/use-current-user';

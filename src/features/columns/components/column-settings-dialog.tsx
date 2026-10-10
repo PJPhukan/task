@@ -2,23 +2,14 @@
 
 import * as React from 'react';
 import {
-  Columns3,
   Plus,
   Trash2,
   ChevronUp,
   ChevronDown,
-  Check,
-  AlertCircle,
-  Clock,
-  CheckCircle2,
-  Eye,
-  ArrowRight,
-  Sparkles,
 } from 'lucide-react';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -37,7 +28,7 @@ interface ColumnSettingsDialogProps {
   projectId: string;
   boardId: string;
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChange: (_open: boolean) => void;
   onColumnsUpdated?: () => void;
 }
 

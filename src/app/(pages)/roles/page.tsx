@@ -44,7 +44,7 @@ export default function RolesPage() {
   const [roles, setRoles] = React.useState<RoleItem[]>([]);
   const [catalog, setCatalog] = React.useState<CatalogGrouped>({});
   const [userCounts, setUserCounts] = React.useState<Record<string, number>>({});
-  const [activeManagersCount, setActiveManagersCount] = React.useState(0);
+  const [_activeManagersCount, setActiveManagersCount] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(true);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 

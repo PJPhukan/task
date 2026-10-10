@@ -17,8 +17,8 @@ import {
 
 interface CreateProjectDialogProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onProjectCreated?: (project: any) => void;
+  onOpenChange: (_open: boolean) => void;
+  onProjectCreated?: (_project: any) => void;
 }
 
 export function CreateProjectDialog({

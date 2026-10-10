@@ -2,16 +2,10 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   Users,
   UserPlus,
   Trash2,
-  Check,
-  Shield,
-  LayoutGrid,
-  AlertCircle,
-  ArrowLeft,
 } from 'lucide-react';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { useCurrentUser } from '@/hooks/use-current-user';
@@ -19,7 +13,6 @@ import { PageHeader } from '@/components/page-header';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -46,7 +39,6 @@ interface MemberDetail {
 }
 
 export default function ProjectMembersPage(props: ProjectMembersPageProps) {
-  const router = useRouter();
   const { projectId } = React.use(props.params);
   const { can } = useCurrentUser();
   const canManageMembers = can('member.manage');

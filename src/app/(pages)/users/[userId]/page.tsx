@@ -3,18 +3,13 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
-  User,
-  Shield,
   FolderKanban,
   LayoutGrid,
   Mail,
-  CheckCircle2,
-  XCircle,
   ArrowRight,
   ArrowLeft,
 } from 'lucide-react';
 import { apiClient, ApiError } from '@/lib/api-client';
-import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';

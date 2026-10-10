@@ -18,8 +18,8 @@ import {
 interface CreateBoardDialogProps {
   projectId: string;
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onBoardCreated?: (board: any) => void;
+  onOpenChange: (_open: boolean) => void;
+  onBoardCreated?: (_board: any) => void;
 }
 
 export function CreateBoardDialog({
