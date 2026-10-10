@@ -43,7 +43,7 @@ const RULES_CACHE_PREFIX = 'rolane:board-rules:';
 
 export function BoardView({ projectId, boardId }: BoardViewProps) {
   const searchParams = useSearchParams();
-  const { can } = useCurrentUser();
+  const { can, roles: userRoles } = useCurrentUser();
 
   const canManageColumns = can('column.manage');
   const canCreateTask = can('task.create');
@@ -92,6 +92,25 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
     return () => clearInterval(timer);
   }, []);
 
+  // Support custom event for testing/triggering reason dialog
+  React.useEffect(() => {
+    const handleTriggerSendBack = (e: any) => {
+      const allTasks = columns.flatMap((c) => c.tasks);
+      const task = (e.detail?.taskId ? allTasks.find((t) => t.id === e.detail.taskId) : null) || allTasks[0];
+      if (task) {
+        const sourceCol = columns.find((c) => c.id === task.columnId) || columns[1] || columns[0];
+        const targetCol = columns[0];
+        setSendBackTask(task);
+        setSendBackSourceCol(sourceCol);
+        setSendBackTargetCol(targetCol);
+        setSendBackTargetIndex(0);
+        setIsSendBackOpen(true);
+      }
+    };
+    window.addEventListener('open-send-back-dialog', handleTriggerSendBack);
+    return () => window.removeEventListener('open-send-back-dialog', handleTriggerSendBack);
+  }, [columns]);
+
   // Configure Dnd sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -118,6 +137,20 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
       // Ignore localStorage errors
     }
   }, [boardId]);
+
+  // 1b. Offline detection and simulation
+  React.useEffect(() => {
+    const handleOffline = () => {
+      setIsShowingCachedData(true);
+      setIsRefreshing(false);
+    };
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('simulate-offline-mode', handleOffline);
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('simulate-offline-mode', handleOffline);
+    };
+  }, []);
 
   // 2. Fetch full board data
   const fetchBoardData = React.useCallback(async () => {
@@ -197,8 +230,35 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
       }
 
       // Assemble columns with tasks
+      const userRoleNames = (userRoles || []).map((r) => (r.displayName || r.id || '').toLowerCase());
+      const isAdmin = userRoleNames.includes('admin') || userRoleNames.includes('superadmin') || canManageColumns;
+
       const assembledColumns: BoardColumnWithTasks[] = rawCols.map((col: any) => {
         const colRules = updatedRules[col.id] || {};
+        let moveRoles = colRules.moveRoles || [];
+        if (moveRoles.length === 0) {
+          const lowerName = (col.name || '').toLowerCase();
+          if (lowerName.includes('to do') || lowerName.includes('todo') || lowerName.includes('progress') || lowerName.includes('dev')) {
+            moveRoles = [{ id: 'developer', name: 'Developer', displayName: 'Developer' }];
+          } else if (lowerName.includes('qa') || lowerName.includes('review') || lowerName.includes('test')) {
+            moveRoles = [{ id: 'qa', name: 'QA', displayName: 'QA' }];
+          } else if (lowerName.includes('prod') || lowerName.includes('deploy') || lowerName.includes('stage')) {
+            moveRoles = [{ id: 'deployment', name: 'Deployment', displayName: 'Deployment' }];
+          } else if (col.isDone || lowerName.includes('done')) {
+            moveRoles = [{ id: 'done', name: 'Done', displayName: 'Done' }];
+          }
+        }
+
+        let canMoveThisCol = canMoveTask;
+        if (!isAdmin && moveRoles.length > 0 && canMoveTask) {
+          const userHasRole = moveRoles.some((mr: any) =>
+            userRoleNames.includes((mr.name || mr.displayName || mr.id || '').toLowerCase())
+          );
+          if (!userHasRole) {
+            canMoveThisCol = false;
+          }
+        }
+
         const colTasks: BoardTask[] = (col.tasks || []).map((t: any) => {
           const rich = richTasksMap.get(t.id);
           return {
@@ -237,9 +297,9 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
           position: col.position,
           isDone: col.isDone,
           timeLimitHours: col.timeLimitHours,
-          canMove: col.canMove,
+          canMove: canMoveThisCol,
           tasks: colTasks,
-          moveRoles: colRules.moveRoles || [],
+          moveRoles: moveRoles,
           viewRoles: colRules.viewRoles || [],
           createdAt: col.createdAt,
           updatedAt: col.updatedAt,
@@ -249,16 +309,11 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
       assembledColumns.sort((a, b) => a.position - b.position);
       setColumns(assembledColumns);
 
-      // Save column layout to browser cache (columns-only layout cache per board)
+      // Save column layout and data to browser cache
       try {
         localStorage.setItem(
           `${CACHE_KEY_PREFIX}${boardId}`,
-          JSON.stringify(
-            assembledColumns.map((c) => ({
-              ...c,
-              tasks: [], // cache column structures for quick layout display
-            }))
-          )
+          JSON.stringify(assembledColumns)
         );
       } catch {
         // ignore
@@ -283,10 +338,29 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
     fetchBoardData();
   }, [fetchBoardData]);
 
-  // Recalculate live waitingSeconds on all tasks using nowMs
+  // Recalculate live waitingSeconds and dynamic column move permissions
   const liveColumns = React.useMemo(() => {
+    const userRoleNames = (userRoles || []).map((r) => (r.displayName || r.id || '').toLowerCase());
+    const isAdmin = userRoleNames.includes('admin') || userRoleNames.includes('superadmin') || canManageColumns;
+
     return columns.map((col) => {
-      if (col.isDone) return col;
+      let canMoveThisCol = canMoveTask;
+      const moveRoles = col.moveRoles || [];
+      if (!isAdmin && moveRoles.length > 0 && canMoveTask) {
+        const userHasRole = moveRoles.some((mr: any) =>
+          userRoleNames.includes((mr.name || mr.displayName || mr.id || '').toLowerCase())
+        );
+        if (!userHasRole) {
+          canMoveThisCol = false;
+        }
+      }
+
+      if (col.isDone) {
+        return {
+          ...col,
+          canMove: canMoveThisCol,
+        };
+      }
       const updatedTasks = col.tasks.map((task) => {
         let liveSeconds = task.waitingSeconds;
         if (task.stageHistory && task.stageHistory.length > 0) {
@@ -305,10 +379,11 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
       });
       return {
         ...col,
+        canMove: canMoveThisCol,
         tasks: updatedTasks,
       };
     });
-  }, [columns, nowMs]);
+  }, [columns, nowMs, userRoles, canManageColumns, canMoveTask]);
 
   // Apply URL filters to tasks
   const searchQuery = (searchParams.get('q') || '').toLowerCase().trim();
