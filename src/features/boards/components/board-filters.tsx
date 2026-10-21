@@ -17,7 +17,7 @@ interface BoardFiltersProps {
 export function BoardFilters({
   users,
   labels,
-  totalTasksCount,
+  totalTasksCount: _totalTasksCount,
   filteredTasksCount,
 }: BoardFiltersProps) {
   const router = useRouter();
@@ -150,16 +150,9 @@ export function BoardFilters({
 
       {/* Right side: filter count display */}
       <div className="text-[11px] text-muted-foreground tabular-nums shrink-0">
-        {hasActiveFilters ? (
-          <span>
-            Showing <strong className="text-foreground">{filteredTasksCount}</strong> of{' '}
-            {totalTasksCount} tasks
-          </span>
-        ) : (
-          <span>
-            {totalTasksCount} task{totalTasksCount === 1 ? '' : 's'} total
-          </span>
-        )}
+        <span>
+          <strong className="text-foreground">{filteredTasksCount}</strong> task{filteredTasksCount === 1 ? '' : 's'} total
+        </span>
       </div>
     </div>
   );

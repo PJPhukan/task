@@ -48,6 +48,15 @@ export function AppSidebar({
 
   const [sidebarProjects, setSidebarProjects] = React.useState<Array<{ id: string; name: string; key: string }>>([]);
 
+  const projectNameCounts = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    sidebarProjects.forEach((p) => {
+      const normalized = p.name.trim().toLowerCase();
+      counts.set(normalized, (counts.get(normalized) || 0) + 1);
+    });
+    return counts;
+  }, [sidebarProjects]);
+
   React.useEffect(() => {
     import('@/lib/api-client').then(({ apiClient }) => {
       apiClient
@@ -374,6 +383,7 @@ export function AppSidebar({
               <div className="space-y-0.5">
                 {sidebarProjects.map((p) => {
                   const isCur = pathname.startsWith(`/projects/${p.id}`);
+                  const isSharedName = (projectNameCounts.get(p.name.trim().toLowerCase()) || 0) > 1;
                   return (
                     <Link
                       key={p.id}
@@ -387,9 +397,11 @@ export function AppSidebar({
                       )}
                     >
                       <span className="truncate">{p.name}</span>
-                      <span className="font-mono text-[10px] text-muted-foreground shrink-0 ml-1">
-                        {p.key}
-                      </span>
+                      {isSharedName && (
+                        <span className="font-mono text-[10px] text-muted-foreground shrink-0 ml-1">
+                          ({p.key})
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

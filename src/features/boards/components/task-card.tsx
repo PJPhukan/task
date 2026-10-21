@@ -16,6 +16,8 @@ interface TaskCardProps {
   owningRoleName?: string;
   isDragging?: boolean;
   isKeyboardSelected?: boolean;
+  canUpdateTask?: boolean;
+  onTakeTask?: (_taskId: string) => void;
   onKeyboardInitiate?: (_task: BoardTask) => void;
 }
 
@@ -29,6 +31,8 @@ export function TaskCard({
   owningRoleName,
   isDragging = false,
   isKeyboardSelected = false,
+  canUpdateTask = false,
+  onTakeTask,
   onKeyboardInitiate,
 }: TaskCardProps) {
   const isReadOnly = !canMoveFromColumn;
@@ -64,6 +68,13 @@ export function TaskCard({
     }
     return false;
   }, [columnIsDone, task.overLimit, task.waitingSeconds, columnTimeLimitHours]);
+
+  const overSeconds = React.useMemo(() => {
+    if (columnTimeLimitHours && columnTimeLimitHours > 0) {
+      return Math.max(0, task.waitingSeconds - columnTimeLimitHours * 3600);
+    }
+    return task.waitingSeconds;
+  }, [task.waitingSeconds, columnTimeLimitHours]);
 
   // Check overdue condition
   const isOverdue = React.useMemo(() => {
@@ -130,10 +141,10 @@ export function TaskCard({
           : 'border-border bg-card hover:border-border/90 hover:bg-muted/15 cursor-grab active:cursor-grabbing'
       }`}
     >
-      {/* Top row: Key, Priority, and Waiting time */}
+      {/* Top row: Key (secondary), Priority, and Waiting time */}
       <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-border/50 text-[11px]">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="font-mono font-semibold tracking-tight text-foreground/90">
+          <span className="font-mono text-[11px] font-medium tracking-tight text-muted-foreground/80">
             {task.key}
           </span>
           <span
@@ -151,7 +162,7 @@ export function TaskCard({
               title="Task has exceeded column time limit"
             >
               <AlertTriangle className="size-3" />
-              <span>Over limit ({formatCompactWaiting(task.waitingSeconds)})</span>
+              <span>Over by {formatCompactWaiting(overSeconds > 0 ? overSeconds : task.waitingSeconds)}</span>
             </span>
           ) : (
             <span
@@ -165,8 +176,11 @@ export function TaskCard({
         </div>
       </div>
 
-      {/* Title */}
-      <p className="pt-2 pb-2 text-[13px] font-normal leading-snug text-foreground break-words">
+      {/* Title - Strongest text on card, truncated inside card with ellipsis */}
+      <p
+        className="pt-2 pb-2 text-[13px] font-semibold leading-snug text-foreground break-words line-clamp-2 overflow-hidden text-ellipsis"
+        title={task.title}
+      >
         {task.title}
       </p>
 
@@ -196,7 +210,22 @@ export function TaskCard({
             <span className="truncate">{task.assignee.name}</span>
           </div>
         ) : (
-          <span className="text-muted-foreground/60 italic text-[11px]">Unassigned</span>
+          <div className="inline-flex items-center gap-1.5">
+            <span className="text-muted-foreground font-normal text-[11px]">Unassigned</span>
+            {!isReadOnly && canUpdateTask && onTakeTask && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTakeTask(task.id);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="px-1.5 py-0.5 text-[10px] font-medium rounded-xs bg-brand/10 hover:bg-brand/20 text-brand border border-brand/25 transition-colors cursor-pointer"
+              >
+                Take
+              </button>
+            )}
+          </div>
         )}
 
         {/* Labels */}

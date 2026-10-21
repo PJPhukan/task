@@ -90,6 +90,16 @@ export default function ProjectsPage() {
     });
   }, [projects, filterStatus, searchQuery]);
 
+  // Count frequencies of project names to disambiguate shared names
+  const projectNameCounts = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    projects.forEach((p) => {
+      const normalized = p.name.trim().toLowerCase();
+      counts.set(normalized, (counts.get(normalized) || 0) + 1);
+    });
+    return counts;
+  }, [projects]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -262,12 +272,14 @@ export default function ProjectsPage() {
                       <span className="text-sm font-semibold text-foreground group-hover:text-brand transition-colors truncate">
                         {project.name}
                       </span>
-                      <Badge
-                        variant="secondary"
-                        className="font-mono text-[11px] font-medium px-1.5 py-0 rounded-sm"
-                      >
-                        {project.key}
-                      </Badge>
+                      {(projectNameCounts.get(project.name.trim().toLowerCase()) || 0) > 1 && (
+                        <Badge
+                          variant="secondary"
+                          className="font-mono text-[11px] font-medium px-1.5 py-0 rounded-sm"
+                        >
+                          {project.key}
+                        </Badge>
+                      )}
                     </div>
                     {project.description && (
                       <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">

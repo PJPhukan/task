@@ -12,10 +12,12 @@ interface BoardColumnProps {
   column: BoardColumnWithTasks;
   canCreateTask: boolean;
   canMoveTasks: boolean;
+  canUpdateTask?: boolean;
   activeTaskId?: string | null;
   keyboardSelectedTaskId?: string | null;
   isKeyboardTargetColumn?: boolean;
   onQuickAddTask: (_columnId: string, _title: string) => Promise<void>;
+  onTakeTask?: (_taskId: string) => void;
   onKeyboardInitiate?: (_task: BoardTask) => void;
 }
 
@@ -23,10 +25,12 @@ export function BoardColumn({
   column,
   canCreateTask,
   canMoveTasks,
+  canUpdateTask = false,
   activeTaskId,
   keyboardSelectedTaskId,
   isKeyboardTargetColumn = false,
   onQuickAddTask,
+  onTakeTask,
   onKeyboardInitiate,
 }: BoardColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
@@ -197,6 +201,8 @@ export function BoardColumn({
               owningRoleName={owningRoleNames}
               isDragging={activeTaskId === task.id}
               isKeyboardSelected={keyboardSelectedTaskId === task.id}
+              canUpdateTask={canUpdateTask}
+              onTakeTask={onTakeTask}
               onKeyboardInitiate={onKeyboardInitiate}
             />
           ))

@@ -13,7 +13,8 @@ import {
   type DragEndEvent,
   closestCenter,
 } from '@dnd-kit/core';
-import { Settings, RefreshCw, AlertCircle, Columns3 } from 'lucide-react';
+import { Settings, RefreshCw, AlertCircle, Columns3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { PageHeader } from '@/components/page-header';
@@ -43,11 +44,12 @@ const RULES_CACHE_PREFIX = 'rolane:board-rules:';
 
 export function BoardView({ projectId, boardId }: BoardViewProps) {
   const searchParams = useSearchParams();
-  const { can, roles: userRoles } = useCurrentUser();
+  const { can, roles: userRoles, user } = useCurrentUser();
 
   const canManageColumns = can('column.manage');
   const canCreateTask = can('task.create');
   const canMoveTask = can('task.move');
+  const canUpdateTask = can('task.update');
 
   // State
   const [project, setProject] = React.useState<Project | null>(null);
@@ -392,12 +394,12 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
   const labelFilter = searchParams.get('label') || '';
   const overdueFilter = searchParams.get('overdue') === 'true';
 
-  let totalTasksCount = 0;
-  let filteredTasksCount = 0;
+  const { filteredColumns, totalTasksCount, filteredTasksCount } = React.useMemo(() => {
+    let total = 0;
+    let filtered = 0;
 
-  const filteredColumns = React.useMemo(() => {
-    return liveColumns.map((col) => {
-      totalTasksCount += col.tasks.length;
+    const cols = liveColumns.map((col) => {
+      total += col.tasks.length;
 
       const filteredTasks = col.tasks.filter((task) => {
         // Text search
@@ -436,14 +438,96 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
         return true;
       });
 
-      filteredTasksCount += filteredTasks.length;
+      filtered += filteredTasks.length;
 
       return {
         ...col,
         tasks: filteredTasks,
       };
     });
+
+    return {
+      filteredColumns: cols,
+      totalTasksCount: total,
+      filteredTasksCount: filtered,
+    };
   }, [liveColumns, searchQuery, assigneeFilter, priorityFilter, labelFilter, overdueFilter]);
+
+  // Take action for unassigned tasks
+  const handleTakeTask = React.useCallback(
+    async (taskId: string) => {
+      if (!user || !canUpdateTask) return;
+      try {
+        await apiClient.patch(`/api/projects/${projectId}/tasks/${taskId}`, {
+          assigneeId: user.id,
+        });
+
+        // Optimistically update columns state
+        setColumns((prev) =>
+          prev.map((col) => ({
+            ...col,
+            tasks: col.tasks.map((t) =>
+              t.id === taskId
+                ? {
+                    ...t,
+                    assigneeId: user.id,
+                    assignee: {
+                      id: user.id,
+                      name: user.name || user.email,
+                      email: user.email,
+                    },
+                  }
+                : t
+            ),
+          }))
+        );
+        toast.success('Task assigned to you');
+      } catch (err: any) {
+        toast.error(err?.message || 'Failed to take task');
+      }
+    },
+    [user, canUpdateTask, projectId]
+  );
+
+  // Scroll cues for overflowing columns
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
+  const [canScrollRight, setCanScrollRight] = React.useState(false);
+
+  const checkScroll = React.useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const hasOverflow = el.scrollWidth > el.clientWidth + 2;
+    setCanScrollLeft(el.scrollLeft > 6);
+    setCanScrollRight(hasOverflow && el.scrollLeft < el.scrollWidth - el.clientWidth - 6);
+  }, []);
+
+  React.useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    checkScroll();
+    el.addEventListener('scroll', checkScroll, { passive: true });
+    window.addEventListener('resize', checkScroll);
+
+    const resizeObserver = new ResizeObserver(() => {
+      checkScroll();
+    });
+    resizeObserver.observe(el);
+
+    return () => {
+      el.removeEventListener('scroll', checkScroll);
+      window.removeEventListener('resize', checkScroll);
+      resizeObserver.disconnect();
+    };
+  }, [checkScroll, filteredColumns.length]);
+
+  const handleScrollLeft = () => {
+    scrollContainerRef.current?.scrollBy({ left: -320, behavior: 'smooth' });
+  };
+
+  const handleScrollRight = () => {
+    scrollContainerRef.current?.scrollBy({ left: 320, behavior: 'smooth' });
+  };
 
   // Execute task move request
   const performMove = async (
@@ -828,21 +912,58 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          {/* Horizontal scroll container for columns */}
-          <div className="flex-1 min-h-0 flex gap-3 overflow-x-auto pb-2 items-start">
-            {filteredColumns.map((col) => (
-              <BoardColumn
-                key={col.id}
-                column={col}
-                canCreateTask={canCreateTask}
-                canMoveTasks={canMoveTask}
-                activeTaskId={activeTask?.id}
-                keyboardSelectedTaskId={keyboardTask?.id}
-                isKeyboardTargetColumn={keyboardTargetColId === col.id}
-                onQuickAddTask={handleQuickAddTask}
-                onKeyboardInitiate={handleKeyboardInitiate}
-              />
-            ))}
+          {/* Horizontal scroll container with scroll cues */}
+          <div className="relative flex-1 min-h-0 flex flex-col">
+            {/* Scroll Cue - Left edge */}
+            {canScrollLeft && (
+              <div className="absolute left-0 top-0 bottom-2 w-10 z-20 pointer-events-none flex items-center justify-start pl-1 bg-gradient-to-r from-background via-background/80 to-transparent">
+                <button
+                  type="button"
+                  onClick={handleScrollLeft}
+                  aria-label="Scroll left"
+                  className="pointer-events-auto p-1.5 rounded-full bg-card/95 border border-border shadow-xs hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Scroll Cue - Right edge */}
+            {canScrollRight && (
+              <div className="absolute right-0 top-0 bottom-2 w-10 z-20 pointer-events-none flex items-center justify-end pr-1 bg-gradient-to-l from-background via-background/80 to-transparent">
+                <button
+                  type="button"
+                  onClick={handleScrollRight}
+                  aria-label="Scroll right"
+                  className="pointer-events-auto p-1.5 rounded-full bg-card/95 border border-border shadow-xs hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
+            )}
+
+            <div
+              ref={scrollContainerRef}
+              className="flex-1 min-h-0 flex gap-3 overflow-x-auto pb-2 items-start pr-8 scroll-smooth"
+            >
+              {filteredColumns.map((col) => (
+                <BoardColumn
+                  key={col.id}
+                  column={col}
+                  canCreateTask={canCreateTask}
+                  canMoveTasks={canMoveTask}
+                  canUpdateTask={canUpdateTask}
+                  activeTaskId={activeTask?.id}
+                  keyboardSelectedTaskId={keyboardTask?.id}
+                  isKeyboardTargetColumn={keyboardTargetColId === col.id}
+                  onQuickAddTask={handleQuickAddTask}
+                  onTakeTask={handleTakeTask}
+                  onKeyboardInitiate={handleKeyboardInitiate}
+                />
+              ))}
+              {/* Extra spacing block so the last column is fully visible and not pressed against edge */}
+              <div className="shrink-0 w-4 h-full pointer-events-none" aria-hidden="true" />
+            </div>
           </div>
 
           {/* Drag Overlay for smooth card preview */}
