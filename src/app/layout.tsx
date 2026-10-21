@@ -23,7 +23,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={cn('font-sans', ibmPlexSans.variable)}>
-      <body className="min-h-screen bg-background text-foreground antialiased selection:bg-brand/15">
+      <body
+        suppressHydrationWarning
+        className="min-h-screen bg-background text-foreground antialiased selection:bg-brand/15"
+      >
         <RootProvider>{children}</RootProvider>
       </body>
     </html>

@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
+import { useCurrentUser } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
@@ -11,6 +12,7 @@ import { Loader2 } from 'lucide-react';
 export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { refresh } = useCurrentUser();
   const returnTo = searchParams.get('returnTo') || '/my-tasks';
 
   const [email, setEmail] = React.useState('');
@@ -56,6 +58,9 @@ export function SignInForm() {
         setIsSubmitting(false);
         return;
       }
+
+      // Reload the app-wide user so route guards see the new session
+      await refresh();
 
       // Check account status via /api/me
       try {
