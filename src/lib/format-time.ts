@@ -22,21 +22,45 @@ export function formatCompactWaiting(seconds: number): string {
   return `${secs}s`;
 }
 
+const MONTHS_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
 /**
- * Formats an ISO date string (YYYY-MM-DD or full ISO) to a compact human-readable date.
- * Example: 'Oct 12' or '2026-10-12'.
+ * Formats a date using the app-wide standard format:
+ * - '13 Oct 2026' for full dates or dates outside the current year
+ * - '13 Oct' for dates in the current year
+ */
+export function formatAppDate(
+  dateInput: string | Date | null | undefined,
+  forceFull = false
+): string {
+  if (!dateInput) return '';
+  try {
+    const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    if (isNaN(d.getTime())) return String(dateInput);
+
+    const day = d.getDate();
+    const month = MONTHS_SHORT[d.getMonth()];
+    const year = d.getFullYear();
+    const currentYear = new Date().getFullYear();
+
+    if (forceFull || year !== currentYear) {
+      return `${day} ${month} ${year}`;
+    }
+    return `${day} ${month}`;
+  } catch {
+    return String(dateInput);
+  }
+}
+
+/**
+ * Formats an ISO date string to a compact human-readable date using the app standard.
+ * Example: '13 Oct' or '13 Oct 2026'.
  */
 export function formatCompactDueDate(dateString: string): string {
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString;
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return dateString;
-  }
+  return formatAppDate(dateString);
 }
 
 /**

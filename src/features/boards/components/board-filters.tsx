@@ -79,11 +79,19 @@ export function BoardFilters({
         >
           <option value="">All assignees</option>
           <option value="unassigned">Unassigned</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name}
-            </option>
-          ))}
+          {users.map((u) => {
+            const hasDuplicateName =
+              users.filter(
+                (other) =>
+                  (other.name || '').trim().toLowerCase() ===
+                  (u.name || '').trim().toLowerCase()
+              ).length > 1;
+            return (
+              <option key={u.id} value={u.id}>
+                {hasDuplicateName && u.email ? `${u.name} (${u.email})` : u.name}
+              </option>
+            );
+          })}
         </select>
 
         {/* Priority filter */}

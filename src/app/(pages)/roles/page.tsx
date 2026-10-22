@@ -27,6 +27,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { formatSortedRoles } from '@/lib/role-helpers';
 
 interface RoleItem {
   id: string;
@@ -294,63 +295,87 @@ export default function RolesPage() {
         />
       ) : (
         <div className="space-y-3">
-          {roles.map((role) => {
-            const count = userCounts[role.id] ?? 0;
-            const hasManage = role.permissionKeys.includes('role.manage');
+          {(() => {
+            const rolesWithManage = roles.filter((r) =>
+              r.permissionKeys.includes('role.manage')
+            );
 
-            return (
-              <div
-                key={role.id}
-                className="p-5 border border-border rounded-sm bg-card space-y-4 hover:border-border/90 transition-colors"
-              >
-                {/* Header: Name, Count, Actions */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/70">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2.5">
-                      <h2 className="text-sm font-semibold tracking-tight text-foreground">
-                        {role.displayName}
-                      </h2>
-                      {hasManage && (
-                        <Badge
+            return roles.map((role) => {
+              const count = userCounts[role.id] ?? 0;
+              const hasManage = role.permissionKeys.includes('role.manage');
+              const isDeleteDisabled = hasManage && rolesWithManage.length <= 1;
+
+              return (
+                <div
+                  key={role.id}
+                  className="p-5 border border-border rounded-sm bg-card space-y-4 hover:border-border/90 transition-colors"
+                >
+                  {/* Header: Name, Count, Actions */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/70">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2.5">
+                        <h2 className="text-sm font-semibold tracking-tight text-foreground">
+                          {role.displayName}
+                        </h2>
+                        {hasManage && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] text-brand border-brand/30 bg-brand/5 rounded-sm"
+                          >
+                            Role manager
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Users className="h-3.5 w-3.5" />
+                        <span className="tabular-nums font-medium text-foreground">
+                          {count}
+                        </span>
+                        <span>{count === 1 ? 'person' : 'people'} with this role</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenEdit(role)}
+                        className="gap-1.5 text-xs h-8 rounded-sm"
+                      >
+                        <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>Edit</span>
+                      </Button>
+                      {isDeleteDisabled ? (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            id={`delete-role-${role.id}-btn`}
+                            variant="outline"
+                            size="sm"
+                            disabled
+                            className="gap-1.5 text-xs h-8 text-muted-foreground cursor-not-allowed opacity-50 rounded-sm"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Delete</span>
+                          </Button>
+                          <span className="text-[11px] text-muted-foreground max-w-xs leading-tight">
+                            This role is needed to manage roles. Add another role with role management before deleting it.
+                          </span>
+                        </div>
+                      ) : (
+                        <Button
                           variant="outline"
-                          className="text-[10px] text-brand border-brand/30 bg-brand/5 rounded-sm"
+                          size="sm"
+                          data-role-id={role.id}
+                          data-action="delete-role"
+                          onClick={() => handleOpenDelete(role)}
+                          className="gap-1.5 text-xs h-8 text-muted-foreground hover:text-destructive rounded-sm"
                         >
-                          Role manager
-                        </Badge>
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Delete</span>
+                        </Button>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Users className="h-3.5 w-3.5" />
-                      <span className="tabular-nums font-medium text-foreground">
-                        {count}
-                      </span>
-                      <span>{count === 1 ? 'person' : 'people'} with this role</span>
-                    </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenEdit(role)}
-                      className="gap-1.5 text-xs h-8 rounded-sm"
-                    >
-                      <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span>Edit</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      data-role-id={role.id}
-                      data-action="delete-role"
-                      onClick={() => handleOpenDelete(role)}
-                      className="gap-1.5 text-xs h-8 text-muted-foreground hover:text-destructive rounded-sm"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      <span>Delete</span>
-                    </Button>
-                  </div>
-                </div>
 
                 {/* Grouped permissions display */}
                 <div className="space-y-3">
@@ -397,9 +422,10 @@ export default function RolesPage() {
                 </div>
               </div>
             );
-          })}
-        </div>
-      )}
+          });
+        })()}
+      </div>
+    )}
 
       {/* Create Role Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -675,13 +701,14 @@ export default function RolesPage() {
                   onChange={(e) => setReassignToRoleId(e.target.value)}
                   className="w-full h-9 rounded-sm border border-border bg-background px-3 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring"
                 >
-                  {roles
-                    .filter((r) => r.id !== deletingRole?.id)
-                    .map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.displayName}
-                      </option>
-                    ))}
+                  {formatSortedRoles(
+                    roles.filter((r) => r.id !== deletingRole?.id),
+                    userCounts
+                  ).map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.formattedName}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

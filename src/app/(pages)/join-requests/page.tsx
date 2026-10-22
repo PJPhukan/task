@@ -27,6 +27,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { formatAppDate } from '@/lib/format-time';
+import { fetchRoleUserCounts, formatSortedRoles } from '@/lib/role-helpers';
 
 interface RoleOption {
   id: string;
@@ -36,6 +38,7 @@ interface RoleOption {
 interface ProjectOption {
   id: string;
   name: string;
+  key: string;
 }
 
 interface BoardOption {
@@ -56,6 +59,7 @@ export default function JoinRequestsPage() {
 
   const [requests, setRequests] = useState<PendingJoinRequest[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [projectBoards, setProjectBoards] = useState<Record<string, BoardOption[]>>({});
 
@@ -89,10 +93,11 @@ export default function JoinRequestsPage() {
   useEffect(() => {
     async function loadInitialData() {
       try {
-        const [reqsData, rolesData, projectsData] = await Promise.all([
+        const [reqsData, rolesData, projectsData, counts] = await Promise.all([
           apiClient.get<{ joinRequests: PendingJoinRequest[] }>('/api/join-requests'),
           apiClient.get<{ roles: RoleOption[] }>('/api/roles'),
           apiClient.get<{ projects: ProjectOption[] }>('/api/projects').catch(() => ({ projects: [] })),
+          fetchRoleUserCounts(),
         ]);
 
         const rawReqs = reqsData.joinRequests || [];
@@ -104,6 +109,7 @@ export default function JoinRequestsPage() {
 
         setRequests(sorted);
         setRoles(loadedRoles);
+        setRoleCounts(counts);
         setProjects(loadedProjects);
 
         const defaultRoleId = loadedRoles.some((r) => r.id === 'developer')
@@ -382,7 +388,7 @@ export default function JoinRequestsPage() {
                     </div>
                     <p className="text-xs text-muted-foreground">{user.email}</p>
                     <p className="text-[11px] text-muted-foreground tabular-nums">
-                      Joined {new Date(user.createdAt).toLocaleDateString()}
+                      Joined {formatAppDate(user.createdAt)}
                     </p>
                   </div>
 
@@ -402,9 +408,9 @@ export default function JoinRequestsPage() {
                         disabled={isProcessing}
                         className="h-8 rounded-sm border border-input bg-background px-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       >
-                        {roles.map((r) => (
+                        {formatSortedRoles(roles, roleCounts).map((r) => (
                           <option key={r.id} value={r.id}>
-                            {r.displayName}
+                            {r.formattedName}
                           </option>
                         ))}
                       </select>
@@ -430,7 +436,7 @@ export default function JoinRequestsPage() {
                         ) : (
                           projects.map((p) => (
                             <option key={p.id} value={p.id}>
-                              {p.name}
+                              {p.name} ({p.key})
                             </option>
                           ))
                         )}
@@ -455,11 +461,14 @@ export default function JoinRequestsPage() {
                         {currentBoards.length === 0 ? (
                           <option value="">No boards</option>
                         ) : (
-                          currentBoards.map((b) => (
-                            <option key={b.id} value={b.id}>
-                              {b.name}
-                            </option>
-                          ))
+                          currentBoards.map((b) => {
+                            const curProj = projects.find((p) => p.id === currentSel.projectId);
+                            return (
+                              <option key={b.id} value={b.id}>
+                                {b.name}{curProj ? ` (${curProj.key})` : ''}
+                              </option>
+                            );
+                          })
                         )}
                       </select>
                     </div>

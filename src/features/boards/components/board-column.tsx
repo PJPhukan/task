@@ -19,6 +19,7 @@ interface BoardColumnProps {
   onQuickAddTask: (_columnId: string, _title: string) => Promise<void>;
   onTakeTask?: (_taskId: string) => void;
   onKeyboardInitiate?: (_task: BoardTask) => void;
+  onKeyboardDrop?: () => void;
 }
 
 export function BoardColumn({
@@ -32,6 +33,7 @@ export function BoardColumn({
   onQuickAddTask,
   onTakeTask,
   onKeyboardInitiate,
+  onKeyboardDrop,
 }: BoardColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -180,6 +182,13 @@ export function BoardColumn({
             ) : null}
           </div>
         </div>
+
+        {/* Read-only rule notice shown once in header below owning role */}
+        {!canMoveFromThisColumn && moveRoles.length > 0 && (
+          <p className="text-[11px] text-muted-foreground/90 pt-1 leading-tight border-t border-border/40 mt-1">
+            Only {owningRoleNames} can move tasks out of this column.
+          </p>
+        )}
       </div>
 
       {/* Task Cards List - Single vertical scroll per column */}
@@ -204,6 +213,7 @@ export function BoardColumn({
               canUpdateTask={canUpdateTask}
               onTakeTask={onTakeTask}
               onKeyboardInitiate={onKeyboardInitiate}
+              onKeyboardDrop={onKeyboardDrop}
             />
           ))
         )}

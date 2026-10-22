@@ -18,6 +18,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import type { BoardColumn } from '@/types/project';
+import { fetchRoleUserCounts, formatSortedRoles } from '@/lib/role-helpers';
 
 interface RoleOption {
   id: string;
@@ -64,6 +65,9 @@ export function ColumnSettingsDialog({
 }: ColumnSettingsDialogProps) {
   const [columns, setColumns] = React.useState<ColumnItem[]>([]);
   const [roles, setRoles] = React.useState<RoleOption[]>([]);
+  const [roleCounts, setRoleCounts] = React.useState<Record<string, number>>({});
+  const [viewRoleSearch, setViewRoleSearch] = React.useState('');
+  const [moveRoleSearch, setMoveRoleSearch] = React.useState('');
   const [selectedColumnId, setSelectedColumnId] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -84,15 +88,17 @@ export function ColumnSettingsDialog({
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const [rolesRes, colsRes] = await Promise.all([
+      const [rolesRes, colsRes, counts] = await Promise.all([
         apiClient.get<{ roles: RoleOption[] }>('/api/roles'),
         apiClient.get<{ columns: BoardColumn[] }>(
           `/api/projects/${projectId}/boards/${boardId}/columns`
         ),
+        fetchRoleUserCounts(),
       ]);
 
       const loadedRoles = rolesRes.roles || [];
       setRoles(loadedRoles);
+      setRoleCounts(counts);
 
       const rawCols = colsRes.columns || [];
       const enrichedCols: ColumnItem[] = await Promise.all(
@@ -214,6 +220,22 @@ export function ColumnSettingsDialog({
       prev.map((c) => (c.id === selectedCol.id ? { ...c, ...updates, isDirty: true } : c))
     );
   };
+
+  const sortedRoles = React.useMemo(() => {
+    return formatSortedRoles(roles, roleCounts);
+  }, [roles, roleCounts]);
+
+  const filteredViewRoles = React.useMemo(() => {
+    if (!viewRoleSearch.trim()) return sortedRoles;
+    const q = viewRoleSearch.toLowerCase().trim();
+    return sortedRoles.filter((r) => r.displayName.toLowerCase().includes(q));
+  }, [sortedRoles, viewRoleSearch]);
+
+  const filteredMoveRoles = React.useMemo(() => {
+    if (!moveRoleSearch.trim()) return sortedRoles;
+    const q = moveRoleSearch.toLowerCase().trim();
+    return sortedRoles.filter((r) => r.displayName.toLowerCase().includes(q));
+  }, [sortedRoles, moveRoleSearch]);
 
   // Save changes to current column
   const handleSaveCurrentCol = async () => {
@@ -516,6 +538,15 @@ export function ColumnSettingsDialog({
                       Empty means everyone on the board can see this column and its tasks.
                     </p>
 
+                    {roles.length > 7 && (
+                      <Input
+                        placeholder="Search roles..."
+                        value={viewRoleSearch}
+                        onChange={(e) => setViewRoleSearch(e.target.value)}
+                        className="h-7 text-xs bg-background/50 my-1"
+                      />
+                    )}
+
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       <button
                         type="button"
@@ -528,7 +559,7 @@ export function ColumnSettingsDialog({
                       >
                         Everyone
                       </button>
-                      {roles.map((r) => {
+                      {filteredViewRoles.map((r) => {
                         const isSelected = selectedCol.viewRoleIds.includes(r.id);
                         return (
                           <button
@@ -546,7 +577,7 @@ export function ColumnSettingsDialog({
                                 : 'border-border text-muted-foreground hover:text-foreground'
                             }`}
                           >
-                            {r.displayName}
+                            {r.labelWithCount}
                           </button>
                         );
                       })}
@@ -569,6 +600,15 @@ export function ColumnSettingsDialog({
                       Empty means anyone with task move permission can advance tasks from here.
                     </p>
 
+                    {roles.length > 7 && (
+                      <Input
+                        placeholder="Search roles..."
+                        value={moveRoleSearch}
+                        onChange={(e) => setMoveRoleSearch(e.target.value)}
+                        className="h-7 text-xs bg-background/50 my-1"
+                      />
+                    )}
+
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       <button
                         type="button"
@@ -581,7 +621,7 @@ export function ColumnSettingsDialog({
                       >
                         Everyone
                       </button>
-                      {roles.map((r) => {
+                      {filteredMoveRoles.map((r) => {
                         const isSelected = selectedCol.moveRoleIds.includes(r.id);
                         return (
                           <button
@@ -599,7 +639,7 @@ export function ColumnSettingsDialog({
                                 : 'border-border text-muted-foreground hover:text-foreground'
                             }`}
                           >
-                            {r.displayName}
+                            {r.labelWithCount}
                           </button>
                         );
                       })}

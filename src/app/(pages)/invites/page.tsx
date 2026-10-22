@@ -28,6 +28,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { formatAppDate } from '@/lib/format-time';
+import { fetchRoleUserCounts, formatSortedRoles } from '@/lib/role-helpers';
 
 interface RoleOption {
   id: string;
@@ -37,6 +39,7 @@ interface RoleOption {
 interface ProjectOption {
   id: string;
   name: string;
+  key: string;
 }
 
 interface BoardOption {
@@ -59,6 +62,8 @@ export default function InvitesPage() {
   const canManageUsers = can('user.manage');
 
   const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
+  const [roleSearch, setRoleSearch] = useState('');
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [boards, setBoards] = useState<BoardOption[]>([]);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
@@ -91,14 +96,17 @@ export default function InvitesPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [rolesData, invitesData, projectsData] = await Promise.all([
+        const [rolesData, invitesData, projectsData, counts] = await Promise.all([
           apiClient.get<{ roles: RoleOption[] }>('/api/roles'),
           apiClient.get<{ invites: PendingInvite[] }>('/api/invites'),
           apiClient.get<{ projects: ProjectOption[] }>('/api/projects').catch(() => ({ projects: [] })),
+          fetchRoleUserCounts(),
         ]);
 
         const loadedRoles = rolesData.roles || [];
         setRoles(loadedRoles);
+        setRoleCounts(counts);
+
         if (loadedRoles.some((r) => r.id === 'developer')) {
           setSelectedRole('developer');
         } else if (loadedRoles.length > 0) {
@@ -121,6 +129,16 @@ export default function InvitesPage() {
 
     loadData();
   }, []);
+
+  const sortedRoles = React.useMemo(() => {
+    return formatSortedRoles(roles, roleCounts);
+  }, [roles, roleCounts]);
+
+  const filteredRoles = React.useMemo(() => {
+    if (!roleSearch.trim()) return sortedRoles;
+    const q = roleSearch.toLowerCase().trim();
+    return sortedRoles.filter((r) => r.displayName.toLowerCase().includes(q));
+  }, [sortedRoles, roleSearch]);
 
   // Load boards whenever selected project changes
   useEffect(() => {
@@ -301,6 +319,14 @@ export default function InvitesPage() {
               <label htmlFor="invite-role-select" className="text-xs font-medium text-foreground">
                 Assigned role
               </label>
+              {roles.length > 7 && (
+                <Input
+                  placeholder="Search roles..."
+                  value={roleSearch}
+                  onChange={(e) => setRoleSearch(e.target.value)}
+                  className="h-7 text-xs mb-1"
+                />
+              )}
               <select
                 id="invite-role-select"
                 value={selectedRole}
@@ -308,9 +334,9 @@ export default function InvitesPage() {
                 disabled={isSubmitting || roles.length === 0}
                 className="h-9 rounded-sm border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring"
               >
-                {roles.map((r) => (
+                {filteredRoles.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.displayName}
+                    {r.labelWithCount}
                   </option>
                 ))}
               </select>
@@ -336,7 +362,7 @@ export default function InvitesPage() {
                     <option value="">-- Select project --</option>
                     {projects.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name}
+                        {p.name} ({p.key})
                       </option>
                     ))}
                   </>
@@ -364,11 +390,14 @@ export default function InvitesPage() {
                 ) : (
                   <>
                     <option value="">-- Select board --</option>
-                    {boards.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
+                    {boards.map((b) => {
+                      const curProj = projects.find((p) => p.id === selectedProjectId);
+                      return (
+                        <option key={b.id} value={b.id}>
+                          {b.name}{curProj ? ` (${curProj.key})` : ''}
+                        </option>
+                      );
+                    })}
                   </>
                 )}
               </select>
@@ -432,7 +461,8 @@ export default function InvitesPage() {
                 typeof inv.invitedBy === 'string'
                   ? inv.invitedBy
                   : inv.invitedBy?.name || 'Administrator';
-              const expiresDate = new Date(inv.expiresAt).toLocaleDateString();
+              const isExpired = new Date(inv.expiresAt).getTime() < Date.now();
+              const formattedExpiry = formatAppDate(inv.expiresAt);
 
               return (
                 <div
@@ -442,7 +472,13 @@ export default function InvitesPage() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-foreground">{inv.email}</span>
-                      <Badge variant="secondary" className="text-[10px] font-semibold rounded-sm">
+                      <Badge
+                        variant={isExpired ? 'destructive' : 'secondary'}
+                        className="text-[10px] font-semibold rounded-sm"
+                      >
+                        {isExpired ? 'Expired' : 'Pending'}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] font-semibold rounded-sm text-muted-foreground">
                         {inv.roles?.map((r) => r.displayName || r.id).join(', ') ||
                           inv.roleIds?.join(', ') ||
                           'Developer'}
@@ -451,29 +487,44 @@ export default function InvitesPage() {
                     <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground tabular-nums">
                       <span>Sent by {inviterName}</span>
                       <span>•</span>
-                      <span>Expires {expiresDate}</span>
+                      <span>{isExpired ? 'Expired' : 'Expires'} {formattedExpiry}</span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleResend(inv.id, inv.email)}
-                      className="gap-1 text-xs h-7 px-2.5 rounded-sm"
-                    >
-                      <RefreshCw className="size-3" />
-                      <span>Resend</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setInviteToRevoke(inv)}
-                      className="gap-1 text-xs text-destructive hover:bg-destructive/10 h-7 px-2.5 rounded-sm"
-                    >
-                      <Trash2 className="size-3" />
-                      <span>Revoke</span>
-                    </Button>
+                    {isExpired ? (
+                      <Button
+                        id={`send-again-invite-${inv.id}`}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleResend(inv.id, inv.email)}
+                        className="gap-1 text-xs h-7 px-2.5 rounded-sm"
+                      >
+                        <RefreshCw className="size-3" />
+                        <span>Send again</span>
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleResend(inv.id, inv.email)}
+                          className="gap-1 text-xs h-7 px-2.5 rounded-sm"
+                        >
+                          <RefreshCw className="size-3" />
+                          <span>Resend</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setInviteToRevoke(inv)}
+                          className="gap-1 text-xs text-destructive hover:bg-destructive/10 h-7 px-2.5 rounded-sm"
+                        >
+                          <Trash2 className="size-3" />
+                          <span>Revoke</span>
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               );

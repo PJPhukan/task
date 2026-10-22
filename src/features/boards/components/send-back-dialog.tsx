@@ -68,7 +68,7 @@ export function SendBackDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[460px] p-6 rounded border border-border bg-card shadow-none">
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <DialogHeader className="space-y-1.5 text-left">
             <DialogTitle className="text-base font-semibold text-foreground">
               Send task back
@@ -100,7 +100,6 @@ export function SendBackDialog({
               className="h-28 text-xs resize-none rounded-sm border-border bg-background focus:ring-ring"
               maxLength={500}
               autoFocus
-              required
             />
             <div className="flex items-center justify-between text-[11px] text-muted-foreground">
               {error ? (

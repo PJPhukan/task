@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import { Clock, AlertTriangle, CornerUpLeft, Calendar } from 'lucide-react';
+import { Clock, AlertTriangle, CornerUpLeft, Calendar, CheckCircle2 } from 'lucide-react';
 import { formatCompactWaiting, formatCompactDueDate, isDueDateOverdue } from '@/lib/format-time';
 import type { BoardTask } from '../types';
 
@@ -19,6 +19,7 @@ interface TaskCardProps {
   canUpdateTask?: boolean;
   onTakeTask?: (_taskId: string) => void;
   onKeyboardInitiate?: (_task: BoardTask) => void;
+  onKeyboardDrop?: () => void;
 }
 
 export function TaskCard({
@@ -28,12 +29,13 @@ export function TaskCard({
   columnTimeLimitHours,
   columnIsDone = false,
   canMoveFromColumn,
-  owningRoleName,
+  owningRoleName: _owningRoleName,
   isDragging = false,
   isKeyboardSelected = false,
   canUpdateTask = false,
   onTakeTask,
   onKeyboardInitiate,
+  onKeyboardDrop,
 }: TaskCardProps) {
   const isReadOnly = !canMoveFromColumn;
 
@@ -110,15 +112,17 @@ export function TaskCard({
     if (isReadOnly) return;
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
-      if (onKeyboardInitiate) {
-        onKeyboardInitiate(task);
+      if (isKeyboardSelected) {
+        if (onKeyboardDrop) {
+          onKeyboardDrop();
+        }
+      } else {
+        if (onKeyboardInitiate) {
+          onKeyboardInitiate(task);
+        }
       }
     }
   };
-
-  const readOnlyMessage = owningRoleName
-    ? `Only ${owningRoleName} can move tasks out of this column.`
-    : 'You cannot move tasks out of this column.';
 
   return (
     <div
@@ -129,7 +133,7 @@ export function TaskCard({
       tabIndex={isReadOnly ? 0 : 0}
       role="button"
       aria-roledescription={isReadOnly ? 'read-only task card' : 'draggable task card'}
-      aria-label={`${task.key}: ${task.title}. Priority ${priorityConfig.label}.${isReadOnly ? ` ${readOnlyMessage}` : ' Press Space to pick up.'}`}
+      aria-label={`${task.key}: ${task.title}. Priority ${priorityConfig.label}.${isReadOnly ? '' : ' Press Space to pick up.'}`}
       onKeyDown={handleKeyDown}
       className={`group relative rounded border p-3 text-xs transition-colors outline-none select-none ${
         isKeyboardSelected
@@ -141,7 +145,7 @@ export function TaskCard({
           : 'border-border bg-card hover:border-border/90 hover:bg-muted/15 cursor-grab active:cursor-grabbing'
       }`}
     >
-      {/* Top row: Key (secondary), Priority, and Waiting time */}
+      {/* Top row: Key (secondary), Priority, and Waiting time / Done status */}
       <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-border/50 text-[11px]">
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="font-mono text-[11px] font-medium tracking-tight text-muted-foreground/80">
@@ -154,9 +158,35 @@ export function TaskCard({
           </span>
         </div>
 
-        {/* Waiting time metric */}
+        {/* Waiting time / Done metric */}
         <div className="flex items-center gap-1 shrink-0">
-          {isTaskOverLimit ? (
+          {columnIsDone ? (
+            <span
+              className="inline-flex items-center gap-1 font-medium text-muted-foreground text-[11px]"
+              title={
+                task.completedAt
+                  ? `Completed on ${formatCompactDueDate(task.completedAt)}`
+                  : 'Completed task'
+              }
+            >
+              <CheckCircle2 className="size-3 text-emerald-600 dark:text-emerald-400" />
+              <span>
+                {(() => {
+                  if (task.completedAt && task.createdAt) {
+                    const sec = Math.floor(
+                      (new Date(task.completedAt).getTime() -
+                        new Date(task.createdAt).getTime()) /
+                        1000
+                    );
+                    if (sec > 0) {
+                      return `Done ${formatCompactWaiting(sec)}`;
+                    }
+                  }
+                  return 'Done';
+                })()}
+              </span>
+            </span>
+          ) : isTaskOverLimit ? (
             <span
               className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-xs font-semibold tabular-nums text-[10px] bg-[hsl(var(--over-limit))]/10 text-[hsl(var(--over-limit))] border border-[hsl(var(--over-limit))]/30"
               title="Task has exceeded column time limit"
@@ -258,13 +288,6 @@ export function TaskCard({
           <span>
             Sent back {task.bounceCount} time{task.bounceCount === 1 ? '' : 's'}
           </span>
-        </div>
-      )}
-
-      {/* Read-only rule message */}
-      {isReadOnly && (
-        <div className="mt-2 pt-1.5 border-t border-border/40 text-[11px] text-muted-foreground/80 leading-tight">
-          {readOnlyMessage}
         </div>
       )}
     </div>

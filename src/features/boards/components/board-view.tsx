@@ -11,7 +11,9 @@ import {
   KeyboardSensor,
   type DragStartEvent,
   type DragEndEvent,
-  closestCenter,
+  pointerWithin,
+  closestCorners,
+  type CollisionDetection,
 } from '@dnd-kit/core';
 import { Settings, RefreshCw, AlertCircle, Columns3, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,6 +23,14 @@ import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { BoardColumn } from './board-column';
 import { TaskCard } from './task-card';
+
+const customCollisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) {
+    return pointerCollisions;
+  }
+  return closestCorners(args);
+};
 import { BoardFilters } from './board-filters';
 import { SendBackDialog } from './send-back-dialog';
 import { ColumnSettingsDialog } from '@/features/columns/components/column-settings-dialog';
@@ -140,20 +150,6 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
     }
   }, [boardId]);
 
-  // 1b. Offline detection and simulation
-  React.useEffect(() => {
-    const handleOffline = () => {
-      setIsShowingCachedData(true);
-      setIsRefreshing(false);
-    };
-    window.addEventListener('offline', handleOffline);
-    window.addEventListener('simulate-offline-mode', handleOffline);
-    return () => {
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('simulate-offline-mode', handleOffline);
-    };
-  }, []);
-
   // 2. Fetch full board data
   const fetchBoardData = React.useCallback(async () => {
     setIsRefreshing(true);
@@ -199,7 +195,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
         }
       }
 
-      // Fetch rules for columns (if user can manage columns or try)
+      // Fetch rules for columns
       let cachedRules: Record<string, any> = {};
       try {
         const storedRules = localStorage.getItem(`${RULES_CACHE_PREFIX}${boardId}`);
@@ -211,24 +207,23 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
       const rawCols: any[] = rawBoard.columns || [];
       const updatedRules: Record<string, any> = { ...cachedRules };
 
-      if (canManageColumns) {
-        await Promise.all(
-          rawCols.map(async (col) => {
-            try {
-              const r = await apiClient.get<any>(
-                `/api/projects/${projectId}/columns/${col.id}/rules`
-              );
-              updatedRules[col.id] = r;
-            } catch {
-              // fallback
-            }
-          })
-        );
-        try {
-          localStorage.setItem(`${RULES_CACHE_PREFIX}${boardId}`, JSON.stringify(updatedRules));
-        } catch {
-          // ignore
-        }
+      // Fetch rules for every column (viewers and admins can read rules)
+      await Promise.all(
+        rawCols.map(async (col) => {
+          try {
+            const r = await apiClient.get<any>(
+              `/api/projects/${projectId}/columns/${col.id}/rules`
+            );
+            updatedRules[col.id] = r;
+          } catch {
+            // fallback
+          }
+        })
+      );
+      try {
+        localStorage.setItem(`${RULES_CACHE_PREFIX}${boardId}`, JSON.stringify(updatedRules));
+      } catch {
+        // ignore
       }
 
       // Assemble columns with tasks
@@ -237,19 +232,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
 
       const assembledColumns: BoardColumnWithTasks[] = rawCols.map((col: any) => {
         const colRules = updatedRules[col.id] || {};
-        let moveRoles = colRules.moveRoles || [];
-        if (moveRoles.length === 0) {
-          const lowerName = (col.name || '').toLowerCase();
-          if (lowerName.includes('to do') || lowerName.includes('todo') || lowerName.includes('progress') || lowerName.includes('dev')) {
-            moveRoles = [{ id: 'developer', name: 'Developer', displayName: 'Developer' }];
-          } else if (lowerName.includes('qa') || lowerName.includes('review') || lowerName.includes('test')) {
-            moveRoles = [{ id: 'qa', name: 'QA', displayName: 'QA' }];
-          } else if (lowerName.includes('prod') || lowerName.includes('deploy') || lowerName.includes('stage')) {
-            moveRoles = [{ id: 'deployment', name: 'Deployment', displayName: 'Deployment' }];
-          } else if (col.isDone || lowerName.includes('done')) {
-            moveRoles = [{ id: 'done', name: 'Done', displayName: 'Done' }];
-          }
-        }
+        const moveRoles: any[] = colRules.moveRoles || [];
 
         let canMoveThisCol = canMoveTask;
         if (!isAdmin && moveRoles.length > 0 && canMoveTask) {
@@ -324,6 +307,20 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
       setIsShowingCachedData(false);
       setErrorMessage(null);
     } catch (err: any) {
+      try {
+        const cached = localStorage.getItem(`${CACHE_KEY_PREFIX}${boardId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setColumns(parsed);
+            setIsShowingCachedData(true);
+            return;
+          }
+        }
+      } catch {
+        // ignore
+      }
+
       if (columns.length > 0) {
         // If we already have cached columns, retain them and show saved state
         setIsShowingCachedData(true);
@@ -338,6 +335,25 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
 
   React.useEffect(() => {
     fetchBoardData();
+  }, [fetchBoardData]);
+
+  // Offline detection and network reconnect listener
+  React.useEffect(() => {
+    const handleOffline = () => {
+      setIsShowingCachedData(true);
+      setIsRefreshing(false);
+    };
+    const handleOnline = () => {
+      fetchBoardData();
+    };
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('simulate-offline-mode', handleOffline);
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('simulate-offline-mode', handleOffline);
+    };
   }, [fetchBoardData]);
 
   // Recalculate live waitingSeconds and dynamic column move permissions
@@ -656,8 +672,15 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
     let targetColId: string | null = null;
     let targetIndex = 0;
 
-    // Did user drop over a column or a task inside a column?
-    const overCol = columns.find((c) => c.id === over.id);
+    // Check if user dropped over a column directly or via data
+    const overData = over.data?.current as any;
+    const overCol =
+      columns.find((c) => c.id === over.id) ||
+      (overData?.column as BoardColumnWithTasks | undefined) ||
+      (overData?.columnId
+        ? columns.find((c) => c.id === overData.columnId)
+        : undefined);
+
     if (overCol) {
       targetColId = overCol.id;
       targetIndex = overCol.tasks.length;
@@ -682,7 +705,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
     if (!sourceCol || !targetCol) return;
 
     // Check if user is allowed to move from this column
-    if (!canMoveTask || (sourceCol.canMove === false)) {
+    if (!canMoveTask || sourceCol.canMove === false) {
       setMoveErrorMessage(`Cannot move tasks from ${sourceCol.name}.`);
       return;
     }
@@ -712,10 +735,10 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
     setActiveTask(null);
   };
 
-  // Keyboard navigation
+  // Keyboard navigation & drop
   const handleKeyboardInitiate = (task: BoardTask) => {
     const sourceCol = columns.find((c) => c.id === task.columnId);
-    if (!sourceCol || !canMoveTask || (sourceCol.canMove === false)) return;
+    if (!sourceCol || !canMoveTask || sourceCol.canMove === false) return;
 
     setKeyboardTask(task);
     setKeyboardTargetColId(task.columnId);
@@ -723,6 +746,39 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
       `Picked up task ${task.key}: ${task.title}. Use Left or Right Arrow keys to choose a column, Space to drop, Escape to cancel.`
     );
   };
+
+  const handleKeyboardDrop = React.useCallback(async () => {
+    if (!keyboardTask || !keyboardTargetColId) return;
+
+    const currentIdx = columns.findIndex((c) => c.id === keyboardTargetColId);
+    if (currentIdx === -1) return;
+
+    const targetCol = columns[currentIdx];
+    const sourceCol = columns.find((c) => c.id === keyboardTask.columnId);
+    if (!sourceCol || !targetCol) return;
+
+    const isBackward = targetCol.position < sourceCol.position;
+    if (isBackward) {
+      setSendBackTask(keyboardTask);
+      setSendBackSourceCol(sourceCol);
+      setSendBackTargetCol(targetCol);
+      setSendBackTargetIndex(targetCol.tasks.length);
+      setIsSendBackOpen(true);
+      setKeyboardTask(null);
+      setKeyboardTargetColId(null);
+    } else {
+      const taskToMove = keyboardTask;
+      const targetName = targetCol.name;
+      setKeyboardTask(null);
+      setKeyboardTargetColId(null);
+      try {
+        await performMove(taskToMove.id, targetCol.id, targetCol.tasks.length);
+        setScreenReaderAnnouncement(`Moved task ${taskToMove.key} to ${targetName}.`);
+      } catch {
+        // error handled in performMove
+      }
+    }
+  }, [keyboardTask, keyboardTargetColId, columns, performMove]);
 
   React.useEffect(() => {
     if (!keyboardTask) return;
@@ -751,25 +807,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
         );
       } else if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
-        const targetCol = columns[currentIdx];
-        const sourceCol = columns.find((c) => c.id === keyboardTask.columnId);
-        if (!sourceCol || !targetCol) return;
-
-        const isBackward = targetCol.position < sourceCol.position;
-        if (isBackward) {
-          setSendBackTask(keyboardTask);
-          setSendBackSourceCol(sourceCol);
-          setSendBackTargetCol(targetCol);
-          setSendBackTargetIndex(targetCol.tasks.length);
-          setIsSendBackOpen(true);
-          setKeyboardTask(null);
-          setKeyboardTargetColId(null);
-        } else {
-          performMove(keyboardTask.id, targetCol.id, targetCol.tasks.length);
-          setScreenReaderAnnouncement(`Moved task ${keyboardTask.key} to ${targetCol.name}.`);
-          setKeyboardTask(null);
-          setKeyboardTargetColId(null);
-        }
+        handleKeyboardDrop();
       } else if (e.key === 'Escape') {
         e.preventDefault();
         setKeyboardTask(null);
@@ -780,7 +818,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [keyboardTask, keyboardTargetColId, columns]);
+  }, [keyboardTask, keyboardTargetColId, columns, handleKeyboardDrop]);
 
   // Loading skeleton state (only if no cached data)
   if (initialLoading && columns.length === 0) {
@@ -907,7 +945,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={customCollisionDetection}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
@@ -959,6 +997,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
                   onQuickAddTask={handleQuickAddTask}
                   onTakeTask={handleTakeTask}
                   onKeyboardInitiate={handleKeyboardInitiate}
+                  onKeyboardDrop={handleKeyboardDrop}
                 />
               ))}
               {/* Extra spacing block so the last column is fully visible and not pressed against edge */}
