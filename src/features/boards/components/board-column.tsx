@@ -20,6 +20,8 @@ interface BoardColumnProps {
   onTakeTask?: (_taskId: string) => void;
   onKeyboardInitiate?: (_task: BoardTask) => void;
   onKeyboardDrop?: () => void;
+  onCardClick?: (_task: BoardTask) => void;
+  onRefusedMove?: (_column: BoardColumnWithTasks) => void;
 }
 
 export function BoardColumn({
@@ -34,6 +36,8 @@ export function BoardColumn({
   onTakeTask,
   onKeyboardInitiate,
   onKeyboardDrop,
+  onCardClick,
+  onRefusedMove,
 }: BoardColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -48,8 +52,14 @@ export function BoardColumn({
 
   // Derive owning role display name
   const moveRoles = column.moveRoles || [];
-  const owningRoleNames = moveRoles.map((r) => r.displayName || r.id).join(', ');
-  const owningRoleText = owningRoleNames ? owningRoleNames : 'Anyone';
+  const owningRoleNames = moveRoles
+    .map((r) => {
+      const name = r.displayName || r.name || r.id;
+      if (name.endsWith('s') || name.endsWith('sh') || name.endsWith('ch')) return `${name}es`;
+      return `${name}s`;
+    })
+    .join(', ');
+  const owningRoleText = moveRoles.map((r) => r.displayName || r.name || r.id).join(', ') || 'Anyone';
 
   // Owning role distinct style
   const roleStyle = React.useMemo(() => {
@@ -214,6 +224,8 @@ export function BoardColumn({
               onTakeTask={onTakeTask}
               onKeyboardInitiate={onKeyboardInitiate}
               onKeyboardDrop={onKeyboardDrop}
+              onCardClick={onCardClick}
+              onRefusedMove={() => onRefusedMove?.(column)}
             />
           ))
         )}

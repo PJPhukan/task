@@ -51,6 +51,7 @@ export interface BoardTask {
 export interface ColumnRole {
   id: string;
   displayName: string;
+  name?: string;
 }
 
 export interface BoardColumnWithTasks {

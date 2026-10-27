@@ -20,6 +20,8 @@ interface TaskCardProps {
   onTakeTask?: (_taskId: string) => void;
   onKeyboardInitiate?: (_task: BoardTask) => void;
   onKeyboardDrop?: () => void;
+  onCardClick?: (_task: BoardTask) => void;
+  onRefusedMove?: () => void;
 }
 
 export function TaskCard({
@@ -36,6 +38,8 @@ export function TaskCard({
   onTakeTask,
   onKeyboardInitiate,
   onKeyboardDrop,
+  onCardClick,
+  onRefusedMove,
 }: TaskCardProps) {
   const isReadOnly = !canMoveFromColumn;
 
@@ -109,7 +113,13 @@ export function TaskCard({
   }[task.priority || 'MEDIUM'];
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (isReadOnly) return;
+    if (isReadOnly) {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        onRefusedMove?.();
+      }
+      return;
+    }
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
       if (isKeyboardSelected) {
@@ -124,6 +134,11 @@ export function TaskCard({
     }
   };
 
+  const handleClick = (_e: React.MouseEvent) => {
+    if (isNodeDragging || isDragging) return;
+    onCardClick?.(task);
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -135,6 +150,9 @@ export function TaskCard({
       aria-roledescription={isReadOnly ? 'read-only task card' : 'draggable task card'}
       aria-label={`${task.key}: ${task.title}. Priority ${priorityConfig.label}.${isReadOnly ? '' : ' Press Space to pick up.'}`}
       onKeyDown={handleKeyDown}
+      onClick={handleClick}
+      data-task-id={task.id}
+      data-task-key={task.key}
       className={`group relative rounded border p-3 text-xs transition-colors outline-none select-none ${
         isKeyboardSelected
           ? 'ring-2 ring-brand border-brand bg-card'

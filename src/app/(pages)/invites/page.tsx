@@ -429,13 +429,21 @@ export default function InvitesPage() {
         </form>
       </div>
 
-      {/* Pending Invites List */}
+      {/* Invites List */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Pending invitations ({invites.length})
-          </h3>
-        </div>
+        {(() => {
+          const activeInvitesCount = invites.filter(
+            (inv) => new Date(inv.expiresAt).getTime() >= Date.now()
+          ).length;
+
+          return (
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Invitations ({activeInvitesCount} active)
+              </h3>
+            </div>
+          );
+        })()}
 
         {isLoading ? (
           <div className="space-y-2">

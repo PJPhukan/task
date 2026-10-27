@@ -23,6 +23,7 @@ import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { BoardColumn } from './board-column';
 import { TaskCard } from './task-card';
+import { TaskDetailsDialog } from './task-details-dialog';
 
 const customCollisionDetection: CollisionDetection = (args) => {
   const pointerCollisions = pointerWithin(args);
@@ -31,6 +32,23 @@ const customCollisionDetection: CollisionDetection = (args) => {
   }
   return closestCorners(args);
 };
+
+function getRefusedMoveMessage(sourceCol: BoardColumnWithTasks): string {
+  const moveRoles = sourceCol.moveRoles || [];
+  if (moveRoles.length > 0) {
+    const singularNames = moveRoles.map((r: any) => r.displayName || r.name || 'Member');
+    const pluralNames = singularNames.map((name) => {
+      if (name.endsWith('s') || name.endsWith('sh') || name.endsWith('ch')) return `${name}es`;
+      return `${name}s`;
+    });
+    const pluralStr = pluralNames.join(' or ');
+    const singularStr = singularNames.join(' or ');
+    const article = /^[aeiou]/i.test(singularStr) ? 'an' : 'a';
+
+    return `You can't move this task out of ${sourceCol.name}. Only ${pluralStr} can move tasks out of this column. Ask ${article} ${singularStr} to move it, or ask an administrator to change the column's rules.`;
+  }
+  return `You can't move this task out of ${sourceCol.name}. Ask an administrator to check your permissions or change the column's rules.`;
+}
 import { BoardFilters } from './board-filters';
 import { SendBackDialog } from './send-back-dialog';
 import { ColumnSettingsDialog } from '@/features/columns/components/column-settings-dialog';
@@ -93,6 +111,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
   const [keyboardTask, setKeyboardTask] = React.useState<BoardTask | null>(null);
   const [keyboardTargetColId, setKeyboardTargetColId] = React.useState<string | null>(null);
   const [screenReaderAnnouncement, setScreenReaderAnnouncement] = React.useState<string>('');
+  const [selectedCard, setSelectedCard] = React.useState<BoardTask | null>(null);
 
   // Live timer tick for waiting times
   const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
@@ -227,18 +246,20 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
       }
 
       // Assemble columns with tasks
-      const userRoleNames = (userRoles || []).map((r) => (r.displayName || r.id || '').toLowerCase());
-      const isAdmin = userRoleNames.includes('admin') || userRoleNames.includes('superadmin') || canManageColumns;
+      const userRoleNames = (userRoles || []).map((r: any) => (r.displayName || r.name || r.id || '').toLowerCase());
+      const userRoleIds = (userRoles || []).map((r) => r.id);
 
       const assembledColumns: BoardColumnWithTasks[] = rawCols.map((col: any) => {
         const colRules = updatedRules[col.id] || {};
         const moveRoles: any[] = colRules.moveRoles || [];
 
         let canMoveThisCol = canMoveTask;
-        if (!isAdmin && moveRoles.length > 0 && canMoveTask) {
-          const userHasRole = moveRoles.some((mr: any) =>
-            userRoleNames.includes((mr.name || mr.displayName || mr.id || '').toLowerCase())
-          );
+        if (moveRoles.length > 0 && canMoveTask) {
+          const userHasRole = moveRoles.some((mr: any) => {
+            const mrId = mr.id || mr.roleId;
+            const mrName = (mr.name || mr.displayName || '').toLowerCase();
+            return (mrId && userRoleIds.includes(mrId)) || (mrName && userRoleNames.includes(mrName));
+          });
           if (!userHasRole) {
             canMoveThisCol = false;
           }
@@ -358,16 +379,18 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
 
   // Recalculate live waitingSeconds and dynamic column move permissions
   const liveColumns = React.useMemo(() => {
-    const userRoleNames = (userRoles || []).map((r) => (r.displayName || r.id || '').toLowerCase());
-    const isAdmin = userRoleNames.includes('admin') || userRoleNames.includes('superadmin') || canManageColumns;
+    const userRoleNames = (userRoles || []).map((r: any) => (r.displayName || r.name || r.id || '').toLowerCase());
+    const userRoleIds = (userRoles || []).map((r) => r.id);
 
     return columns.map((col) => {
       let canMoveThisCol = canMoveTask;
       const moveRoles = col.moveRoles || [];
-      if (!isAdmin && moveRoles.length > 0 && canMoveTask) {
-        const userHasRole = moveRoles.some((mr: any) =>
-          userRoleNames.includes((mr.name || mr.displayName || mr.id || '').toLowerCase())
-        );
+      if (moveRoles.length > 0 && canMoveTask) {
+        const userHasRole = moveRoles.some((mr: any) => {
+          const mrId = mr.id || mr.roleId;
+          const mrName = (mr.name || mr.displayName || '').toLowerCase();
+          return (mrId && userRoleIds.includes(mrId)) || (mrName && userRoleNames.includes(mrName));
+        });
         if (!userHasRole) {
           canMoveThisCol = false;
         }
@@ -624,8 +647,13 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
     } catch (err: any) {
       // Revert optimistic update on failure
       setColumns(previousColumns);
-      const msg = err?.message || 'Failed to move task.';
-      setMoveErrorMessage(msg);
+      const sourceCol = previousColumns.find((c) => c.tasks.some((t) => t.id === taskId));
+      if (sourceCol && sourceCol.canMove === false) {
+        setMoveErrorMessage(getRefusedMoveMessage(sourceCol));
+      } else {
+        const msg = err?.message || 'Failed to move task.';
+        setMoveErrorMessage(msg);
+      }
       throw err;
     } finally {
       setIsSubmittingMove(false);
@@ -706,7 +734,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
 
     // Check if user is allowed to move from this column
     if (!canMoveTask || sourceCol.canMove === false) {
-      setMoveErrorMessage(`Cannot move tasks from ${sourceCol.name}.`);
+      setMoveErrorMessage(getRefusedMoveMessage(sourceCol));
       return;
     }
 
@@ -738,7 +766,12 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
   // Keyboard navigation & drop
   const handleKeyboardInitiate = (task: BoardTask) => {
     const sourceCol = columns.find((c) => c.id === task.columnId);
-    if (!sourceCol || !canMoveTask || sourceCol.canMove === false) return;
+    if (!sourceCol || !canMoveTask || sourceCol.canMove === false) {
+      if (sourceCol) {
+        setMoveErrorMessage(getRefusedMoveMessage(sourceCol));
+      }
+      return;
+    }
 
     setKeyboardTask(task);
     setKeyboardTargetColId(task.columnId);
@@ -805,6 +838,8 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
         setScreenReaderAnnouncement(
           `Selected column: ${prevCol.name} (column ${prevIdx + 1} of ${columns.length}). Press Space to drop.`
         );
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
       } else if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
         handleKeyboardDrop();
@@ -998,6 +1033,8 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
                   onTakeTask={handleTakeTask}
                   onKeyboardInitiate={handleKeyboardInitiate}
                   onKeyboardDrop={handleKeyboardDrop}
+                  onCardClick={(task) => setSelectedCard(task)}
+                  onRefusedMove={(col) => setMoveErrorMessage(getRefusedMoveMessage(col))}
                 />
               ))}
               {/* Extra spacing block so the last column is fully visible and not pressed against edge */}
@@ -1048,6 +1085,16 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
         open={isColumnSettingsOpen}
         onOpenChange={setIsColumnSettingsOpen}
         onColumnsUpdated={fetchBoardData}
+      />
+
+      {/* Task Details Dialog on Card Click */}
+      <TaskDetailsDialog
+        open={Boolean(selectedCard)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedCard(null);
+        }}
+        task={selectedCard}
+        columns={columns}
       />
     </div>
   );

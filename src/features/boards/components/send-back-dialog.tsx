@@ -126,7 +126,7 @@ export function SendBackDialog({
               id="send-back-submit-btn"
               type="submit"
               size="sm"
-              disabled={!reason.trim() || isSubmitting}
+              disabled={isSubmitting}
               className="text-xs rounded-sm bg-brand text-brand-foreground hover:bg-brand/90"
             >
               {isSubmitting ? 'Sending back...' : 'Send back'}
